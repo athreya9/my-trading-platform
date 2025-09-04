@@ -1,5 +1,6 @@
 # process_data.py
 
+# This change will trigger a new Vercel deployment.
 # A single, combined script for Vercel deployment.
 # It fetches data, generates signals, and updates Google Sheets.
 

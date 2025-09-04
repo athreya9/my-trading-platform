@@ -7,7 +7,7 @@
   "crons": [
     {
       "path": "/api/process_data",
-      "schedule": "*/15 * * * *"
+      "schedule": "30 10 * * 1-5"
     }
   ]
 }

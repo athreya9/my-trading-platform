@@ -1,7 +1,5 @@
 # process_data.py
-
-# This change will trigger a new Vercel deployment.
-# A single, combined script for Vercel deployment.
+# A single, combined script for GitHub Actions.
 # It fetches data, generates signals, and updates Google Sheets.
 
 import gspread
@@ -10,17 +8,15 @@ import pandas as pd
 import numpy as np
 import os
 import json
-from http.server import BaseHTTPRequestHandler
+import sys
 
 # --- Configuration ---
-SERVICE_ACCOUNT_FILE = 'service_account.json'
-SHEET_NAME = "Algo Trading Dashboard"
+SHEET_NAME = "Algo Trading Dashboard" # The name of your Google Sheet
 DATA_WORKSHEET_NAME = "Price Data"
 SIGNALS_WORKSHEET_NAME = "Signals"
 
 # Data collection settings
 SYMBOLS = ['RELIANCE.NS', '^NSEI']
-DATA_HEADERS = ['timestamp', 'instrument', 'open', 'high', 'low', 'close', 'volume']
 
 # Signal generation settings
 TARGET_INSTRUMENT = '^NSEI'
@@ -29,24 +25,20 @@ SIGNAL_HEADERS = ['timestamp', 'instrument', 'signal']
 # --- Main Functions ---
 
 def connect_to_google_sheets():
-    """Connects to Google Sheets using credentials from env vars or a local file."""
-    try:
-        # Vercel: Get credentials from environment variable (as a JSON string)
-        creds_json_str = os.getenv('GOOGLE_SHEETS_CREDENTIALS')
-        if creds_json_str:
-            print("Authenticating with Google Sheets via environment variable.")
-            creds_dict = json.loads(creds_json_str)
-            client = gspread.service_account_from_dict(creds_dict)
-        else:
-            # Local: Fallback to the service account file for local testing
-            print("GOOGLE_SHEETS_CREDENTIALS env var not found. Falling back to local file.")
-            client = gspread.service_account(filename=SERVICE_ACCOUNT_FILE)
+    """Connects to Google Sheets using credentials from an environment variable."""
+    print("Attempting to authenticate with Google Sheets...")
+    creds_json_str = os.getenv('GOOGLE_SHEETS_CREDENTIALS')
+    if not creds_json_str:
+        raise ValueError("GOOGLE_SHEETS_CREDENTIALS environment variable not found. Ensure it's set in GitHub Actions secrets.")
 
+    try:
+        print("Authenticating with Google Sheets via environment variable.")
+        creds_dict = json.loads(creds_json_str)
+        client = gspread.service_account_from_dict(creds_dict)
         spreadsheet = client.open(SHEET_NAME)
-        print("Successfully connected to Google Sheet.")
+        print(f"Successfully connected to Google Sheet: '{SHEET_NAME}'")
         return spreadsheet
     except Exception as e:
-        # Raise the exception to be caught by the Vercel handler
         raise Exception(f"Error connecting to Google Sheet: {e}")
 
 def fetch_historical_data(ticker, period='5d', interval='15m'):
@@ -133,6 +125,7 @@ def generate_signals(price_df):
 def write_to_sheets(spreadsheet, price_df, signals_df):
     """Writes the price data and signal data to their respective sheets."""
     
+    DATA_HEADERS = ['timestamp', 'instrument', 'open', 'high', 'low', 'close', 'volume']
     # --- Write Price Data ---
     print(f"Writing {len(price_df)} rows to '{DATA_WORKSHEET_NAME}'...")
     price_df['timestamp'] = price_df['timestamp'].dt.strftime('%Y-%m-%d %H:%M:%S')
@@ -176,9 +169,12 @@ def main():
     # Step 4: Write both data and signals to the sheets
     write_to_sheets(spreadsheet, price_df, signals_df)
 
+# --- Script Execution ---
 if __name__ == "__main__":
-    # This block allows you to test the script locally
-    # without needing to deploy it to Vercel.
-    print("Running script locally...")
-    main()
-    print("\nLocal run finished.")
+    print("Starting trading signal process...")
+    try:
+        main()
+        print("\n✅ Process completed successfully.")
+    except Exception as e:
+        print(f"\n❌ An error occurred during execution: {e}")
+        sys.exit(1) # Exit with a non-zero code to fail the GitHub Action

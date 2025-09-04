@@ -1,5 +1,5 @@
 gspread
 yfinance
 pandas
-numpy
+numpy<2.0
 pandas-ta

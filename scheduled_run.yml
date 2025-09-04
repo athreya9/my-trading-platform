@@ -1,0 +1,36 @@
+# .github/workflows/run_trading_bot.yml
+
+name: Run Trading Signal Script
+
+on:
+  # This schedules the workflow to run every 5 minutes.
+  # Be mindful of GitHub's free-tier limits, though this
+  # is generally fine for a single project.
+  schedule:
+    - cron: '*/5 * * * *'
+  # This allows for manual triggering from the Actions tab.
+  workflow_dispatch:
+
+jobs:
+  build-and-run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.9
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run the data processing script
+        env:
+          # This sets the environment variable the Python script expects,
+          # using the secret you created in repository settings.
+          GOOGLE_SHEETS_CREDENTIALS: ${{ secrets.GOOGLE_SHEETS_CREDENTIALS }}
+        run: python api/process_data.py

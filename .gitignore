@@ -1,0 +1,5 @@
+# Ignore Python virtual environments
+venv/
+
+# Ignore sensitive credential files
+service_account.json

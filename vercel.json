@@ -1,9 +1,4 @@
 {
-  "functions": {
-    "api/process_data.py": {
-      "runtime": "@vercel/python"
-    }
-  },
   "crons": [
     {
       "path": "/api/process_data",

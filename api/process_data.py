@@ -177,22 +177,22 @@ def generate_signals(price_df, manual_controls_df):
                 manual_override_triggered = True
 
         # --- Automated Signal Logic ---
+        # This new logic checks the CURRENT STATE of the instrument, not just a crossover event.
         if not manual_override_triggered:
-            group['position'] = np.where(group['SMA_20'] > group['SMA_50'], 1, 0)
-            group['crossover'] = group['position'].diff()
-            
-            last_crossover_row = group.iloc[-1]
+            # Check for an active "BUY" state
+            if latest_row['SMA_20'] > latest_row['SMA_50'] and latest_row['RSI_14'] < 70:
+                signal_text = "BUY"
+                atr_val = latest_row[f'ATRr_{ATR_PERIOD}']
+                sl, tp = np.nan, np.nan
+                if pd.notna(atr_val):
+                    sl = latest_row['close'] - (atr_val * STOP_LOSS_MULTIPLIER)
+                    tp = latest_row['close'] + (atr_val * TAKE_PROFIT_MULTIPLIER)
+                instrument_signals.append({'signal': signal_text, 'stop_loss': sl, 'take_profit': tp})
 
-            # BUY signal: SMA crossover AND RSI not overbought
-            if last_crossover_row['crossover'] == 1 and last_crossover_row['RSI_14'] < 70:
-                atr_val = last_crossover_row[f'ATRr_{ATR_PERIOD}']
-                sl = last_crossover_row['close'] - (atr_val * STOP_LOSS_MULTIPLIER)
-                tp = last_crossover_row['close'] + (atr_val * TAKE_PROFIT_MULTIPLIER)
-                instrument_signals.append({'signal': 'BUY', 'stop_loss': sl, 'take_profit': tp})
-            
-            # SELL signal: SMA cross-down
-            elif last_crossover_row['crossover'] == -1:
-                instrument_signals.append({'signal': 'SELL', 'stop_loss': np.nan, 'take_profit': np.nan})
+            # Check for an active "SELL" state
+            elif latest_row['SMA_20'] < latest_row['SMA_50']:
+                signal_text = "SELL"
+                instrument_signals.append({'signal': signal_text, 'stop_loss': np.nan, 'take_profit': np.nan})
 
         # Add common data to all signals found for this instrument
         for sig in instrument_signals:

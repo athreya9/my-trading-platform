@@ -2,4 +2,4 @@
 venv/
 
 # Ignore sensitive credential files
-service_account.json
+service_account.jsonservice_account.json

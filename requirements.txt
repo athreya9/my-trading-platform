@@ -2,3 +2,4 @@ gspread
 yfinance
 pandas
 numpy
+pandas-ta

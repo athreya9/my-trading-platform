@@ -5,6 +5,7 @@
 import gspread
 import yfinance as yf
 import pandas as pd
+import pandas_ta as ta
 import numpy as np
 import os
 import json
@@ -80,6 +81,42 @@ def run_data_collection():
     print(f"Successfully fetched a total of {len(combined_df)} rows of data.")
     return combined_df
 
+def calculate_indicators(price_df):
+    """
+    Calculates technical indicators (RSI, MACD) for the target instrument
+    and merges them back into the main price DataFrame.
+    """
+    print(f"Calculating indicators for {TARGET_INSTRUMENT}...")
+    
+    # Isolate the target instrument data to avoid calculating on others
+    instrument_df = price_df[price_df['instrument'] == TARGET_INSTRUMENT].copy()
+    
+    if instrument_df.empty:
+        print(f"No data for {TARGET_INSTRUMENT} to calculate indicators.")
+        return price_df # Return original df without changes
+        
+    # Ensure data is sorted by time and 'close' is a number
+    instrument_df['timestamp'] = pd.to_datetime(instrument_df['timestamp'])
+    instrument_df['close'] = pd.to_numeric(instrument_df['close'], errors='coerce')
+    instrument_df.sort_values('timestamp', inplace=True)
+    
+    # Calculate indicators using the pandas_ta library
+    instrument_df.ta.rsi(length=14, append=True)
+    instrument_df.ta.macd(fast=12, slow=26, signal=9, append=True)
+    
+    # Identify the newly created indicator columns
+    indicator_cols = [col for col in instrument_df.columns if 'RSI_' in col or 'MACD_' in col]
+    
+    if not indicator_cols:
+        print("Indicator calculation did not produce new columns.")
+        return price_df
+
+    # Merge the calculated indicators back into the main DataFrame.
+    price_df = pd.merge(price_df, instrument_df[['timestamp', 'instrument'] + indicator_cols], on=['timestamp', 'instrument'], how='left')
+    
+    print("Indicators calculated and merged successfully.")
+    return price_df
+
 def generate_signals(price_df):
     """Generates trading signals from a DataFrame of price data."""
     print(f"Generating signals for {TARGET_INSTRUMENT}...")
@@ -125,8 +162,9 @@ def generate_signals(price_df):
 def write_to_sheets(spreadsheet, price_df, signals_df):
     """Writes the price data and signal data to their respective sheets."""
     
-    DATA_HEADERS = ['timestamp', 'instrument', 'open', 'high', 'low', 'close', 'volume']
     # --- Write Price Data ---
+    # Headers are now dynamically generated from the DataFrame columns
+    DATA_HEADERS = price_df.columns.tolist()
     print(f"Writing {len(price_df)} rows to '{DATA_WORKSHEET_NAME}'...")
     price_df['timestamp'] = price_df['timestamp'].dt.strftime('%Y-%m-%d %H:%M:%S')
     price_df.fillna('', inplace=True)
@@ -163,10 +201,13 @@ def main():
     # Step 2: Collect new data
     price_df = run_data_collection()
     
-    # Step 3: Generate signals from the new data
+    # Step 3: Calculate indicators for the target instrument
+    price_df = calculate_indicators(price_df)
+    
+    # Step 4: Generate signals from the new data
     signals_df = generate_signals(price_df.copy()) # Pass a copy to avoid pandas warnings
     
-    # Step 4: Write both data and signals to the sheets
+    # Step 5: Write both data and signals to the sheets
     write_to_sheets(spreadsheet, price_df, signals_df)
 
 # --- Script Execution ---

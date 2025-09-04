@@ -17,13 +17,43 @@ DATA_WORKSHEET_NAME = "Price Data"
 SIGNALS_WORKSHEET_NAME = "Signals"
 
 # Data collection settings
-SYMBOLS = ['RELIANCE.NS', '^NSEI']
+SYMBOLS = ['RELIANCE.NS', '^NSEI', 'TCS.NS', 'HDFCBANK.NS', 'INFY.NS', 'ICICIBANK.NS', 'BHARTIARTL.NS']
 
 # Signal generation settings
-TARGET_INSTRUMENT = '^NSEI'
-SIGNAL_HEADERS = ['timestamp', 'instrument', 'signal']
+SIGNAL_HEADERS = ['timestamp', 'instrument', 'signal', 'stop_loss', 'take_profit']
+
+# Risk Management settings
+ATR_PERIOD = 14
+STOP_LOSS_MULTIPLIER = 2.0  # e.g., 2 * ATR below entry price
+TAKE_PROFIT_MULTIPLIER = 4.0 # e.g., 4 * ATR above entry price (for a 1:2 risk/reward ratio)
 
 # --- Main Functions ---
+
+def read_manual_controls(spreadsheet):
+    """Reads manual override settings from the 'Manual Control' sheet."""
+    print("Reading data from 'Manual Control' sheet...")
+    try:
+        worksheet = spreadsheet.worksheet("Manual Control")
+        records = worksheet.get_all_records()
+        if not records:
+            print("No manual controls found or sheet is empty.")
+            return pd.DataFrame()
+        
+        df = pd.DataFrame(records)
+        # Ensure key columns exist, even if empty
+        for col in ['instrument', 'limit_price', 'hold_status']:
+            if col not in df.columns:
+                df[col] = None
+        
+        df.set_index('instrument', inplace=True)
+        print("Manual controls loaded successfully.")
+        return df
+    except gspread.exceptions.WorksheetNotFound:
+        print("Warning: 'Manual Control' worksheet not found. Skipping manual overrides.")
+        return pd.DataFrame()
+    except Exception as e:
+        print(f"Warning: Could not read manual controls: {e}")
+        return pd.DataFrame()
 
 def connect_to_google_sheets():
     """Connects to Google Sheets using credentials from an environment variable."""
@@ -83,81 +113,100 @@ def run_data_collection():
 
 def calculate_indicators(price_df):
     """
-    Calculates technical indicators (RSI, MACD) for the target instrument
-    and merges them back into the main price DataFrame.
+    Calculates all technical indicators (SMA, RSI, MACD, ATR) for all instruments
+    using efficient, vectorized operations.
     """
-    print(f"Calculating indicators for {TARGET_INSTRUMENT}...")
-    
-    # Isolate the target instrument data to avoid calculating on others
-    instrument_df = price_df[price_df['instrument'] == TARGET_INSTRUMENT].copy()
-    
-    if instrument_df.empty:
-        print(f"No data for {TARGET_INSTRUMENT} to calculate indicators.")
-        return price_df # Return original df without changes
-        
-    # Ensure data is sorted by time and 'close' is a number
-    instrument_df['timestamp'] = pd.to_datetime(instrument_df['timestamp'])
-    instrument_df['close'] = pd.to_numeric(instrument_df['close'], errors='coerce')
-    instrument_df.sort_values('timestamp', inplace=True)
-    
-    # Calculate indicators using the pandas_ta library
-    instrument_df.ta.rsi(length=14, append=True)
-    instrument_df.ta.macd(fast=12, slow=26, signal=9, append=True)
-    
-    # Identify the newly created indicator columns
-    indicator_cols = [col for col in instrument_df.columns if 'RSI_' in col or 'MACD_' in col]
-    
-    if not indicator_cols:
-        print("Indicator calculation did not produce new columns.")
-        return price_df
+    print("Calculating indicators for all instruments...")
+    price_df['timestamp'] = pd.to_datetime(price_df['timestamp'])
+    price_df['close'] = pd.to_numeric(price_df['close'], errors='coerce')
+    price_df.sort_values(['instrument', 'timestamp'], inplace=True)
 
-    # Merge the calculated indicators back into the main DataFrame.
-    price_df = pd.merge(price_df, instrument_df[['timestamp', 'instrument'] + indicator_cols], on=['timestamp', 'instrument'], how='left')
+    # Define a function to apply all indicators to a group (a single instrument's data)
+    def apply_indicators(group):
+        group = group.copy()
+        # Simple Moving Averages
+        group['SMA_20'] = group['close'].rolling(window=20).mean()
+        group['SMA_50'] = group['close'].rolling(window=50).mean()
+        # pandas-ta indicators
+        group.ta.rsi(length=14, append=True)
+        group.ta.macd(fast=12, slow=26, signal=9, append=True)
+        group.ta.atr(length=ATR_PERIOD, append=True)
+        return group
+
+    # Use groupby().apply() to run the indicator calculations for each instrument
+    price_df = price_df.groupby('instrument', group_keys=False).apply(apply_indicators)
     
-    print("Indicators calculated and merged successfully.")
+    print("Indicators calculated successfully for all instruments.")
     return price_df
 
-def generate_signals(price_df):
-    """Generates trading signals from a DataFrame of price data."""
-    print(f"Generating signals for {TARGET_INSTRUMENT}...")
+def generate_signals(price_df, manual_controls_df):
+    """Generates trading signals for all instruments, applying manual overrides."""
+    print("Generating signals for all instruments...")
     
-    instrument_df = price_df[price_df['instrument'] == TARGET_INSTRUMENT].copy()
+    all_signals_list = []
 
-    if instrument_df.empty:
-        print(f"No data found for instrument '{TARGET_INSTRUMENT}'. Cannot generate signals.")
-        return pd.DataFrame()
+    # Iterate over each instrument's data
+    for instrument, group in price_df.groupby('instrument'):
+        instrument_signals = []
+        # Drop rows where indicators are not yet calculated
+        group = group.copy().dropna(subset=['SMA_50', 'RSI_14', f'ATRr_{ATR_PERIOD}'])
+        if group.empty:
+            continue
 
-    instrument_df['timestamp'] = pd.to_datetime(instrument_df['timestamp'])
-    numeric_cols = ['open', 'high', 'low', 'close']
-    for col in numeric_cols:
-        instrument_df[col] = pd.to_numeric(instrument_df[col], errors='coerce')
+        latest_row = group.iloc[-1]
+        
+        # --- Manual Override Logic ---
+        manual_override_triggered = False
+        if not manual_controls_df.empty and instrument in manual_controls_df.index:
+            control = manual_controls_df.loc[instrument]
+            
+            # 1. Hold Status Override
+            if str(control['hold_status']).upper() == 'HOLD':
+                print(f"'{instrument}' is on HOLD. Skipping automated signal.")
+                manual_override_triggered = True
+            elif str(control['hold_status']).upper() == 'SELL':
+                print(f"'{instrument}' has manual SELL override.")
+                instrument_signals.append({'signal': 'SELL (MANUAL)', 'stop_loss': np.nan, 'take_profit': np.nan})
+                manual_override_triggered = True
 
-    instrument_df.sort_values('timestamp', inplace=True)
-    
-    # Use pandas' built-in, efficient rolling mean calculation instead of pandas_ta
-    instrument_df['SMA_20'] = instrument_df['close'].rolling(window=20).mean()
-    instrument_df['SMA_50'] = instrument_df['close'].rolling(window=50).mean()
-    instrument_df.dropna(inplace=True)
-    
-    if instrument_df.empty:
-        print("Not enough data to calculate moving averages. No signals generated.")
+            # 2. Limit Price Alert
+            limit_price = pd.to_numeric(control['limit_price'], errors='coerce')
+            if pd.notna(limit_price) and latest_row['close'] > limit_price:
+                print(f"'{instrument}' price ({latest_row['close']:.2f}) is above limit ({limit_price:.2f}).")
+                instrument_signals.append({'signal': 'SELL (LIMIT HIT)', 'stop_loss': np.nan, 'take_profit': np.nan})
+                manual_override_triggered = True
+
+        # --- Automated Signal Logic ---
+        if not manual_override_triggered:
+            group['position'] = np.where(group['SMA_20'] > group['SMA_50'], 1, 0)
+            group['crossover'] = group['position'].diff()
+            
+            last_crossover_row = group.iloc[-1]
+
+            # BUY signal: SMA crossover AND RSI not overbought
+            if last_crossover_row['crossover'] == 1 and last_crossover_row['RSI_14'] < 70:
+                atr_val = last_crossover_row[f'ATRr_{ATR_PERIOD}']
+                sl = last_crossover_row['close'] - (atr_val * STOP_LOSS_MULTIPLIER)
+                tp = last_crossover_row['close'] + (atr_val * TAKE_PROFIT_MULTIPLIER)
+                instrument_signals.append({'signal': 'BUY', 'stop_loss': sl, 'take_profit': tp})
+            
+            # SELL signal: SMA cross-down
+            elif last_crossover_row['crossover'] == -1:
+                instrument_signals.append({'signal': 'SELL', 'stop_loss': np.nan, 'take_profit': np.nan})
+
+        # Add common data to all signals found for this instrument
+        for sig in instrument_signals:
+            sig['timestamp'] = latest_row['timestamp']
+            sig['instrument'] = instrument
+            all_signals_list.append(sig)
+
+    if not all_signals_list:
+        print("No new signals generated for any instrument.")
         return pd.DataFrame()
         
-    instrument_df['position'] = np.where(instrument_df['SMA_20'] > instrument_df['SMA_50'], 1, -1)
-    instrument_df['crossover'] = instrument_df['position'].diff()
-    
-    signals = instrument_df[instrument_df['crossover'] != 0].copy()
-    
-    if signals.empty:
-        print("No new signals generated.")
-        return pd.DataFrame()
-        
-    signals['signal'] = np.where(signals['crossover'] > 0, 'BUY', 'SELL')
-    signals['instrument'] = TARGET_INSTRUMENT
-    
-    final_signals_df = signals[SIGNAL_HEADERS]
-    print(f"Generated {len(final_signals_df)} signals.")
-    return final_signals_df
+    final_signals_df = pd.DataFrame(all_signals_list)
+    print(f"Generated {len(final_signals_df)} total signals.")
+    return final_signals_df[SIGNAL_HEADERS] # Ensure correct column order
 
 def write_to_sheets(spreadsheet, price_df, signals_df):
     """Writes the price data and signal data to their respective sheets."""
@@ -198,16 +247,19 @@ def main():
     # Step 1: Connect to Google Sheets
     spreadsheet = connect_to_google_sheets()
     
-    # Step 2: Collect new data
+    # Step 2: Read manual controls from the sheet
+    manual_controls_df = read_manual_controls(spreadsheet)
+    
+    # Step 3: Collect new data
     price_df = run_data_collection()
     
-    # Step 3: Calculate indicators for the target instrument
+    # Step 4: Calculate all indicators for all instruments
     price_df = calculate_indicators(price_df)
     
-    # Step 4: Generate signals from the new data
-    signals_df = generate_signals(price_df.copy()) # Pass a copy to avoid pandas warnings
+    # Step 5: Generate signals using data and manual controls
+    signals_df = generate_signals(price_df.copy(), manual_controls_df) # Pass a copy to avoid pandas warnings
     
-    # Step 5: Write both data and signals to the sheets
+    # Step 6: Write both data and signals to the sheets
     write_to_sheets(spreadsheet, price_df, signals_df)
 
 # --- Script Execution ---

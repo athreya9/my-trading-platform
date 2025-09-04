@@ -474,19 +474,22 @@ def get_or_create_worksheet(spreadsheet, name, rows="1000", cols="20"):
 @retry()
 def write_to_sheets(spreadsheet, price_df, signals_df):
     """Writes price data, signals, and the detailed trade package to their respective sheets."""
+    print("--- Starting Sheet Update Process ---")
     data_worksheet = get_or_create_worksheet(spreadsheet, DATA_WORKSHEET_NAME, rows=1000, cols=20)
     signals_worksheet = get_or_create_worksheet(spreadsheet, SIGNALS_WORKSHEET_NAME, rows=100, cols=20)
     advisor_worksheet = get_or_create_worksheet(spreadsheet, "Advisor", rows=100, cols=5)
 
     # --- Write Price Data ---
     if not price_df.empty:
-        print(f"Writing {len(price_df)} rows to '{DATA_WORKSHEET_NAME}'...")
+        print(f"Preparing to write {len(price_df)} rows to '{DATA_WORKSHEET_NAME}'...")
         price_df_str = price_df.copy()
         price_df_str['timestamp'] = price_df_str['timestamp'].dt.strftime('%Y-%m-%d %H:%M:%S')
         price_df_str.fillna('', inplace=True)
         price_data_to_write = [price_df_str.columns.tolist()] + price_df_str.values.tolist()
+        print("Clearing Price Data sheet...")
         data_worksheet.clear()
-        data_worksheet.update(price_data_to_write, value_input_option='USER_ENTERED')
+        print("Updating Price Data sheet...")
+        data_worksheet.update(price_data_to_write, 'A1', value_input_option='USER_ENTERED')
         print("Price data written successfully.")
     else:
         print("No price data to write. Clearing old price data from sheet.")
@@ -494,19 +497,22 @@ def write_to_sheets(spreadsheet, price_df, signals_df):
 
     # --- Write Signal Data ---
     if not signals_df.empty:
-        print(f"Writing {len(signals_df)} rows to '{SIGNALS_WORKSHEET_NAME}'...")
+        print(f"Preparing to write {len(signals_df)} rows to '{SIGNALS_WORKSHEET_NAME}'...")
         signals_df_str = signals_df.copy()
         signals_df_str['timestamp'] = signals_df_str['timestamp'].dt.strftime('%Y-%m-%d %H:%M:%S')
         signals_df_str.fillna('', inplace=True)
         signal_data_to_write = [signals_df_str.columns.tolist()] + signals_df_str.values.tolist()
+        print("Clearing Signals sheet...")
         signals_worksheet.clear()
-        signals_worksheet.update(signal_data_to_write, value_input_option='USER_ENTERED')
+        print("Updating Signals sheet...")
+        signals_worksheet.update(signal_data_to_write, 'A1', value_input_option='USER_ENTERED')
         print("Signal data written successfully.")
     else:
         print("No signals to write. Clearing old signals from sheet.")
         signals_worksheet.clear()
 
     # --- Write Advisor Trade Package ---
+    print("Preparing to write to 'Advisor' sheet...")
     advisor_worksheet.clear()
     if not signals_df.empty:
         all_trade_packages = []
@@ -516,12 +522,13 @@ def write_to_sheets(spreadsheet, price_df, signals_df):
             all_trade_packages.append([]) # Add an empty row for spacing
 
         if all_trade_packages:
-            print("Writing detailed trade package(s) to 'Advisor' sheet...")
+            print("Updating Advisor sheet with trade packages...")
             advisor_worksheet.update(all_trade_packages, 'A1', value_input_option='USER_ENTERED')
             print("Trade package(s) written successfully.")
     else:
-        print("No signals to generate a trade package. Clearing Advisor sheet.")
+        print("No signals to generate a trade package. Clearing and updating Advisor sheet with status.")
         advisor_worksheet.update([["No valid trading signals found after applying all rules."]], 'A1', value_input_option='USER_ENTERED')
+    print("--- Sheet Update Process Completed ---")
 
 def main():
     """Main function that runs the entire process."""

@@ -252,6 +252,8 @@ def write_to_sheets(spreadsheet, price_df, signals_df):
     if not signals_df.empty:
         print(f"Writing {len(signals_df)} rows to '{SIGNALS_WORKSHEET_NAME}'...")
         signals_df['timestamp'] = signals_df['timestamp'].dt.strftime('%Y-%m-%d %H:%M:%S')
+        # Replace NaN values with empty strings to make them JSON compliant for gspread
+        signals_df.fillna('', inplace=True)
         
         signal_data_to_write = [SIGNAL_HEADERS] + signals_df.values.tolist()
         

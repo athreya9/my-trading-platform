@@ -6,7 +6,6 @@
 import gspread
 import yfinance as yf
 import pandas as pd
-import pandas_ta as ta
 import numpy as np
 import os
 import json
@@ -105,8 +104,9 @@ def generate_signals(price_df):
 
     instrument_df.sort_values('timestamp', inplace=True)
     
-    instrument_df['SMA_20'] = ta.sma(instrument_df['close'], length=20)
-    instrument_df['SMA_50'] = ta.sma(instrument_df['close'], length=50)
+    # Use pandas' built-in, efficient rolling mean calculation instead of pandas_ta
+    instrument_df['SMA_20'] = instrument_df['close'].rolling(window=20).mean()
+    instrument_df['SMA_50'] = instrument_df['close'].rolling(window=50).mean()
     instrument_df.dropna(inplace=True)
     
     if instrument_df.empty:

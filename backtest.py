@@ -347,7 +347,7 @@ def write_trade_log_to_sheets(spreadsheet, trades_df):
     data_to_write = [headers] + log_df.values.tolist()
     
     worksheet.clear()
-    worksheet.update(data_to_write, value_input_option='USER_ENTERED')
+    worksheet.update('A1', data_to_write, value_input_option='USER_ENTERED')
     print("Trade log written successfully to Google Sheets.")
 
 def main(sma_short, sma_long, rsi_period):

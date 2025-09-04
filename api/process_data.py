@@ -24,7 +24,7 @@ SIGNALS_WORKSHEET_NAME = "Signals"
 SYMBOLS = ['RELIANCE.NS', '^NSEI', 'TCS.NS', 'HDFCBANK.NS', 'INFY.NS', 'ICICIBANK.NS', 'BHARTIARTL.NS']
 
 # Signal generation settings
-SIGNAL_HEADERS = ['timestamp', 'instrument', 'option_type', 'strike_price', 'underlying_price', 'stop_loss', 'take_profit', 'kelly_pct', 'sentiment_score']
+SIGNAL_HEADERS = ['timestamp', 'instrument', 'option_type', 'strike_price', 'underlying_price', 'stop_loss', 'take_profit', 'position_size', 'reason', 'sentiment_score', 'kelly_pct', 'win_rate_p', 'win_loss_ratio_b']
 
 # Risk Management settings
 ATR_PERIOD = 14
@@ -172,9 +172,7 @@ def fetch_historical_data(ticker, period, interval):
     """Fetches historical data from Yahoo Finance for a given ticker."""
     print(f"Fetching {interval} data for {ticker}...")
     try:
-        stock_data = yf.download(
-            tickers=ticker, period=period, interval=interval, auto_adjust=True
-        )
+        stock_data = yf.download(tickers=ticker, period=period, interval=interval, auto_adjust=True)
         if stock_data.empty:
             print(f"No data downloaded for {ticker} at {interval} interval.")
             return pd.DataFrame()
@@ -308,7 +306,13 @@ def get_news_sentiment(instrument, analyzer):
             print(f"No news found for {instrument}.")
             return 0.0 # Return neutral sentiment if no news
 
-        headlines = [news['title'] for news in ticker_news[:8]] # Analyze latest 8 headlines
+        # Use .get() to safely access 'title', which may not always be present
+        headlines = [news.get('title') for news in ticker_news[:8]]
+        # Filter out any None values if a headline was missing a title
+        headlines = [h for h in headlines if h]
+        if not headlines:
+            print(f"No valid headlines with titles found for {instrument}.")
+            return 0.0
         
         # Analyze sentiment using the pre-loaded FinBERT model
         sentiments = analyzer(headlines)
@@ -419,6 +423,7 @@ def generate_signals(price_data_dict, manual_controls_df, trade_log_df, sentimen
                 'take_profit': take_profit,
                 'position_size': round(position_size),
                 'reason': ", ".join(reasons),
+                'sentiment_score': sentiment_score,
                 'win_rate_p': win_rate,
                 'win_loss_ratio_b': win_loss_ratio,
                 'kelly_pct': kelly_pct
@@ -489,7 +494,7 @@ def write_to_sheets(spreadsheet, price_df, signals_df):
         print("Clearing Price Data sheet...")
         data_worksheet.clear()
         print("Updating Price Data sheet...")
-        data_worksheet.update(price_data_to_write, 'A1', value_input_option='USER_ENTERED')
+        data_worksheet.update('A1', price_data_to_write, value_input_option='USER_ENTERED')
         print("Price data written successfully.")
     else:
         print("No price data to write. Clearing old price data from sheet.")
@@ -505,7 +510,7 @@ def write_to_sheets(spreadsheet, price_df, signals_df):
         print("Clearing Signals sheet...")
         signals_worksheet.clear()
         print("Updating Signals sheet...")
-        signals_worksheet.update(signal_data_to_write, 'A1', value_input_option='USER_ENTERED')
+        signals_worksheet.update('A1', signal_data_to_write, value_input_option='USER_ENTERED')
         print("Signal data written successfully.")
     else:
         print("No signals to write. Clearing old signals from sheet.")
@@ -523,11 +528,11 @@ def write_to_sheets(spreadsheet, price_df, signals_df):
 
         if all_trade_packages:
             print("Updating Advisor sheet with trade packages...")
-            advisor_worksheet.update(all_trade_packages, 'A1', value_input_option='USER_ENTERED')
+            advisor_worksheet.update('A1', all_trade_packages, value_input_option='USER_ENTERED')
             print("Trade package(s) written successfully.")
     else:
         print("No signals to generate a trade package. Clearing and updating Advisor sheet with status.")
-        advisor_worksheet.update([["No valid trading signals found after applying all rules."]], 'A1', value_input_option='USER_ENTERED')
+        advisor_worksheet.update('A1', [["No valid trading signals found after applying all rules."]], value_input_option='USER_ENTERED')
     print("--- Sheet Update Process Completed ---")
 
 def main():

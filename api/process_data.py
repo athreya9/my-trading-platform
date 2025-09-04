@@ -9,6 +9,8 @@ import pandas_ta as ta
 import numpy as np
 import os
 import json
+from transformers import pipeline
+import torch
 import sys
 
 # --- Configuration ---
@@ -20,7 +22,7 @@ SIGNALS_WORKSHEET_NAME = "Signals"
 SYMBOLS = ['RELIANCE.NS', '^NSEI', 'TCS.NS', 'HDFCBANK.NS', 'INFY.NS', 'ICICIBANK.NS', 'BHARTIARTL.NS']
 
 # Signal generation settings
-SIGNAL_HEADERS = ['timestamp', 'instrument', 'signal', 'stop_loss', 'take_profit']
+SIGNAL_HEADERS = ['timestamp', 'instrument', 'option_type', 'strike_price', 'underlying_price', 'stop_loss', 'take_profit', 'kelly_pct', 'sentiment_score']
 
 # Risk Management settings
 ATR_PERIOD = 14
@@ -29,6 +31,11 @@ TAKE_PROFIT_MULTIPLIER = 4.0 # e.g., 4 * ATR above entry price (for a 1:2 risk/r
 
 # Microstructure settings
 REALIZED_VOL_WINDOW = 20 # e.g., 20 periods for volatility calculation
+KELLY_CRITERION_CAP = 0.20 # Maximum percentage of capital to risk, as per Kelly Criterion
+
+# NLP Sentiment Analysis settings
+NLP_MODEL_NAME = "ProsusAI/finbert"
+SENTIMENT_THRESHOLD = 0.1 # Minimum positive/negative sentiment score to influence a signal
 
 # --- Main Functions ---
 
@@ -57,6 +64,61 @@ def read_manual_controls(spreadsheet):
     except Exception as e:
         print(f"Warning: Could not read manual controls: {e}")
         return pd.DataFrame()
+
+def read_trade_log(spreadsheet):
+    """Reads the historical trade log from the 'Trade Log' sheet."""
+    print("Reading data from 'Trade Log' sheet...")
+    try:
+        worksheet = spreadsheet.worksheet("Trade Log")
+        records = worksheet.get_all_records()
+        if not records:
+            print("Trade log is empty. Cannot calculate Kelly Criterion.")
+            return pd.DataFrame()
+        
+        df = pd.DataFrame(records)
+        # Convert profit to numeric, coercing errors to NaN and then dropping them
+        df['profit'] = pd.to_numeric(df['profit'], errors='coerce')
+        df.dropna(subset=['profit'], inplace=True)
+        
+        print(f"Successfully read {len(df)} trades from the log.")
+        return df
+    except gspread.exceptions.WorksheetNotFound:
+        print("Warning: 'Trade Log' worksheet not found. Cannot calculate Kelly Criterion.")
+        return pd.DataFrame()
+    except Exception as e:
+        print(f"Warning: Could not read trade log: {e}")
+        return pd.DataFrame()
+
+def calculate_kelly_criterion(trades_df):
+    """Calculates the Kelly Criterion percentage from a DataFrame of historical trades."""
+    # Require a minimum number of trades for a statistically significant calculation
+    if trades_df.empty or len(trades_df) < 20:
+        print("Not enough historical trades (< 20) to calculate Kelly Criterion.")
+        return np.nan
+
+    winning_trades = trades_df[trades_df['profit'] > 0]
+    losing_trades = trades_df[trades_df['profit'] <= 0]
+
+    if len(losing_trades) == 0:
+        return 0.20 # If no losses, return max capped value.
+    if len(winning_trades) == 0:
+        return 0.0 # If no wins, risk nothing.
+
+    # 1. Calculate Win Rate (W)
+    win_rate = len(winning_trades) / len(trades_df)
+
+    # 2. Calculate Win/Loss Ratio (R)
+    average_win = winning_trades['profit'].mean()
+    average_loss = abs(losing_trades['profit'].mean())
+    win_loss_ratio = average_win / average_loss
+
+    # 3. Calculate Kelly Criterion: K% = W – [(1 – W) / R]
+    kelly_pct = win_rate - ((1 - win_rate) / win_loss_ratio)
+    
+    # Cap the Kelly percentage to a reasonable maximum to avoid over-leveraging
+    kelly_pct = max(0, min(kelly_pct, KELLY_CRITERION_CAP)) 
+    print(f"Win Rate: {win_rate:.2%}, Win/Loss Ratio: {win_loss_ratio:.2f}, Calculated Kelly Criterion: {kelly_pct:.2%}")
+    return kelly_pct
 
 def connect_to_google_sheets():
     """Connects to Google Sheets using credentials from an environment variable."""
@@ -162,10 +224,58 @@ def calculate_indicators(price_df):
     print("Indicators calculated successfully for all instruments.")
     return price_df
 
-def generate_signals(price_df, manual_controls_df):
+def get_atm_strike(price, instrument):
+    """
+    Calculates a theoretical at-the-money (ATM) strike price by rounding.
+    This is a rule-based estimation as we don't have live options chain data.
+    """
+    # For Nifty 50 (^NSEI), strike prices are typically in multiples of 50.
+    if instrument == '^NSEI':
+        return round(price / 50) * 50
+    # For individual stocks, this varies. We'll use a simple rounding for demonstration.
+    # A robust solution would have a mapping of tickers to their strike steps.
+    else:
+        return round(price)
+
+def get_news_sentiment(instrument, analyzer):
+    """Fetches news for an instrument and returns an aggregated sentiment score."""
+    print(f"Fetching and analyzing sentiment for {instrument}...")
+    try:
+        # Fetch news using yfinance's built-in news feature
+        ticker_news = yf.Ticker(instrument).news
+        if not ticker_news:
+            print(f"No news found for {instrument}.")
+            return 0.0 # Return neutral sentiment if no news
+
+        headlines = [news['title'] for news in ticker_news[:8]] # Analyze latest 8 headlines
+        
+        # Analyze sentiment using the pre-loaded FinBERT model
+        sentiments = analyzer(headlines)
+        
+        # Convert sentiment labels and scores to a single numerical value
+        score = 0.0
+        for sentiment in sentiments:
+            if sentiment['label'] == 'positive':
+                score += sentiment['score']
+            elif sentiment['label'] == 'negative':
+                score -= sentiment['score']
+        
+        # Return the average score
+        avg_score = score / len(sentiments) if sentiments else 0.0
+        print(f"Average sentiment score for {instrument}: {avg_score:.3f}")
+        return avg_score
+
+    except Exception as e:
+        print(f"Warning: Could not get sentiment for {instrument}: {e}")
+        return 0.0 # Return neutral on error
+
+def generate_signals(price_df, manual_controls_df, trade_log_df, sentiment_analyzer):
     """Generates trading signals for all instruments, applying manual overrides."""
     print("Generating signals for all instruments...")
     
+    # Calculate Kelly Criterion once based on the historical trade log
+    kelly_pct = calculate_kelly_criterion(trade_log_df)
+
     all_signals_list = []
 
     # Iterate over each instrument's data
@@ -189,38 +299,62 @@ def generate_signals(price_df, manual_controls_df):
                 manual_override_triggered = True
             elif str(control['hold_status']).upper() == 'SELL':
                 print(f"'{instrument}' has manual SELL override.")
-                instrument_signals.append({'signal': 'SELL (MANUAL)', 'stop_loss': np.nan, 'take_profit': np.nan})
+                instrument_signals.append({'option_type': 'PUT (MANUAL)', 'strike_price': get_atm_strike(latest_row['close'], instrument), 'underlying_price': latest_row['close']})
                 manual_override_triggered = True
 
             # 2. Limit Price Alert
             limit_price = pd.to_numeric(control['limit_price'], errors='coerce')
             if pd.notna(limit_price) and latest_row['close'] > limit_price:
                 print(f"'{instrument}' price ({latest_row['close']:.2f}) is above limit ({limit_price:.2f}).")
-                instrument_signals.append({'signal': 'SELL (LIMIT HIT)', 'stop_loss': np.nan, 'take_profit': np.nan})
+                instrument_signals.append({'option_type': 'PUT (LIMIT HIT)', 'strike_price': get_atm_strike(latest_row['close'], instrument), 'underlying_price': latest_row['close']})
                 manual_override_triggered = True
 
         # --- Automated Signal Logic ---
         # This new logic checks the CURRENT STATE of the instrument, not just a crossover event.
         if not manual_override_triggered:
+            # Get sentiment score for the current instrument
+            sentiment_score = get_news_sentiment(instrument, sentiment_analyzer)
+
             # Check for an active "BUY" state
-            if latest_row['SMA_20'] > latest_row['SMA_50'] and latest_row['RSI_14'] < 70:
-                signal_text = "BUY"
+            if latest_row['SMA_20'] > latest_row['SMA_50'] and latest_row['RSI_14'] < 70 and sentiment_score > SENTIMENT_THRESHOLD:
+                option_type = "CALL"
+                strike_price = get_atm_strike(latest_row['close'], instrument)
                 atr_val = latest_row[f'ATRr_{ATR_PERIOD}']
                 sl, tp = np.nan, np.nan
                 if pd.notna(atr_val):
                     sl = latest_row['close'] - (atr_val * STOP_LOSS_MULTIPLIER)
                     tp = latest_row['close'] + (atr_val * TAKE_PROFIT_MULTIPLIER)
-                instrument_signals.append({'signal': signal_text, 'stop_loss': sl, 'take_profit': tp})
+                instrument_signals.append({
+                    'option_type': option_type,
+                    'strike_price': strike_price,
+                    'underlying_price': latest_row['close'],
+                    'stop_loss': sl,
+                    'take_profit': tp,
+                    'kelly_pct': kelly_pct,
+                    'sentiment_score': sentiment_score
+                })
 
-            # Check for an active "SELL" state
-            elif latest_row['SMA_20'] < latest_row['SMA_50']:
-                signal_text = "SELL"
-                instrument_signals.append({'signal': signal_text, 'stop_loss': np.nan, 'take_profit': np.nan})
+            # Check for an active "SELL" state -> Generate PUT signal
+            elif latest_row['SMA_20'] < latest_row['SMA_50'] and sentiment_score < -SENTIMENT_THRESHOLD:
+                option_type = "PUT"
+                strike_price = get_atm_strike(latest_row['close'], instrument)
+                instrument_signals.append({
+                    'option_type': option_type,
+                    'strike_price': strike_price,
+                    'underlying_price': latest_row['close'],
+                    'kelly_pct': kelly_pct,
+                    'sentiment_score': sentiment_score
+                })
 
         # Add common data to all signals found for this instrument
         for sig in instrument_signals:
             sig['timestamp'] = latest_row['timestamp']
             sig['instrument'] = instrument
+            # Fill missing risk keys for manual signals
+            sig.setdefault('stop_loss', np.nan)
+            sig.setdefault('take_profit', np.nan)
+            sig.setdefault('kelly_pct', kelly_pct)
+            sig.setdefault('sentiment_score', np.nan)
             all_signals_list.append(sig)
 
     if not all_signals_list:
@@ -274,17 +408,27 @@ def main():
     
     # Step 2: Read manual controls from the sheet
     manual_controls_df = read_manual_controls(spreadsheet)
+
+    # Step 3: Read historical trade log to calculate performance stats
+    trade_log_df = read_trade_log(spreadsheet)
     
-    # Step 3: Collect new data
+    # Initialize the sentiment analysis pipeline once
+    print("Initializing sentiment analysis model (this may take a moment on first run)...")
+    # Use GPU if available, otherwise CPU.
+    device = 0 if torch.cuda.is_available() else -1
+    sentiment_analyzer = pipeline("sentiment-analysis", model=NLP_MODEL_NAME, device=device)
+    print("Sentiment model initialized.")
+
+    # Step 4: Collect new data
     price_df = run_data_collection()
     
-    # Step 4: Calculate all indicators for all instruments
+    # Step 5: Calculate all indicators for all instruments
     price_df = calculate_indicators(price_df)
     
-    # Step 5: Generate signals using data and manual controls
-    signals_df = generate_signals(price_df.copy(), manual_controls_df) # Pass a copy to avoid pandas warnings
+    # Step 6: Generate signals using data, manual controls, historical performance, and sentiment
+    signals_df = generate_signals(price_df.copy(), manual_controls_df, trade_log_df, sentiment_analyzer) # Pass a copy to avoid pandas warnings
     
-    # Step 6: Write both data and signals to the sheets
+    # Step 7: Write both data and signals to the sheets
     write_to_sheets(spreadsheet, price_df, signals_df)
 
 # --- Script Execution ---

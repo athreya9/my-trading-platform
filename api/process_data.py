@@ -27,6 +27,9 @@ ATR_PERIOD = 14
 STOP_LOSS_MULTIPLIER = 2.0  # e.g., 2 * ATR below entry price
 TAKE_PROFIT_MULTIPLIER = 4.0 # e.g., 4 * ATR above entry price (for a 1:2 risk/reward ratio)
 
+# Microstructure settings
+REALIZED_VOL_WINDOW = 20 # e.g., 20 periods for volatility calculation
+
 # --- Main Functions ---
 
 def read_manual_controls(spreadsheet):
@@ -117,8 +120,14 @@ def calculate_indicators(price_df):
     using efficient, vectorized operations.
     """
     print("Calculating indicators for all instruments...")
+    # --- Data Cleaning and Preparation ---
     price_df['timestamp'] = pd.to_datetime(price_df['timestamp'])
-    price_df['close'] = pd.to_numeric(price_df['close'], errors='coerce')
+    # Ensure all key columns are numeric, coercing errors to NaN
+    for col in ['open', 'high', 'low', 'close', 'volume']:
+        price_df[col] = pd.to_numeric(price_df[col], errors='coerce')
+    
+    # Drop any rows where essential data (like close price or volume) is missing
+    price_df.dropna(subset=['close', 'volume'], inplace=True)
     price_df.sort_values(['instrument', 'timestamp'], inplace=True)
 
     # Define a function to apply all indicators to a group (a single instrument's data)
@@ -131,6 +140,20 @@ def calculate_indicators(price_df):
         group.ta.rsi(length=14, append=True)
         group.ta.macd(fast=12, slow=26, signal=9, append=True)
         group.ta.atr(length=ATR_PERIOD, append=True)
+
+        # --- New Microstructure Indicators ---
+        # 1. Realized Volatility (rolling standard deviation of log returns)
+        group['log_return'] = np.log(group['close'] / group['close'].shift(1))
+        group['realized_vol'] = group['log_return'].rolling(window=REALIZED_VOL_WINDOW).std()
+
+        # 2. VWAP (Volume-Weighted Average Price) - calculated per day
+        # This requires a nested groupby to reset the calculation for each new day.
+        def calculate_daily_vwap(daily_group):
+            # Fill NaN volumes with 0 to prevent issues in cumulative sum
+            daily_group['volume'] = daily_group['volume'].fillna(0)
+            daily_group['vwap'] = (daily_group['close'] * daily_group['volume']).cumsum() / daily_group['volume'].cumsum()
+            return daily_group
+        group = group.groupby(group['timestamp'].dt.date, group_keys=False).apply(calculate_daily_vwap)
         return group
 
     # Use groupby().apply() to run the indicator calculations for each instrument

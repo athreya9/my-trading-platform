@@ -176,26 +176,6 @@ def main():
     # Step 4: Write both data and signals to the sheets
     write_to_sheets(spreadsheet, price_df, signals_df)
 
-# --- Vercel Serverless Handler ---
-# This is the entry point for the Vercel serverless function.
-class handler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        try:
-            main()
-            # If main() completes without error, send a success response
-            self.send_response(200)
-            self.send_header('Content-type', 'text/plain')
-            self.end_headers()
-            self.wfile.write(b'Process completed successfully.')
-        except Exception as e:
-            # If any error occurs, log it and send a server error response
-            error_message = f"An error occurred: {e}"
-            print(error_message)
-            self.send_response(500)
-            self.send_header('Content-type', 'text/plain')
-            self.end_headers()
-            self.wfile.write(error_message.encode('utf-8'))
-
 if __name__ == "__main__":
     # This block allows you to test the script locally
     # without needing to deploy it to Vercel.

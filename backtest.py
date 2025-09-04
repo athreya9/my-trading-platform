@@ -7,6 +7,8 @@ import pandas as pd
 import numpy as np
 import os
 import json
+import time
+from functools import wraps
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 import sys
@@ -27,6 +29,30 @@ STOP_LOSS_MULTIPLIER = 2.0
 TAKE_PROFIT_MULTIPLIER = 4.0
 
 # --- Helper Functions ---
+def retry(tries=3, delay=5, backoff=2, logger=print):
+    """
+    A retry decorator with exponential backoff.
+    Catches common network-related exceptions for gspread.
+    """
+    def deco_retry(f):
+        @wraps(f)
+        def f_retry(*args, **kwargs):
+            mtries, mdelay = tries, delay
+            while mtries > 1:
+                try:
+                    return f(*args, **kwargs)
+                # Catches API errors from gspread and general connection errors
+                except (gspread.exceptions.APIError, ConnectionError) as e:
+                    msg = f"'{f.__name__}' failed with {e}. Retrying in {mdelay} seconds..."
+                    if logger:
+                        logger(msg)
+                    time.sleep(mdelay)
+                    mtries -= 1
+                    mdelay *= backoff
+            return f(*args, **kwargs) # Last attempt, if it fails, it fails
+        return f_retry
+    return deco_retry
+
 def get_atm_strike(price, instrument):
     """
     Calculates a theoretical at-the-money (ATM) strike price by rounding.
@@ -41,6 +67,7 @@ def get_atm_strike(price, instrument):
 
 # --- Main Functions ---
 
+@retry()
 def connect_to_google_sheets():
     """Connects to Google Sheets using credentials from a local file."""
     print("Attempting to authenticate with Google Sheets...")
@@ -57,6 +84,7 @@ def connect_to_google_sheets():
     except Exception as e:
         raise Exception(f"Error connecting to Google Sheet: {e}")
 
+@retry()
 def read_price_data(spreadsheet):
     """Reads historical price data from the sheet, returning a clean DataFrame."""
     print(f"Reading historical data from '{DATA_WORKSHEET_NAME}' tab...")
@@ -237,7 +265,17 @@ def calculate_and_print_performance(portfolio_df, trades_df, initial_capital):
         print("\nExit Reasons:")
         print(trades_df['exit_reason'].value_counts().to_string())
 
-    # 4. Maximum Drawdown
+    # 4. Sharpe Ratio (assuming 0 risk-free rate)
+    if not portfolio_df.empty:
+        daily_returns = portfolio_df['capital'].pct_change().dropna()
+        if daily_returns.std() > 0:
+            # Assuming 252 trading days in a year for annualization
+            sharpe_ratio = (daily_returns.mean() / daily_returns.std()) * np.sqrt(252)
+            print(f"\nSharpe Ratio (Annualized): {sharpe_ratio:.2f}")
+        else:
+            print("\nSharpe Ratio:           N/A (no volatility in returns)")
+
+    # 5. Maximum Drawdown
     portfolio_df['peak'] = portfolio_df['capital'].cummax()
     portfolio_df['drawdown'] = (portfolio_df['capital'] - portfolio_df['peak']) / portfolio_df['peak']
     max_drawdown = portfolio_df['drawdown'].min() * 100
@@ -287,6 +325,7 @@ def plot_equity_curve(portfolio_df, price_df, initial_capital, sma_short, sma_lo
     plt.savefig(plot_filename)
     print(f"Equity curve plot saved as '{plot_filename}'")
 
+@retry()
 def write_trade_log_to_sheets(spreadsheet, trades_df):
     """Writes the completed trades to a 'Trade Log' sheet for persistence."""
     if trades_df.empty:

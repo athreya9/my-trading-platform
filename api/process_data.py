@@ -11,6 +11,8 @@ import os
 import json
 from transformers import pipeline
 import torch
+import time
+from functools import wraps
 import sys
 
 # --- Configuration ---
@@ -39,6 +41,31 @@ SENTIMENT_THRESHOLD = 0.1 # Minimum positive/negative sentiment score to influen
 
 # --- Main Functions ---
 
+def retry(tries=3, delay=5, backoff=2, logger=print):
+    """
+    A retry decorator with exponential backoff.
+    Catches common network-related exceptions for gspread and yfinance.
+    """
+    def deco_retry(f):
+        @wraps(f)
+        def f_retry(*args, **kwargs):
+            mtries, mdelay = tries, delay
+            while mtries > 1:
+                try:
+                    return f(*args, **kwargs)
+                # Catches API errors from gspread and general connection errors
+                except (gspread.exceptions.APIError, ConnectionError) as e:
+                    msg = f"'{f.__name__}' failed with {e}. Retrying in {mdelay} seconds..."
+                    if logger:
+                        logger(msg)
+                    time.sleep(mdelay)
+                    mtries -= 1
+                    mdelay *= backoff
+            return f(*args, **kwargs) # Last attempt, if it fails, it fails
+        return f_retry
+    return deco_retry
+
+@retry()
 def read_manual_controls(spreadsheet):
     """Reads manual override settings from the 'Manual Control' sheet."""
     print("Reading data from 'Manual Control' sheet...")
@@ -65,6 +92,7 @@ def read_manual_controls(spreadsheet):
         print(f"Warning: Could not read manual controls: {e}")
         return pd.DataFrame()
 
+@retry()
 def read_trade_log(spreadsheet):
     """Reads the historical trade log from the 'Trade Log' sheet."""
     print("Reading data from 'Trade Log' sheet...")
@@ -121,6 +149,7 @@ def calculate_kelly_criterion(trades_df):
     print(f"Win Rate: {win_rate:.2%}, Win/Loss Ratio: {win_loss_ratio:.2f}, Calculated Kelly Criterion: {kelly_pct:.2%}")
     return kelly_pct, win_rate, win_loss_ratio
 
+@retry()
 def connect_to_google_sheets():
     """Connects to Google Sheets using credentials from an environment variable."""
     print("Attempting to authenticate with Google Sheets...")
@@ -138,6 +167,7 @@ def connect_to_google_sheets():
     except Exception as e:
         raise Exception(f"Error connecting to Google Sheet: {e}")
 
+@retry()
 def fetch_historical_data(ticker, period, interval):
     """Fetches historical data from Yahoo Finance for a given ticker."""
     print(f"Fetching {interval} data for {ticker}...")
@@ -186,8 +216,15 @@ def run_data_collection():
         raise Exception("No 15m data was fetched for any symbol. Halting process.")
 
     # Combine the lists of dataframes into single dataframes
-    combined_df_15m = pd.concat(data_frames["15m"], ignore_index=True)
-    combined_df_1h = pd.concat(data_frames["1h"], ignore_index=True)
+    if data_frames["15m"]:
+        combined_df_15m = pd.concat(data_frames["15m"], ignore_index=True)
+    else:
+        combined_df_15m = pd.DataFrame()
+        
+    if data_frames["1h"]:
+        combined_df_1h = pd.concat(data_frames["1h"], ignore_index=True)
+    else:
+        combined_df_1h = pd.DataFrame()
     
     print(f"Successfully fetched {len(combined_df_15m)} rows of 15m data and {len(combined_df_1h)} rows of 1h data.")
     
@@ -260,6 +297,7 @@ def get_atm_strike(price, instrument):
     else:
         return round(price)
 
+@retry()
 def get_news_sentiment(instrument, analyzer):
     """Fetches news for an instrument and returns an aggregated sentiment score."""
     print(f"Fetching and analyzing sentiment for {instrument}...")
@@ -310,6 +348,26 @@ def generate_signals(price_data_dict, manual_controls_df, trade_log_df, sentimen
             continue
 
         latest_15m = group_15m.iloc[-1]
+
+        # --- Manual Override Logic ---
+        manual_override_triggered = False
+        if not manual_controls_df.empty and instrument in manual_controls_df.index:
+            control = manual_controls_df.loc[instrument]
+            if str(control['hold_status']).upper() == 'HOLD':
+                print(f"'{instrument}' is on HOLD. Skipping automated signal.")
+                continue
+            elif str(control['hold_status']).upper() == 'SELL':
+                print(f"'{instrument}' has manual SELL override.")
+                instrument_signals.append({'option_type': 'PUT (MANUAL)', 'strike_price': get_atm_strike(latest_15m['close'], instrument), 'underlying_price': latest_15m['close']})
+                manual_override_triggered = True
+
+        if manual_override_triggered:
+            # Add common data and append to master list
+            for sig in instrument_signals:
+                sig['timestamp'] = latest_15m['timestamp']
+                sig['instrument'] = instrument
+                all_signals_list.append(sig)
+            continue
 
         # --- Rule 1: Volatility Filter ---
         atr_percentage = (latest_15m[f'ATRr_{ATR_PERIOD}'] / latest_15m['close']) * 100
@@ -405,13 +463,20 @@ def generate_trade_package(signal):
     ]
     return trade_package
 
+def get_or_create_worksheet(spreadsheet, name, rows="1000", cols="20"):
+    """Gets a worksheet by name, creating it if it doesn't exist."""
+    try:
+        return spreadsheet.worksheet(name)
+    except gspread.exceptions.WorksheetNotFound:
+        print(f"Creating '{name}' worksheet.")
+        return spreadsheet.add_worksheet(title=name, rows=str(rows), cols=str(cols))
+
+@retry()
 def write_to_sheets(spreadsheet, price_df, signals_df):
     """Writes price data, signals, and the detailed trade package to their respective sheets."""
-    # --- Get Worksheet Objects ---
-    # (Assuming these worksheets exist, for brevity)
-    data_worksheet = spreadsheet.worksheet(DATA_WORKSHEET_NAME)
-    signals_worksheet = spreadsheet.worksheet(SIGNALS_WORKSHEET_NAME)
-    advisor_worksheet = spreadsheet.worksheet("Advisor")
+    data_worksheet = get_or_create_worksheet(spreadsheet, DATA_WORKSHEET_NAME, rows=1000, cols=20)
+    signals_worksheet = get_or_create_worksheet(spreadsheet, SIGNALS_WORKSHEET_NAME, rows=100, cols=20)
+    advisor_worksheet = get_or_create_worksheet(spreadsheet, "Advisor", rows=100, cols=5)
 
     # --- Write Price Data ---
     if not price_df.empty:
@@ -423,6 +488,9 @@ def write_to_sheets(spreadsheet, price_df, signals_df):
         data_worksheet.clear()
         data_worksheet.update(price_data_to_write, value_input_option='USER_ENTERED')
         print("Price data written successfully.")
+    else:
+        print("No price data to write. Clearing old price data from sheet.")
+        data_worksheet.clear()
 
     # --- Write Signal Data ---
     if not signals_df.empty:
@@ -435,22 +503,25 @@ def write_to_sheets(spreadsheet, price_df, signals_df):
         signals_worksheet.update(signal_data_to_write, value_input_option='USER_ENTERED')
         print("Signal data written successfully.")
     else:
+        print("No signals to write. Clearing old signals from sheet.")
         signals_worksheet.clear()
 
     # --- Write Advisor Trade Package ---
     advisor_worksheet.clear()
     if not signals_df.empty:
-        # For now, display the first signal as the trade package
-        main_signal = signals_df.iloc[0]
-        trade_package_data = generate_trade_package(main_signal)
-        
-        print("Writing detailed trade package to 'Advisor' sheet...")
-        advisor_worksheet.update('A1', trade_package_data, value_input_option='USER_ENTERED')
-        print("Trade package written successfully.")
+        all_trade_packages = []
+        for i, signal in signals_df.iterrows():
+            trade_package = generate_trade_package(signal)
+            all_trade_packages.extend(trade_package)
+            all_trade_packages.append([]) # Add an empty row for spacing
+
+        if all_trade_packages:
+            print("Writing detailed trade package(s) to 'Advisor' sheet...")
+            advisor_worksheet.update(all_trade_packages, 'A1', value_input_option='USER_ENTERED')
+            print("Trade package(s) written successfully.")
     else:
         print("No signals to generate a trade package. Clearing Advisor sheet.")
-        advisor_worksheet.update('A1', [["No valid trading signals found after applying all rules."]], value_input_option='USER_ENTERED')
-
+        advisor_worksheet.update([["No valid trading signals found after applying all rules."]], 'A1', value_input_option='USER_ENTERED')
 
 def main():
     """Main function that runs the entire process."""
@@ -474,8 +545,10 @@ def main():
     price_data_dict = run_data_collection()
     
     # Step 5: Calculate all indicators for all instruments and timeframes
-    price_data_dict["15m"] = calculate_indicators(price_data_dict["15m"])
-    price_data_dict["1h"] = calculate_indicators(price_data_dict["1h"])
+    if not price_data_dict["15m"].empty:
+        price_data_dict["15m"] = calculate_indicators(price_data_dict["15m"])
+    if not price_data_dict["1h"].empty:
+        price_data_dict["1h"] = calculate_indicators(price_data_dict["1h"])
     
     # Step 6: Generate signals using data, manual controls, historical performance, and sentiment
     signals_df = generate_signals(price_data_dict, manual_controls_df, trade_log_df, sentiment_analyzer)

@@ -3,6 +3,7 @@
 # It fetches data, generates signals, and updates Google Sheets.
 
 import gspread
+from kiteconnect import KiteConnect
 import yfinance as yf
 import pandas as pd
 import pandas_ta as ta
@@ -15,7 +16,6 @@ import time
 from functools import wraps
 import logging
 import sys
-from ntscraper import Nitter
 from textblob import TextBlob
 
 # --- Logging Configuration ---
@@ -39,7 +39,7 @@ MARKET_BREADTH_SYMBOLS = {
 SYMBOLS = ['^NSEI'] + WATCHLIST_SYMBOLS + list(MARKET_BREADTH_SYMBOLS.values())
 
 # Signal generation settings
-SIGNAL_HEADERS = ['timestamp', 'instrument', 'option_type', 'strike_price', 'underlying_price', 'stop_loss', 'take_profit', 'position_size', 'reason', 'sentiment_score', 'kelly_pct', 'win_rate_p', 'win_loss_ratio_b', 'quality_score', 'social_sentiment_score', 'social_sentiment_tweet']
+SIGNAL_HEADERS = ['timestamp', 'instrument', 'option_type', 'strike_price', 'underlying_price', 'stop_loss', 'take_profit', 'position_size', 'reason', 'sentiment_score', 'kelly_pct', 'win_rate_p', 'win_loss_ratio_b', 'quality_score']
 
 # Risk Management settings
 ATR_PERIOD = 14
@@ -188,6 +188,26 @@ def connect_to_google_sheets():
         return spreadsheet
     except Exception as e:
         raise Exception(f"Error connecting to Google Sheet: {e}")
+
+def connect_to_kite():
+    """Initializes the Kite Connect client using credentials from environment variables."""
+    logger.info("Attempting to authenticate with Kite Connect...")
+    api_key = os.getenv('KITE_API_KEY')
+    access_token = os.getenv('KITE_ACCESS_TOKEN')
+
+    if not api_key or not access_token:
+        raise ValueError("KITE_API_KEY or KITE_ACCESS_TOKEN environment variables not found. Ensure they are set in GitHub secrets.")
+
+    try:
+        kite = KiteConnect(api_key=api_key)
+        kite.set_access_token(access_token)
+        # Optional: Verify connection by fetching profile to ensure token is valid
+        profile = kite.profile()
+        logger.info(f"Kite Connect authentication successful for user: {profile.get('user_id')}")
+        return kite
+    except Exception as e:
+        logger.error(f"Failed to connect to Kite Connect: {e}", exc_info=True)
+        raise Exception(f"Error connecting to Kite Connect: {e}")
 
 @retry()
 def fetch_historical_data(ticker, period, interval):
@@ -389,6 +409,8 @@ def get_atm_strike(price, instrument):
     else:
         return round(price)
 
+
+
 @retry()
 def get_news_sentiment(instrument, analyzer):
     """Fetches news for an instrument and returns an aggregated sentiment score."""
@@ -427,44 +449,6 @@ def get_news_sentiment(instrument, analyzer):
     except Exception as e:
         logger.warning(f"Could not get sentiment for {instrument}: {e}")
         return 0.0 # Return neutral on error
-
-def analyze_social_sentiment(stock_name):
-    """
-    Analyzes social media sentiment for a stock using Twitter.
-    """
-    logger.info(f"Analyzing social media sentiment for {stock_name}...")
-    query = f'"{stock_name}" stock OR share'
-    tweets = []
-    try:
-        scraper = Nitter()
-        scraped_tweets = scraper.get_tweets(query, mode='term', number=50)
-        if not scraped_tweets or not scraped_tweets['tweets']:
-            logger.info(f"No recent tweets found for {stock_name}.")
-            return 0.0, ""
-
-        for tweet in scraped_tweets['tweets']:
-            tweets.append(tweet['text'])
-        
-        if not tweets:
-            logger.info(f"No recent tweets found for {stock_name}.")
-            return 0.0, ""
-
-        sentiment_scores = [TextBlob(tweet).sentiment.polarity for tweet in tweets]
-        avg_score = sum(sentiment_scores) / len(sentiment_scores)
-        
-        # Find the most relevant tweet (most positive or negative)
-        most_relevant_tweet = ""
-        if avg_score > 0:
-            most_relevant_tweet = tweets[np.argmax(sentiment_scores)]
-        else:
-            most_relevant_tweet = tweets[np.argmin(sentiment_scores)]
-            
-        logger.info(f"Average social sentiment for {stock_name}: {avg_score:.3f}")
-        return avg_score, most_relevant_tweet
-
-    except Exception as e:
-        logger.warning(f"Could not analyze social sentiment for {stock_name}: {e}")
-        return 0.0, ""
 
 def analyze_market_internals(price_data_dict):
     """
@@ -531,13 +515,16 @@ def generate_signals(price_data_dict, manual_controls_df, trade_log_df, sentimen
     
     # --- Setup & Market Context Filter ---
     kelly_pct, win_rate, win_loss_ratio = calculate_kelly_criterion(trade_log_df)
-    all_signals_list = []
+    all_potential_signals = []
     price_df_15m = price_data_dict['15m']
     price_df_1h = price_data_dict['1h']
     if market_context.get('is_vix_high', False):
         logger.info(f"Market Context Alert: VIX is above {VIX_THRESHOLD}. Avoiding new aggressive long positions.")
     if market_context.get('sentiment') == 'BEARISH':
         logger.info("Market Context Alert: Overall market trend is Bearish. Long signals will be suppressed.")
+
+    # --- Get Sector Information for all Watchlist Symbols ---
+    sector_info = {symbol: get_stock_info(symbol) for symbol in WATCHLIST_SYMBOLS}
 
     # --- Iterate over each instrument's 15-minute data ---
     for instrument, group_15m in price_df_15m.groupby('instrument'):
@@ -572,7 +559,7 @@ def generate_signals(price_data_dict, manual_controls_df, trade_log_df, sentimen
             for sig in instrument_signals:
                 sig['timestamp'] = latest_15m['timestamp']
                 sig['instrument'] = instrument
-                all_signals_list.append(sig)
+                all_potential_signals.append(sig)
             continue
 
         # --- Rule 1: Volatility Filter ---
@@ -592,7 +579,6 @@ def generate_signals(price_data_dict, manual_controls_df, trade_log_df, sentimen
 
         # --- Automated Signal Logic (with new rules) ---
         sentiment_score = get_news_sentiment(instrument, sentiment_analyzer)
-        social_sentiment_score, social_sentiment_tweet = analyze_social_sentiment(instrument.replace('.NS', ''))
         signal_generated = False
         reasons = []
 
@@ -603,7 +589,7 @@ def generate_signals(price_data_dict, manual_controls_df, trade_log_df, sentimen
         # --- New VWAP Filter ---
         price_above_vwap = latest_15m['close'] > latest_15m['vwap']
 
-        if not signal_generated and is_15m_bullish and is_1h_bullish and volume_confirmed and price_above_vwap and sentiment_score > SENTIMENT_THRESHOLD and social_sentiment_score > 0.2:
+        if not signal_generated and is_15m_bullish and is_1h_bullish and volume_confirmed and price_above_vwap and sentiment_score > SENTIMENT_THRESHOLD:
             # CONTEXT CHECK: Do not open long positions if VIX is too high or market is bearish
             if market_context.get('is_vix_high', False) or market_context.get('sentiment') == 'BEARISH':
                 logger.info(f"Skipping BUY for {instrument}: Market context is unfavorable (High VIX or Bearish Trend).")
@@ -614,7 +600,6 @@ def generate_signals(price_data_dict, manual_controls_df, trade_log_df, sentimen
             reasons.append("Volume Confirmation")
             reasons.append("Price > VWAP")
             reasons.append("Positive Sentiment")
-            reasons.append(f"Positive Social Sentiment ({social_sentiment_score:.2f})")
             
             atr_val = latest_15m[f'ATRr_{ATR_PERIOD}']
             entry_price = latest_15m['close']
@@ -641,9 +626,7 @@ def generate_signals(price_data_dict, manual_controls_df, trade_log_df, sentimen
                 'win_rate_p': win_rate,
                 'win_loss_ratio_b': win_loss_ratio,
                 'kelly_pct': kelly_pct,
-                'quality_score': 1, # Base quality score for trend signal
-                'social_sentiment_score': social_sentiment_score,
-                'social_sentiment_tweet': social_sentiment_tweet
+                'quality_score': 1 # Base quality score for trend signal
             })
             signal_generated = True
 
@@ -691,9 +674,7 @@ def generate_signals(price_data_dict, manual_controls_df, trade_log_df, sentimen
                     'win_rate_p': win_rate,
                     'win_loss_ratio_b': win_loss_ratio,
                     'kelly_pct': kelly_pct,
-                    'quality_score': 3, # High quality score for FVG+CHoCH pattern
-                    'social_sentiment_score': social_sentiment_score,
-                    'social_sentiment_tweet': social_sentiment_tweet
+                    'quality_score': 3 # High quality score for FVG+CHoCH pattern
                 })
 
         # --- NEW: Order Block Entry Signal Logic ---
@@ -740,9 +721,7 @@ def generate_signals(price_data_dict, manual_controls_df, trade_log_df, sentimen
                         'position_size': round(position_size), 'reason': ", ".join(reasons),
                         'sentiment_score': sentiment_score, 'win_rate_p': win_rate,
                         'win_loss_ratio_b': win_loss_ratio, 'kelly_pct': kelly_pct,
-                        'quality_score': 3, # High quality score for Order Block pattern
-                        'social_sentiment_score': social_sentiment_score,
-                        'social_sentiment_tweet': social_sentiment_tweet
+                        'quality_score': 3 # High quality score for Order Block pattern
                     })
                     signal_generated = True
 
@@ -756,14 +735,41 @@ def generate_signals(price_data_dict, manual_controls_df, trade_log_df, sentimen
         for sig in instrument_signals:
             sig['timestamp'] = latest_15m['timestamp']
             sig['instrument'] = instrument
-            all_signals_list.append(sig)
+            all_potential_signals.append(sig)
 
-    if not all_signals_list:
+    if not all_potential_signals:
         logger.info("No new signals generated after applying all rules.")
         return pd.DataFrame()
         
-    final_signals_df = pd.DataFrame(all_signals_list)
-    logger.info(f"Generated {len(final_signals_df)} total signals after applying rules.")
+    # --- New Code: Filter and Rank Signals ---
+    high_confidence_trades = []
+    sector_allocation = {sector_info[s]['sector']: 0 for s in WATCHLIST_SYMBOLS}
+
+    for signal in all_potential_signals:
+        stock_sector = sector_info.get(signal['instrument'], {}).get('sector', 'N/A')
+        signal['risk_reward_ratio'] = calculate_risk_reward_ratio(signal['underlying_price'], signal['stop_loss'], signal['take_profit'])
+        signal['confidence_score'] = calculate_confidence_score(signal, price_df_15m[price_df_15m['instrument'] == signal['instrument']].iloc[-1], price_df_1h[price_df_1h['instrument'] == signal['instrument']].iloc[-1])
+
+        # THE FILTER: Only add trades that pass all checks
+        if (signal['confidence_score'] >= 75 and 
+            signal['risk_reward_ratio'] >= 1.5 and 
+            market_context['sentiment'] == "BULLISH" and 
+            (stock_sector == 'N/A' or sector_allocation.get(stock_sector, 2) < 2)): # Max 2 trades per sector
+
+            high_confidence_trades.append(signal)
+            if stock_sector != 'N/A':
+                sector_allocation[stock_sector] += 1
+
+    # --- Now, sort the shortlist by confidence, take the top 5 ---
+    high_confidence_trades.sort(key=lambda x: x['confidence_score'], reverse=True)
+    final_recommended_trades = high_confidence_trades[:5] # TOP 5 TRADES
+
+    if not final_recommended_trades:
+        logger.info("No high-confidence signals found after filtering.")
+        return pd.DataFrame()
+
+    final_signals_df = pd.DataFrame(final_recommended_trades)
+    logger.info(f"Generated {len(final_signals_df)} high-confidence signals after filtering.")
     return final_signals_df
 
 def generate_advisor_output(signal):
@@ -774,12 +780,7 @@ def generate_advisor_output(signal):
     entry_price = f"~{signal['underlying_price']:.2f}"
     stop_loss = f"{signal['stop_loss']:.2f}"
     target_price = f"{signal['take_profit']:.2f}"
-    social_sentiment_score = signal.get('social_sentiment_score', 0)
-    social_sentiment_tweet = signal.get('social_sentiment_tweet', "")
-
-    # Use win rate as the confidence score, formatted as a percentage.
-    win_rate = signal.get('win_rate_p', 0)
-    confidence = f"{win_rate * 100:.0f}" if pd.notna(win_rate) else "N/A"
+    confidence = signal.get('confidence_score', 0)
 
     advice = f"""💡 TODAY'S TOP OPPORTUNITY:
    Stock: {stock_name}
@@ -788,10 +789,9 @@ def generate_advisor_output(signal):
    Entry: {entry_price}
    Stop Loss: {stop_loss}
    Target: {target_price}
-   Confidence: {confidence}%
-   Social Sentiment: {social_sentiment_score:.2f} ("{social_sentiment_tweet}")"""
+   Confidence: {confidence:.0f}%"""
 
-    return advice, (win_rate if pd.notna(win_rate) else 0)
+    return advice, confidence
 
 def get_or_create_worksheet(spreadsheet, name, rows="1000", cols="20"):
     """Gets a worksheet by name, creating it if it doesn't exist."""
@@ -848,7 +848,7 @@ def write_to_sheets(spreadsheet, price_df, signals_df):
     if not signals_df.empty:
         # --- NEW: Rank signals to find the best opportunity ---
         # Sort by quality score (higher is better) and then by sentiment (higher is better) as a tie-breaker.
-        signals_df_sorted = signals_df.sort_values(by=['quality_score', 'sentiment_score'], ascending=[False, False])
+        signals_df_sorted = signals_df.sort_values(by=['confidence_score', 'sentiment_score'], ascending=[False, False])
         
         # Select the top opportunity after ranking
         top_signal = signals_df_sorted.iloc[0]
@@ -870,7 +870,8 @@ def main():
     try:
         logger.info("--- Trading Signal Process Started ---")
         
-        # Step 1: Connect to Google Sheets
+        # Step 1: Connect to services
+        kite = connect_to_kite()
         spreadsheet = connect_to_google_sheets()
         
         # Step 2: Read manual controls from the sheet

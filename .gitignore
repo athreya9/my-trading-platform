@@ -1,5 +1,6 @@
-# Ignore Python virtual environments
-venv/
 
-# Ignore sensitive credential files
+.venv
+__pycache__
+*.pyc
+download_corpora.py
 service_account.json

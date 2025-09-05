@@ -15,6 +15,8 @@ import time
 from functools import wraps
 import logging
 import sys
+from ntscraper import Nitter
+from textblob import TextBlob
 
 # --- Logging Configuration ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', stream=sys.stdout)
@@ -37,7 +39,7 @@ MARKET_BREADTH_SYMBOLS = {
 SYMBOLS = ['^NSEI'] + WATCHLIST_SYMBOLS + list(MARKET_BREADTH_SYMBOLS.values())
 
 # Signal generation settings
-SIGNAL_HEADERS = ['timestamp', 'instrument', 'option_type', 'strike_price', 'underlying_price', 'stop_loss', 'take_profit', 'position_size', 'reason', 'sentiment_score', 'kelly_pct', 'win_rate_p', 'win_loss_ratio_b', 'quality_score']
+SIGNAL_HEADERS = ['timestamp', 'instrument', 'option_type', 'strike_price', 'underlying_price', 'stop_loss', 'take_profit', 'position_size', 'reason', 'sentiment_score', 'kelly_pct', 'win_rate_p', 'win_loss_ratio_b', 'quality_score', 'social_sentiment_score', 'social_sentiment_tweet']
 
 # Risk Management settings
 ATR_PERIOD = 14
@@ -426,6 +428,44 @@ def get_news_sentiment(instrument, analyzer):
         logger.warning(f"Could not get sentiment for {instrument}: {e}")
         return 0.0 # Return neutral on error
 
+def analyze_social_sentiment(stock_name):
+    """
+    Analyzes social media sentiment for a stock using Twitter.
+    """
+    logger.info(f"Analyzing social media sentiment for {stock_name}...")
+    query = f'"{stock_name}" stock OR share'
+    tweets = []
+    try:
+        scraper = Nitter()
+        scraped_tweets = scraper.get_tweets(query, mode='term', number=50)
+        if not scraped_tweets or not scraped_tweets['tweets']:
+            logger.info(f"No recent tweets found for {stock_name}.")
+            return 0.0, ""
+
+        for tweet in scraped_tweets['tweets']:
+            tweets.append(tweet['text'])
+        
+        if not tweets:
+            logger.info(f"No recent tweets found for {stock_name}.")
+            return 0.0, ""
+
+        sentiment_scores = [TextBlob(tweet).sentiment.polarity for tweet in tweets]
+        avg_score = sum(sentiment_scores) / len(sentiment_scores)
+        
+        # Find the most relevant tweet (most positive or negative)
+        most_relevant_tweet = ""
+        if avg_score > 0:
+            most_relevant_tweet = tweets[np.argmax(sentiment_scores)]
+        else:
+            most_relevant_tweet = tweets[np.argmin(sentiment_scores)]
+            
+        logger.info(f"Average social sentiment for {stock_name}: {avg_score:.3f}")
+        return avg_score, most_relevant_tweet
+
+    except Exception as e:
+        logger.warning(f"Could not analyze social sentiment for {stock_name}: {e}")
+        return 0.0, ""
+
 def analyze_market_internals(price_data_dict):
     """
     Analyzes the broader market context using VIX and sectoral indices.
@@ -552,6 +592,7 @@ def generate_signals(price_data_dict, manual_controls_df, trade_log_df, sentimen
 
         # --- Automated Signal Logic (with new rules) ---
         sentiment_score = get_news_sentiment(instrument, sentiment_analyzer)
+        social_sentiment_score, social_sentiment_tweet = analyze_social_sentiment(instrument.replace('.NS', ''))
         signal_generated = False
         reasons = []
 
@@ -562,7 +603,7 @@ def generate_signals(price_data_dict, manual_controls_df, trade_log_df, sentimen
         # --- New VWAP Filter ---
         price_above_vwap = latest_15m['close'] > latest_15m['vwap']
 
-        if not signal_generated and is_15m_bullish and is_1h_bullish and volume_confirmed and price_above_vwap and sentiment_score > SENTIMENT_THRESHOLD:
+        if not signal_generated and is_15m_bullish and is_1h_bullish and volume_confirmed and price_above_vwap and sentiment_score > SENTIMENT_THRESHOLD and social_sentiment_score > 0.2:
             # CONTEXT CHECK: Do not open long positions if VIX is too high or market is bearish
             if market_context.get('is_vix_high', False) or market_context.get('sentiment') == 'BEARISH':
                 logger.info(f"Skipping BUY for {instrument}: Market context is unfavorable (High VIX or Bearish Trend).")
@@ -573,6 +614,7 @@ def generate_signals(price_data_dict, manual_controls_df, trade_log_df, sentimen
             reasons.append("Volume Confirmation")
             reasons.append("Price > VWAP")
             reasons.append("Positive Sentiment")
+            reasons.append(f"Positive Social Sentiment ({social_sentiment_score:.2f})")
             
             atr_val = latest_15m[f'ATRr_{ATR_PERIOD}']
             entry_price = latest_15m['close']
@@ -599,7 +641,9 @@ def generate_signals(price_data_dict, manual_controls_df, trade_log_df, sentimen
                 'win_rate_p': win_rate,
                 'win_loss_ratio_b': win_loss_ratio,
                 'kelly_pct': kelly_pct,
-                'quality_score': 1 # Base quality score for trend signal
+                'quality_score': 1, # Base quality score for trend signal
+                'social_sentiment_score': social_sentiment_score,
+                'social_sentiment_tweet': social_sentiment_tweet
             })
             signal_generated = True
 
@@ -647,7 +691,9 @@ def generate_signals(price_data_dict, manual_controls_df, trade_log_df, sentimen
                     'win_rate_p': win_rate,
                     'win_loss_ratio_b': win_loss_ratio,
                     'kelly_pct': kelly_pct,
-                    'quality_score': 3 # High quality score for FVG+CHoCH pattern
+                    'quality_score': 3, # High quality score for FVG+CHoCH pattern
+                    'social_sentiment_score': social_sentiment_score,
+                    'social_sentiment_tweet': social_sentiment_tweet
                 })
 
         # --- NEW: Order Block Entry Signal Logic ---
@@ -694,7 +740,9 @@ def generate_signals(price_data_dict, manual_controls_df, trade_log_df, sentimen
                         'position_size': round(position_size), 'reason': ", ".join(reasons),
                         'sentiment_score': sentiment_score, 'win_rate_p': win_rate,
                         'win_loss_ratio_b': win_loss_ratio, 'kelly_pct': kelly_pct,
-                        'quality_score': 3 # High quality score for Order Block pattern
+                        'quality_score': 3, # High quality score for Order Block pattern
+                        'social_sentiment_score': social_sentiment_score,
+                        'social_sentiment_tweet': social_sentiment_tweet
                     })
                     signal_generated = True
 
@@ -726,6 +774,8 @@ def generate_advisor_output(signal):
     entry_price = f"~{signal['underlying_price']:.2f}"
     stop_loss = f"{signal['stop_loss']:.2f}"
     target_price = f"{signal['take_profit']:.2f}"
+    social_sentiment_score = signal.get('social_sentiment_score', 0)
+    social_sentiment_tweet = signal.get('social_sentiment_tweet', "")
 
     # Use win rate as the confidence score, formatted as a percentage.
     win_rate = signal.get('win_rate_p', 0)
@@ -738,7 +788,8 @@ def generate_advisor_output(signal):
    Entry: {entry_price}
    Stop Loss: {stop_loss}
    Target: {target_price}
-   Confidence: {confidence}%"""
+   Confidence: {confidence}%
+   Social Sentiment: {social_sentiment_score:.2f} ("{social_sentiment_tweet}")"""
 
     return advice, (win_rate if pd.notna(win_rate) else 0)
 

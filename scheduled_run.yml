@@ -33,4 +33,7 @@ jobs:
           # This sets the environment variable the Python script expects,
           # using the secret you created in repository settings.
           GOOGLE_SHEETS_CREDENTIALS: ${{ secrets.GOOGLE_SHEETS_CREDENTIALS }}
+          KITE_API_KEY: ${{ secrets.KITE_API_KEY }}
+          KITE_API_SECRET: ${{ secrets.KITE_API_SECRET }}
+          KITE_REQUEST_TOKEN: ${{ secrets.KITE_REQUEST_TOKEN }}
         run: python api/process_data.py

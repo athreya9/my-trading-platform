@@ -6,3 +6,4 @@ pandas-ta
 matplotlib
 torch
 transformers
+kiteconnect==4.2.1

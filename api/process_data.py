@@ -13,10 +13,10 @@ import json
 from transformers import pipeline
 import torch
 import time
-from functools import wraps
+from datetime import datetime, timedelta
+from functools import wraps, lru_cache
 import logging
 import sys
-from textblob import TextBlob
 
 # --- Logging Configuration ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', stream=sys.stdout)
@@ -60,6 +60,16 @@ SWING_POINT_LOOKBACK = 1
 # NLP Sentiment Analysis settings
 NLP_MODEL_NAME = "ProsusAI/finbert"
 SENTIMENT_THRESHOLD = 0.1 # Minimum positive/negative sentiment score to influence a signal
+
+# --- Kite Connect to yfinance Symbol Mapping ---
+# This helps translate yfinance index names to Kite's trading symbols
+YFINANCE_TO_KITE_MAP = {
+    '^NSEI': 'NIFTY 50',
+    '^INDIAVIX': 'INDIA VIX',
+    '^CNXIT': 'NIFTY IT',
+    '^NSEBANK': 'NIFTY BANK',
+    '^CNXAUTO': 'NIFTY AUTO'
+}
 
 # --- Main Functions ---
 
@@ -209,46 +219,66 @@ def connect_to_kite():
         logger.error(f"Failed to connect to Kite Connect: {e}", exc_info=True)
         raise Exception(f"Error connecting to Kite Connect: {e}")
 
-@retry()
-def fetch_historical_data(ticker, period, interval):
-    """Fetches historical data from Yahoo Finance for a given ticker."""
-    logger.info(f"Fetching {interval} data for {ticker}...")
+@lru_cache(maxsize=1) # Cache the result to avoid repeated API calls within the same run
+def get_instrument_map(kite):
+    """Fetches all instruments from Kite and creates a symbol-to-token map."""
+    logger.info("Fetching instrument list from Kite Connect...")
     try:
-        stock_data = yf.download(tickers=ticker, period=period, interval=interval, auto_adjust=True)
-        if stock_data.empty:
-            logger.warning(f"No data downloaded for {ticker} at {interval} interval.")
+        instruments = kite.instruments("NSE") # We are focusing on the NSE segment
+        instrument_df = pd.DataFrame(instruments)
+        
+        # Create a map for faster lookups: { 'TRADINGSYMBOL': instrument_token }
+        # e.g., { 'RELIANCE': 256265, 'NIFTY 50': 256265, ... }
+        symbol_to_token_map = pd.Series(instrument_df.instrument_token.values, index=instrument_df.tradingsymbol).to_dict()
+        logger.info(f"Successfully created instrument map with {len(symbol_to_token_map)} entries.")
+        return symbol_to_token_map
+    except Exception as e:
+        logger.error(f"Failed to fetch or process instrument list: {e}", exc_info=True)
+        raise
+
+@retry()
+def fetch_historical_data(kite, instrument_token, from_date, to_date, interval, original_symbol):
+    """Fetches historical data from Kite Connect for a given instrument token."""
+    logger.info(f"Fetching {interval} data for {original_symbol} (Token: {instrument_token})...")
+    try:
+        records = kite.historical_data(instrument_token, from_date, to_date, interval)
+        if not records:
+            logger.warning(f"No data downloaded for {original_symbol} at {interval} interval.")
             return pd.DataFrame()
 
-        stock_data.reset_index(inplace=True)
-        
-        clean_df = pd.DataFrame()
-        # The column name is 'Datetime' for intraday data, and 'Date' for daily data
-        timestamp_col = 'Datetime' if 'Datetime' in stock_data.columns else 'Date'
-        clean_df['timestamp'] = stock_data[timestamp_col]
-        clean_df['instrument'] = ticker
-        clean_df['open'] = stock_data['Open']
-        clean_df['high'] = stock_data['High']
-        clean_df['low'] = stock_data['Low']
-        clean_df['close'] = stock_data['Close']
-        clean_df['volume'] = stock_data.get('Volume')
-        
-        return clean_df
+        df = pd.DataFrame(records)
+        # Rename columns to match the rest of the script's expectations
+        df.rename(columns={'date': 'timestamp'}, inplace=True)
+        df['instrument'] = original_symbol
+        return df[['timestamp', 'instrument', 'open', 'high', 'low', 'close', 'volume']]
     except Exception as e:
-        logger.warning(f"Could not fetch data for {ticker}: {e}")
+        logger.warning(f"Could not fetch Kite data for {original_symbol}: {e}")
         return pd.DataFrame()
 
-def run_data_collection():
+def run_data_collection(kite, instrument_map):
     """Fetches data for all symbols and timeframes and returns a dictionary of DataFrames."""
     data_frames = {"15m": [], "1h": []}
+    to_date = datetime.now()
     
     for symbol in SYMBOLS:
-        # Fetch 15-minute data for the last 5 days
-        df_15m = fetch_historical_data(symbol, period='5d', interval='15m')
+        # Translate yfinance symbol to Kite tradingsymbol
+        kite_symbol = YFINANCE_TO_KITE_MAP.get(symbol, symbol.replace('.NS', ''))
+        instrument_token = instrument_map.get(kite_symbol)
+
+        if not instrument_token:
+            logger.warning(f"Could not find instrument token for symbol '{symbol}' (Kite: '{kite_symbol}'). Skipping.")
+            continue
+
+        # --- Fetch 15-minute data ---
+        from_date_15m = to_date - timedelta(days=5)
+        # Kite interval names are different from yfinance
+        df_15m = fetch_historical_data(kite, instrument_token, from_date_15m, to_date, "15minute", symbol)
         if not df_15m.empty:
             data_frames["15m"].append(df_15m)
             
-        # Fetch 1-hour data for a longer period to establish a trend
-        df_1h = fetch_historical_data(symbol, period='60d', interval='1h')
+        # --- Fetch 1-hour data ---
+        from_date_1h = to_date - timedelta(days=60)
+        df_1h = fetch_historical_data(kite, instrument_token, from_date_1h, to_date, "60minute", symbol)
         if not df_1h.empty:
             data_frames["1h"].append(df_1h)
 
@@ -409,6 +439,45 @@ def get_atm_strike(price, instrument):
     else:
         return round(price)
 
+def get_stock_info(symbol):
+    """Fetches basic stock information like sector. Caches results to avoid repeated calls."""
+    # A simple in-memory cache to avoid hitting the API for the same symbol repeatedly
+    if 'stock_info_cache' not in get_stock_info.__dict__:
+        get_stock_info.stock_info_cache = {}
+    
+    if symbol in get_stock_info.stock_info_cache:
+        return get_stock_info.stock_info_cache[symbol]
+
+    try:
+        logger.info(f"Fetching yfinance info for {symbol}...")
+        ticker = yf.Ticker(symbol)
+        # The .info dict can be slow; we only need the sector
+        info = {'sector': ticker.info.get('sector', 'N/A')}
+        get_stock_info.stock_info_cache[symbol] = info
+        return info
+    except Exception as e:
+        logger.warning(f"Could not fetch yfinance info for {symbol}: {e}")
+        # Return a default value and cache it to prevent retries on the same failing symbol
+        info = {'sector': 'N/A'}
+        get_stock_info.stock_info_cache[symbol] = info
+        return info
+
+def calculate_risk_reward_ratio(entry, stop, target):
+    """Calculates the risk/reward ratio."""
+    risk = entry - stop
+    reward = target - entry
+    if risk <= 0:
+        return 0
+    return reward / risk
+
+def calculate_confidence_score(signal, latest_15m, latest_1h):
+    """Calculates a confidence score for a signal based on multiple factors."""
+    score = 0.0
+    # Base score on the quality of the price action pattern
+    score += signal.get('quality_score', 1) * 20  # Max 60 for a high-quality pattern
+    if latest_15m.get('RSI_14', 50) < 65: score += 15 # Reward signals that are not overbought
+    if signal.get('sentiment_score', 0) > 0.1: score += 25 # Reward signals with positive news sentiment
+    return min(100, int(score)) # Return an integer score capped at 100
 
 
 @retry()
@@ -870,11 +939,12 @@ def main():
     try:
         logger.info("--- Trading Signal Process Started ---")
         
-        # Step 1: Connect to services
+        # Step 1: Connect to services and prepare data map
         kite = connect_to_kite()
+        instrument_map = get_instrument_map(kite)
         spreadsheet = connect_to_google_sheets()
         
-        # Step 2: Read manual controls from the sheet
+        # Step 2: Read supporting data from sheets
         manual_controls_df = read_manual_controls(spreadsheet)
 
         # Step 3: Read historical trade log to calculate performance stats
@@ -888,7 +958,7 @@ def main():
         logger.info("Sentiment model initialized.")
 
         # Step 4: Collect new data for multiple timeframes
-        price_data_dict = run_data_collection()
+        price_data_dict = run_data_collection(kite, instrument_map)
         
         # Step 5: Calculate all indicators for all instruments and timeframes
         if not price_data_dict["15m"].empty:

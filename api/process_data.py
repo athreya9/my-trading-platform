@@ -16,6 +16,7 @@ import time
 from datetime import datetime, timedelta
 from functools import wraps, lru_cache
 import logging
+import re
 import sys
 
 # --- Logging Configuration ---
@@ -204,6 +205,10 @@ def connect_to_kite():
     logger.info("Attempting to authenticate with Kite Connect...")
     api_key = os.getenv('KITE_API_KEY', '').strip().strip('"\'')
     access_token = os.getenv('KITE_ACCESS_TOKEN', '').strip().strip('"\'')
+
+    # Aggressively clean the access token to remove any non-alphanumeric characters
+    access_token = re.sub(r'[^a-zA-Z0-9]', '', access_token)
+
     if not api_key or not access_token:
         raise ValueError("KITE_API_KEY or KITE_ACCESS_TOKEN environment variables not found. Ensure they are set in GitHub secrets.")
     try:

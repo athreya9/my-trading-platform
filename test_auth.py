@@ -3,6 +3,7 @@ import os
 import sys
 import json
 from kiteconnect import KiteConnect
+import re
 import gspread
 
 def test_kite_auth():
@@ -10,6 +11,9 @@ def test_kite_auth():
     print("--- Testing Kite Connect Authentication ---")
     api_key = os.getenv("KITE_API_KEY", "").strip().strip('"\'')
     access_token = os.getenv("KITE_ACCESS_TOKEN", "").strip().strip('"\'')
+
+    # Aggressively clean the access token to remove any non-alphanumeric characters
+    access_token = re.sub(r'[^a-zA-Z0--9]', '', access_token)
 
     if not api_key or not access_token:
         print("❌ ERROR: KITE_API_KEY or KITE_ACCESS_TOKEN secrets are missing.")

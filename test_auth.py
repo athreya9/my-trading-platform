@@ -8,8 +8,8 @@ import gspread
 def test_kite_auth():
     """Tests Kite Connect authentication using environment variables."""
     print("--- Testing Kite Connect Authentication ---")
-    api_key = os.getenv("KITE_API_KEY", "").strip()
-    access_token = os.getenv("KITE_ACCESS_TOKEN", "").strip()
+    api_key = os.getenv("KITE_API_KEY", "").strip().strip('"\'')
+    access_token = os.getenv("KITE_ACCESS_TOKEN", "").strip().strip('"\'')
 
     if not api_key or not access_token:
         print("❌ ERROR: KITE_API_KEY or KITE_ACCESS_TOKEN secrets are missing.")

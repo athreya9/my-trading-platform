@@ -199,7 +199,23 @@ def connect_to_google_sheets():
     except Exception as e:
         raise Exception(f"Error connecting to Google Sheet: {e}")
 
-def connect_to_kite():    """Initializes the Kite Connect client using credentials from environment variables."""    logger.info("Attempting to authenticate with Kite Connect...")    api_key = os.getenv('KITE_API_KEY', '').strip().strip('"\'')    access_token = os.getenv('KITE_ACCESS_TOKEN', '').strip().strip('"\'')    if not api_key or not access_token:        raise ValueError("KITE_API_KEY or KITE_ACCESS_TOKEN environment variables not found. Ensure they are set in GitHub secrets.")    try:        kite = KiteConnect(api_key=api_key)        kite.set_access_token(access_token)        # Optional: Verify connection by fetching profile to ensure token is valid        profile = kite.profile()        logger.info(f"Kite Connect authentication successful for user: {profile.get('user_id')}")        return kite    except Exception as e:        logger.error(f"Failed to connect to Kite Connect: {e}", exc_info=True)        raise Exception(f"Error connecting to Kite Connect: {e}")
+def connect_to_kite():
+    """Initializes the Kite Connect client using credentials from environment variables."""
+    logger.info("Attempting to authenticate with Kite Connect...")
+    api_key = os.getenv('KITE_API_KEY', '').strip().strip('"\'')
+    access_token = os.getenv('KITE_ACCESS_TOKEN', '').strip().strip('"\'')
+    if not api_key or not access_token:
+        raise ValueError("KITE_API_KEY or KITE_ACCESS_TOKEN environment variables not found. Ensure they are set in GitHub secrets.")
+    try:
+        kite = KiteConnect(api_key=api_key)
+        kite.set_access_token(access_token)
+        # Optional: Verify connection by fetching profile to ensure token is valid
+        profile = kite.profile()
+        logger.info(f"Kite Connect authentication successful for user: {profile.get('user_id')}")
+        return kite
+    except Exception as e:
+        logger.error(f"Failed to connect to Kite Connect: {e}", exc_info=True)
+        raise Exception(f"Error connecting to Kite Connect: {e}")
 
 @lru_cache(maxsize=1) # Cache the result to avoid repeated API calls within the same run
 def get_instrument_map(kite):

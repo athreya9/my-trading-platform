@@ -10,7 +10,8 @@ import pandas_ta as ta
 import numpy as np
 import os
 import json
-from transformers import pipeline
+# COMMENT THIS OUT FOR NOW:
+# from transformers import pipeline
 import torch
 import time
 from datetime import datetime, timedelta
@@ -31,9 +32,9 @@ SIGNALS_WORKSHEET_NAME = "Signals"
 # Data collection settings
 # REDUCED FOR CREDIT EMERGENCY
 WATCHLIST_SYMBOLS = [
-    'RELIANCE.NS', # One stock only
+    'RELIANCE.NS',    # Your focus stock
+    'HDFCBANK.NS',    # One banking stock
     # 'TCS.NS',
-    # 'HDFCBANK.NS',
     # 'INFY.NS',
     # 'ICICIBANK.NS',
     # 'BHARTIARTL.NS'
@@ -489,6 +490,11 @@ def calculate_confidence_score(signal, latest_15m, latest_1h):
 @retry()
 def get_news_sentiment(instrument, analyzer):
     """Fetches news for an instrument and returns an aggregated sentiment score."""
+    # If sentiment analysis is disabled (analyzer is None), return neutral score immediately.
+    if analyzer is None:
+        logger.info("Sentiment analysis is disabled. Skipping news fetch.")
+        return 0.0
+
     logger.info(f"Fetching and analyzing sentiment for {instrument}...")
     try:
         # Fetch news using yfinance's built-in news feature
@@ -964,11 +970,13 @@ def main():
         trade_log_df = read_trade_log(spreadsheet)
         
         # Initialize the sentiment analysis pipeline once
-        logger.info("Initializing sentiment analysis model (this may take a moment on first run)...")
-        # Use GPU if available, otherwise CPU.
-        device = 0 if torch.cuda.is_available() else -1
-        sentiment_analyzer = pipeline("sentiment-analysis", model=NLP_MODEL_NAME, device=device)
-        logger.info("Sentiment model initialized.")
+        # AND comment out the sentiment analysis initialization:
+        # logger.info("Initializing sentiment analysis model (this may take a moment on first run)...")
+        # # Use GPU if available, otherwise CPU.
+        # device = 0 if torch.cuda.is_available() else -1
+        # sentiment_analyzer = pipeline("sentiment-analysis", model=NLP_MODEL_NAME, device=device)
+        # logger.info("Sentiment model initialized.")
+        sentiment_analyzer = None # Set to None to disable sentiment analysis
 
         # Step 4: Collect new data for multiple timeframes
         price_data_dict = run_data_collection(kite, instrument_map)

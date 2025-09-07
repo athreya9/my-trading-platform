@@ -202,8 +202,8 @@ def connect_to_google_sheets():
 def connect_to_kite():
     """Initializes the Kite Connect client using credentials from environment variables."""
     logger.info("Attempting to authenticate with Kite Connect...")
-    api_key = os.getenv('KITE_API_KEY')
-    access_token = os.getenv('KITE_ACCESS_TOKEN')
+    api_key = os.getenv('KITE_API_KEY', '').strip()
+    access_token = os.getenv('KITE_ACCESS_TOKEN', '').strip()
 
     if not api_key or not access_token:
         raise ValueError("KITE_API_KEY or KITE_ACCESS_TOKEN environment variables not found. Ensure they are set in GitHub secrets.")

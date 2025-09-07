@@ -38,21 +38,21 @@ def emergency_fix():
         first_sheet.update_title("Advisor_Output")
         print("✅ Renamed first sheet to 'Advisor_Output'")
 
-        # CREATE/UPDATE ESSENTIAL TABS with proper structure
+        # CREATE/UPDATE ESSENTIAL TABS with the new, correct structure
         tabs = {
-            "Advisor_Output": [["🎯 ALGO TRADING ADVISOR", ""], ["LAST UPDATED", datetime.now().strftime("%Y-%m-%d %H:%M:%S")], ["STATUS", "🟢 SYSTEM ONLINE"], ["RECOMMENDATION", "Analyzing market data..."], ["CONFIDENCE", "85%"], ["EXPECTED HOLD TIME", "2-4 hours"]],
-            "Price_Data": [["Timestamp", "Instrument", "Price", "Volume"]],
-            "Signals": [["Timestamp", "Instrument", "Action", "Price", "Confidence"]],
-            "Trade_Log": [["Date", "Instrument", "Action", "Quantity", "P/L"]]
+            "Advisor_Output": [["Recommendation", "Confidence", "Timestamp"]],
+            "Price_Data": [["Symbol", "Price", "Volume", "Timestamp"]],
+            "Signals": [["Action", "Symbol", "Price", "Confidence", "Timestamp"]],
+            "Bot_Control": [["status", "last_updated"], ["stopped", ""]]
         }
         
         for tab_name, headers in tabs.items():
-            worksheet = sheet.worksheet(tab_name) if tab_name == "Advisor_Output" else sheet.add_worksheet(title=tab_name, rows="1000", cols="10")
+            worksheet = sheet.worksheet(tab_name) if tab_name == "Advisor_Output" else sheet.add_worksheet(title=tab_name, rows="1000", cols="20")
             worksheet.clear()
             worksheet.update(range_name='A1', values=headers, value_input_option='USER_ENTERED')
             print(f"✅ Structured '{tab_name}' with proper headers")
         
-        print("\n🎉 SHEET STRUCTURE FIXED! Backend now has an organized place to write data.")
+        print("\n🎉 SHEET STRUCTURE FIXED! Backend now has a clean, organized place to write data.")
 
     except Exception as e:
         print(f"\n❌ An error occurred: {e}", file=sys.stderr)

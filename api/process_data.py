@@ -792,24 +792,17 @@ def generate_signals(price_data_dict, manual_controls_df, trade_log_df, sentimen
     return final_signals_df
 
 def generate_advisor_output(signal):
-    """Formats the top signal into a structured list for the advisor output sheet."""
+    """Formats the top signal into a single row for the Advisor_Output sheet."""
     stock_name = signal['instrument'].replace('.NS', '')
     action = f"BUY {signal['option_type']}"
-    reason = signal['reason']
-    entry_price = f"~{signal['underlying_price']:.2f}"
-    stop_loss = f"{signal['stop_loss']:.2f}"
-    target_price = f"{signal['take_profit']:.2f}"
-    confidence = signal.get('confidence_score', "N/A")
+    confidence = signal.get('confidence_score', 0)
+    
+    recommendation = f"{action} {stock_name} due to {signal['reason']}"
+    confidence_str = f"{confidence:.0f}%"
+    timestamp_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    advisor_data = [
-        ["🎯 TRADING ADVICE", f"{action} {stock_name}"],
-        ["Reason", reason],
-        ["Entry", entry_price],
-        ["Stop Loss", stop_loss],
-        ["Target", target_price],
-        ["Confidence", f"{confidence:.0f}%" if isinstance(confidence, (int, float)) else confidence],
-        ["Updated", datetime.now().strftime("%Y-%m-%d %H:%M:%S")]
-    ]
+    # This list directly matches the new "Advisor_Output" tab structure
+    advisor_data = [recommendation, confidence_str, timestamp_str]
     return advisor_data
 
 def get_or_create_worksheet(spreadsheet, name, rows="1000", cols="20"):
@@ -824,67 +817,66 @@ def get_or_create_worksheet(spreadsheet, name, rows="1000", cols="20"):
 def write_to_sheets(spreadsheet, price_df, signals_df):
     """Writes price data, signals, and the final advice to their respective sheets."""
     logger.info("--- Starting Sheet Update Process ---")
-    data_worksheet = get_or_create_worksheet(spreadsheet, DATA_WORKSHEET_NAME, rows=1000, cols=20)
-    signals_worksheet = get_or_create_worksheet(spreadsheet, SIGNALS_WORKSHEET_NAME, rows=100, cols=20)
-    # New dedicated sheet for the final, polished output
-    advisor_output_worksheet = get_or_create_worksheet(spreadsheet, "Advisor_Output", rows=10, cols=5)
+    # Get all required worksheets, creating them if they don't exist
+    price_worksheet = get_or_create_worksheet(spreadsheet, "Price_Data")
+    signals_worksheet = get_or_create_worksheet(spreadsheet, "Signals")
+    advisor_worksheet = get_or_create_worksheet(spreadsheet, "Advisor_Output")
+    # Bot_Control is managed by the fix script, not written to here.
 
     # --- Write Price Data ---
     if not price_df.empty:
-        logger.info(f"Preparing to write {len(price_df)} rows to '{DATA_WORKSHEET_NAME}'...")
-        price_df_str = price_df.copy()
-        price_df_str['timestamp'] = price_df_str['timestamp'].dt.strftime('%Y-%m-%d %H:%M:%S')
-        price_df_str.fillna('', inplace=True)
-        price_data_to_write = [price_df_str.columns.tolist()] + price_df_str.values.tolist()
+        logger.info(f"Preparing to write {len(price_df)} rows to 'Price_Data'...")
+        # Select and rename columns to match the new sheet structure
+        price_data_to_write = price_df[['instrument', 'close', 'volume', 'timestamp']].copy()
+        price_data_to_write.rename(columns={'instrument': 'Symbol', 'close': 'Price', 'volume': 'Volume', 'timestamp': 'Timestamp'}, inplace=True)
+        price_data_to_write['Timestamp'] = price_data_to_write['Timestamp'].dt.strftime('%Y-%m-%d %H:%M:%S')
+        
+        # Clear and update the sheet
         logger.info("Clearing Price Data sheet...")
-        data_worksheet.clear()
+        price_worksheet.clear()
         logger.info("Updating Price Data sheet...")
-        data_worksheet.update(range_name='A1', values=price_data_to_write, value_input_option='USER_ENTERED')
+        price_worksheet.update(range_name='A1', values=[price_data_to_write.columns.values.tolist()] + price_data_to_write.values.tolist(), value_input_option='USER_ENTERED')
         logger.info("Price data written successfully.")
     else:
         logger.info("No price data to write. Clearing old price data from sheet.")
-        data_worksheet.clear()
+        price_worksheet.clear()
 
     # --- Write Signal Data ---
     if not signals_df.empty:
-        logger.info(f"Preparing to write {len(signals_df)} rows to '{SIGNALS_WORKSHEET_NAME}'...")
-        signals_df_str = signals_df.copy()
-        signals_df_str['timestamp'] = signals_df_str['timestamp'].dt.strftime('%Y-%m-%d %H:%M:%S')
-        signals_df_str.fillna('', inplace=True)
-        signal_data_to_write = [signals_df_str.columns.tolist()] + signals_df_str.values.tolist()
+        logger.info(f"Preparing to write {len(signals_df)} rows to 'Signals'...")
+        # Select and rename columns to match the new sheet structure
+        signals_to_write = signals_df[['option_type', 'instrument', 'underlying_price', 'confidence_score', 'timestamp']].copy()
+        signals_to_write.rename(columns={'option_type': 'Action', 'instrument': 'Symbol', 'underlying_price': 'Price', 'confidence_score': 'Confidence', 'timestamp': 'Timestamp'}, inplace=True)
+        signals_to_write['Timestamp'] = signals_to_write['Timestamp'].dt.strftime('%Y-%m-%d %H:%M:%S')
+        
+        # Clear and update the sheet
         logger.info("Clearing Signals sheet...")
         signals_worksheet.clear()
         logger.info("Updating Signals sheet...")
-        signals_worksheet.update(range_name='A1', values=signal_data_to_write, value_input_option='USER_ENTERED')
+        signals_worksheet.update(range_name='A1', values=[signals_to_write.columns.values.tolist()] + signals_to_write.values.tolist(), value_input_option='USER_ENTERED')
         logger.info("Signal data written successfully.")
     else:
         logger.info("No signals to write. Clearing old signals from sheet.")
         signals_worksheet.clear()
 
     # --- Write Final Advisor Output ---
-    logger.info("Preparing to write to 'Advisor_Output' sheet...")
-    advisor_output_worksheet.clear()
+    logger.info("Preparing to append to 'Advisor_Output' sheet...")
     if not signals_df.empty:
         # Rank signals to find the best opportunity
         signals_df_sorted = signals_df.sort_values(by=['confidence_score', 'sentiment_score'], ascending=[False, False])
         top_signal = signals_df_sorted.iloc[0]
         
-        # Generate the structured advisor data
+        # Generate the single-row advisor data
         advisor_data = generate_advisor_output(top_signal)
         
-        logger.info("Updating Advisor_Output sheet with the top opportunity...")
-        advisor_output_worksheet.update(range_name='A1', values=advisor_data, value_input_option='USER_ENTERED')
+        logger.info("Appending top opportunity to Advisor_Output sheet...")
+        advisor_worksheet.append_row(values=advisor_data, value_input_option='USER_ENTERED')
         logger.info("Advisor output written successfully.")
     else:
         logger.info("No signals to generate advice. Clearing and updating Advisor_Output sheet with status.")
-        # Use a structure consistent with the emergency_fix script for the "no signal" case
-        no_signal_data = [
-            ["🎯 ALGO TRADING ADVISOR", ""],
-            ["LAST UPDATED", datetime.now().strftime("%Y-%m-%d %H:%M:%S")],
-            ["STATUS", "⚠️ NO SIGNALS"],
-            ["RECOMMENDATION", "Market in consolidation. Wait for clearer setup."]
-        ]
-        advisor_output_worksheet.update(range_name='A1', values=no_signal_data, value_input_option='USER_ENTERED')
+        # Append a "no signal" status row
+        no_signal_row = ["No high-confidence signals found.", "N/A", datetime.now().strftime("%Y-%m-%d %H:%M:%S")]
+        advisor_worksheet.append_row(values=no_signal_row, value_input_option='USER_ENTERED')
     logger.info("--- Sheet Update Process Completed ---")
 
 def should_run():

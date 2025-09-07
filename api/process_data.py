@@ -4,7 +4,6 @@
 
 import gspread
 from kiteconnect import KiteConnect
-import yfinance as yf
 import pandas as pd
 import pandas_ta as ta
 import numpy as np
@@ -15,6 +14,7 @@ import json
 import torch
 import time
 from datetime import datetime, timedelta
+import pytz
 from functools import wraps, lru_cache
 import logging
 import re
@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 # --- Sheet & Symbol Configuration ---
 SHEET_NAME = "Algo Trading Dashboard" # The name of your Google Sheet
-DATA_WORKSHEET_NAME = "Price Data"
+DATA_WORKSHEET_NAME = "Price_Data"
 SIGNALS_WORKSHEET_NAME = "Signals"
 
 # Data collection settings
@@ -446,29 +446,6 @@ def get_atm_strike(price, instrument):
     else:
         return round(price)
 
-def get_stock_info(symbol):
-    """Fetches basic stock information like sector. Caches results to avoid repeated calls."""
-    # A simple in-memory cache to avoid hitting the API for the same symbol repeatedly
-    if 'stock_info_cache' not in get_stock_info.__dict__:
-        get_stock_info.stock_info_cache = {}
-    
-    if symbol in get_stock_info.stock_info_cache:
-        return get_stock_info.stock_info_cache[symbol]
-
-    try:
-        logger.info(f"Fetching yfinance info for {symbol}...")
-        ticker = yf.Ticker(symbol)
-        # The .info dict can be slow; we only need the sector
-        info = {'sector': ticker.info.get('sector', 'N/A')}
-        get_stock_info.stock_info_cache[symbol] = info
-        return info
-    except Exception as e:
-        logger.warning(f"Could not fetch yfinance info for {symbol}: {e}")
-        # Return a default value and cache it to prevent retries on the same failing symbol
-        info = {'sector': 'N/A'}
-        get_stock_info.stock_info_cache[symbol] = info
-        return info
-
 def calculate_risk_reward_ratio(entry, stop, target):
     """Calculates the risk/reward ratio."""
     risk = entry - stop
@@ -477,13 +454,14 @@ def calculate_risk_reward_ratio(entry, stop, target):
         return 0
     return reward / risk
 
-def calculate_confidence_score(signal, latest_15m, latest_1h):
+def calculate_confidence_score(signal, latest_15m):
     """Calculates a confidence score for a signal based on multiple factors."""
     score = 0.0
     # Base score on the quality of the price action pattern
     score += signal.get('quality_score', 1) * 20  # Max 60 for a high-quality pattern
     if latest_15m.get('RSI_14', 50) < 65: score += 15 # Reward signals that are not overbought
-    if signal.get('sentiment_score', 0) > 0.1: score += 25 # Reward signals with positive news sentiment
+    # Sentiment score is removed for now
+    # if signal.get('sentiment_score', 0) > 0.1: score += 25
     return min(100, int(score)) # Return an integer score capped at 100
 
 
@@ -491,45 +469,8 @@ def calculate_confidence_score(signal, latest_15m, latest_1h):
 def get_news_sentiment(instrument, analyzer):
     """Fetches news for an instrument and returns an aggregated sentiment score."""
     # If sentiment analysis is disabled (analyzer is None), return neutral score immediately.
-    if analyzer is None:
-        logger.info("Sentiment analysis is disabled. Skipping news fetch.")
-        return 0.0
-
-    logger.info(f"Fetching and analyzing sentiment for {instrument}...")
-    try:
-        # Fetch news using yfinance's built-in news feature
-        ticker_news = yf.Ticker(instrument).news
-        if not ticker_news:
-            logger.info(f"No news found for {instrument}.")
-            return 0.0 # Return neutral sentiment if no news
-
-        # Use .get() to safely access 'title', which may not always be present
-        headlines = [news.get('title') for news in ticker_news[:8]]
-        # Filter out any None values if a headline was missing a title
-        headlines = [h for h in headlines if h]
-        if not headlines:
-            logger.info(f"No valid headlines with titles found for {instrument}.")
-            return 0.0
-        
-        # Analyze sentiment using the pre-loaded FinBERT model
-        sentiments = analyzer(headlines)
-        
-        # Convert sentiment labels and scores to a single numerical value
-        score = 0.0
-        for sentiment in sentiments:
-            if sentiment['label'] == 'positive':
-                score += sentiment['score']
-            elif sentiment['label'] == 'negative':
-                score -= sentiment['score']
-        
-        # Return the average score
-        avg_score = score / len(sentiments) if sentiments else 0.0
-        logger.info(f"Average sentiment score for {instrument}: {avg_score:.3f}")
-        return avg_score
-
-    except Exception as e:
-        logger.warning(f"Could not get sentiment for {instrument}: {e}")
-        return 0.0 # Return neutral on error
+    logger.info("Sentiment analysis is disabled. Skipping news fetch.")
+    return 0.0
 
 def analyze_market_internals(price_data_dict):
     """
@@ -606,9 +547,6 @@ def generate_signals(price_data_dict, manual_controls_df, trade_log_df, sentimen
         logger.info(f"Market Context Alert: VIX is above {VIX_THRESHOLD}. Avoiding new aggressive long positions.")
     if market_context.get('sentiment') == 'BEARISH':
         logger.info("Market Context Alert: Overall market trend is Bearish. Long signals will be suppressed.")
-
-    # --- Get Sector Information for all Watchlist Symbols ---
-    sector_info = {symbol: get_stock_info(symbol) for symbol in WATCHLIST_SYMBOLS}
 
     # --- Iterate over each instrument's 15-minute data ---
     for instrument, group_15m in price_df_15m.groupby('instrument'):
@@ -829,22 +767,17 @@ def generate_signals(price_data_dict, manual_controls_df, trade_log_df, sentimen
         
     # --- New Code: Filter and Rank Signals ---
     high_confidence_trades = []
-    sector_allocation = {sector_info[s]['sector']: 0 for s in WATCHLIST_SYMBOLS}
 
     for signal in all_potential_signals:
-        stock_sector = sector_info.get(signal['instrument'], {}).get('sector', 'N/A')
         signal['risk_reward_ratio'] = calculate_risk_reward_ratio(signal['underlying_price'], signal['stop_loss'], signal['take_profit'])
-        signal['confidence_score'] = calculate_confidence_score(signal, price_df_15m[price_df_15m['instrument'] == signal['instrument']].iloc[-1], price_df_1h[price_df_1h['instrument'] == signal['instrument']].iloc[-1])
+        signal['confidence_score'] = calculate_confidence_score(signal, price_df_15m[price_df_15m['instrument'] == signal['instrument']].iloc[-1])
 
         # THE FILTER: Only add trades that pass all checks
         if (signal['confidence_score'] >= 75 and 
             signal['risk_reward_ratio'] >= 1.5 and 
-            market_context['sentiment'] == "BULLISH" and 
-            (stock_sector == 'N/A' or sector_allocation.get(stock_sector, 2) < 2)): # Max 2 trades per sector
+            market_context['sentiment'] == "BULLISH"):
 
             high_confidence_trades.append(signal)
-            if stock_sector != 'N/A':
-                sector_allocation[stock_sector] += 1
 
     # --- Now, sort the shortlist by confidence, take the top 5 ---
     high_confidence_trades.sort(key=lambda x: x['confidence_score'], reverse=True)
@@ -944,14 +877,32 @@ def write_to_sheets(spreadsheet, price_df, signals_df):
         logger.info("Advisor output written successfully.")
     else:
         logger.info("No signals to generate advice. Clearing and updating Advisor_Output sheet with status.")
+        # Use a structure consistent with the emergency_fix script for the "no signal" case
         no_signal_data = [
-            ["⚠️ NO SIGNALS"],
-            ["Market may be in consolidation."],
-            ["Wait for a clearer setup."],
-            ["Updated:", datetime.now().strftime("%Y-%m-%d %H:%M:%S")]
+            ["🎯 ALGO TRADING ADVISOR", ""],
+            ["LAST UPDATED", datetime.now().strftime("%Y-%m-%d %H:%M:%S")],
+            ["STATUS", "⚠️ NO SIGNALS"],
+            ["RECOMMENDATION", "Market in consolidation. Wait for clearer setup."]
         ]
         advisor_output_worksheet.update(range_name='A1', values=no_signal_data, value_input_option='USER_ENTERED')
     logger.info("--- Sheet Update Process Completed ---")
+
+def should_run():
+    """
+    Checks if the Indian stock market is open.
+    (Mon-Fri, 9:15 AM - 3:30 PM IST)
+    """
+    ist = pytz.timezone('Asia/Kolkata')
+    now = datetime.now(ist)
+    
+    # Check if it's a weekday (Monday=0, Sunday=6)
+    if now.weekday() >= 5:
+        return False
+    
+    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    
+    return market_open <= now <= market_close
 
 def main():
     """Main function that runs the entire process."""
@@ -1009,4 +960,8 @@ def main():
 
 # --- Script Execution ---
 if __name__ == "__main__":
-    main()
+    if should_run():
+        main()
+    else:
+        logger.info("Market is closed. Exiting script.")
+        sys.exit(0)

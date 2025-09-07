@@ -2,15 +2,9 @@
 pandas~=2.2.0
 pandas-ta==0.3.14b0
 numpy~=1.26.0
-yfinance~=0.2.30
 kiteconnect==4.0.0
 requests
-
-
-# Machine Learning and NLP
-torch~=2.3.0
-transformers~=4.41.0
-textblob~=0.18.0
+pytz
 
 # Google Sheets Integration
 gspread~=6.0.0

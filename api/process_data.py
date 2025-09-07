@@ -203,18 +203,25 @@ def connect_to_google_sheets():
 def connect_to_kite():
     """Initializes the Kite Connect client using credentials from environment variables."""
     logger.info("Attempting to authenticate with Kite Connect...")
-    api_key = os.getenv('KITE_API_KEY', '').strip().strip('"\'')
-    access_token = os.getenv('KITE_ACCESS_TOKEN', '').strip().strip('"\'')
-
-    # Aggressively clean the access token to remove any non-alphanumeric characters
-    access_token = re.sub(r'[^a-zA-Z0-9]', '', access_token)
-
+    
+    # Get credentials from environment variables
+    api_key = os.getenv('KITE_API_KEY', '').strip()
+    access_token = os.getenv('KITE_ACCESS_TOKEN', '').strip()
+    
+    # DEBUG: Print what we actually received
+    print(f"DEBUG - API Key: '{api_key}'")
+    print(f"DEBUG - Access Token: '{access_token}'")
+    print(f"DEBUG - API Key length: {len(api_key)}")
+    print(f"DEBUG - Access Token length: {len(access_token)}")
+    
     if not api_key or not access_token:
-        raise ValueError("KITE_API_KEY or KITE_ACCESS_TOKEN environment variables not found. Ensure they are set in GitHub secrets.")
+        raise ValueError("KITE_API_KEY or KITE_ACCESS_TOKEN environment variables not found.")
+
     try:
         kite = KiteConnect(api_key=api_key)
         kite.set_access_token(access_token)
-        # Optional: Verify connection by fetching profile to ensure token is valid
+        
+        # Verify connection
         profile = kite.profile()
         logger.info(f"Kite Connect authentication successful for user: {profile.get('user_id')}")
         return kite
@@ -368,13 +375,13 @@ def apply_price_action_indicators(group):
     # A bullish FVG is where the low of candle[i-2] is above the high of candle[i].
     # The gap is the space on candle[i-1].
     bull_fvg_mask = group['low'].shift(2) > group['high']
-    group['fvg_bull_top'] = np.where(bull_fvg_mask, group['low'].shift(2), np.nan).shift(1)
-    group['fvg_bull_bottom'] = np.where(bull_fvg_mask, group['high'], np.nan).shift(1)
+    group['fvg_bull_top'] = pd.Series(np.where(bull_fvg_mask, group['low'].shift(2), np.nan), index=group.index).shift(1)
+    group['fvg_bull_bottom'] = pd.Series(np.where(bull_fvg_mask, group['high'], np.nan), index=group.index).shift(1)
 
     # A bearish FVG is where the high of candle[i-2] is below the low of candle[i].
     bear_fvg_mask = group['high'].shift(2) < group['low']
-    group['fvg_bear_top'] = np.where(bear_fvg_mask, group['high'].shift(2), np.nan).shift(1)
-    group['fvg_bear_bottom'] = np.where(bear_fvg_mask, group['low'], np.nan).shift(1)
+    group['fvg_bear_top'] = pd.Series(np.where(bear_fvg_mask, group['high'].shift(2), np.nan), index=group.index).shift(1)
+    group['fvg_bear_bottom'] = pd.Series(np.where(bear_fvg_mask, group['low'], np.nan), index=group.index).shift(1)
 
     # 2. Market Structure (3-candle Swing Points)
     # A swing high is a peak: high[i-1] is higher than its neighbors.

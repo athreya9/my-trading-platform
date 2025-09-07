@@ -6,8 +6,8 @@ import requests
 import hashlib
  
 # YOUR CREDENTIALS (UPDATED WITH FRESH TOKEN)
-API_KEY = "qiuzgd7eavdehvre"
-API_SECRET = "9tb2y2idkpsfhh64vypilvl9t5k8u42o"  # ✅ Your actual secret
+API_KEY = "is2u8bo7z8yjwhhr"
+API_SECRET = "lczq9vywhz57obbjwj4wgtakqaa2s609"  # ✅ Your actual secret
 REQUEST_TOKEN = "bmJHrW7CDk1yWmE5RM9XO15fS5zR9oIH"  # 🆕 FRESH TOKEN
  
 def generate_checksum(api_key, request_token, api_secret):

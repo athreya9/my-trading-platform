@@ -9,14 +9,19 @@ import gspread
 def test_kite_auth():
     """Tests Kite Connect authentication using environment variables."""
     print("--- Testing Kite Connect Authentication ---")
-    api_key = os.getenv("KITE_API_KEY", "").strip().strip('"\'')
-    access_token = os.getenv("KITE_ACCESS_TOKEN", "").strip().strip('"\'')
-
-    # Aggressively clean the access token to remove any non-alphanumeric characters
-    access_token = re.sub(r'[^a-zA-Z0--9]', '', access_token)
-
+    
+    # Get credentials from environment variables
+    api_key = os.getenv('KITE_API_KEY', '').strip()
+    access_token = os.getenv('KITE_ACCESS_TOKEN', '').strip()
+    
+    # DEBUG: Print what we actually received
+    print(f"DEBUG - API Key: '{api_key}'")
+    print(f"DEBUG - Access Token: '{access_token}'")
+    print(f"DEBUG - API Key length: {len(api_key)}")
+    print(f"DEBUG - Access Token length: {len(access_token)}")
+    
     if not api_key or not access_token:
-        print("❌ ERROR: KITE_API_KEY or KITE_ACCESS_TOKEN secrets are missing.")
+        print("❌ ERROR: KITE_API_KEY or KITE_ACCESS_TOKEN environment variables not found.")
         return False
 
     try:

@@ -29,12 +29,20 @@ DATA_WORKSHEET_NAME = "Price Data"
 SIGNALS_WORKSHEET_NAME = "Signals"
 
 # Data collection settings
-WATCHLIST_SYMBOLS = ['RELIANCE.NS', 'TCS.NS', 'HDFCBANK.NS', 'INFY.NS', 'ICICIBANK.NS', 'BHARTIARTL.NS']
+# REDUCED FOR CREDIT EMERGENCY
+WATCHLIST_SYMBOLS = [
+    'RELIANCE.NS', # One stock only
+    # 'TCS.NS',
+    # 'HDFCBANK.NS',
+    # 'INFY.NS',
+    # 'ICICIBANK.NS',
+    # 'BHARTIARTL.NS'
+]
 MARKET_BREADTH_SYMBOLS = {
-    "VIX": "^INDIAVIX",
-    "NIFTY_IT": "^CNXIT",
-    "NIFTY_BANK": "^NSEBANK",
-    "NIFTY_AUTO": "^CNXAUTO"
+    # "VIX": "^INDIAVIX",
+    # "NIFTY_IT": "^CNXIT",
+    # "NIFTY_BANK": "^NSEBANK",
+    # "NIFTY_AUTO": "^CNXAUTO"
 }
 # Combine the main index (^NSEI), watchlist, and market breadth symbols
 SYMBOLS = ['^NSEI'] + WATCHLIST_SYMBOLS + list(MARKET_BREADTH_SYMBOLS.values())
@@ -267,7 +275,7 @@ def fetch_historical_data(kite, instrument_token, from_date, to_date, interval, 
 
 def run_data_collection(kite, instrument_map):
     """Fetches data for all symbols and timeframes and returns a dictionary of DataFrames."""
-    data_frames = {"15m": [], "1h": []}
+    data_frames = {"15m": []}
     to_date = datetime.now()
     
     for symbol in SYMBOLS:
@@ -279,36 +287,24 @@ def run_data_collection(kite, instrument_map):
             logger.warning(f"Could not find instrument token for symbol '{symbol}' (Kite: '{kite_symbol}'). Skipping.")
             continue
 
-        # --- Fetch 15-minute data ---
+        # --- Fetch 15-minute data ONLY ---
         from_date_15m = to_date - timedelta(days=5)
         # Kite interval names are different from yfinance
         df_15m = fetch_historical_data(kite, instrument_token, from_date_15m, to_date, "15minute", symbol)
         if not df_15m.empty:
             data_frames["15m"].append(df_15m)
-            
-        # --- Fetch 1-hour data ---
-        from_date_1h = to_date - timedelta(days=60)
-        df_1h = fetch_historical_data(kite, instrument_token, from_date_1h, to_date, "60minute", symbol)
-        if not df_1h.empty:
-            data_frames["1h"].append(df_1h)
+        # --- 1-hour data fetch is SKIPPED to save API credits ---
 
     if not data_frames["15m"]:
         raise Exception("No 15m data was fetched for any symbol. Halting process.")
 
     # Combine the lists of dataframes into single dataframes
-    if data_frames["15m"]:
-        combined_df_15m = pd.concat(data_frames["15m"], ignore_index=True)
-    else:
-        combined_df_15m = pd.DataFrame()
-        
-    if data_frames["1h"]:
-        combined_df_1h = pd.concat(data_frames["1h"], ignore_index=True)
-    else:
-        combined_df_1h = pd.DataFrame()
+    combined_df_15m = pd.concat(data_frames["15m"], ignore_index=True) if data_frames["15m"] else pd.DataFrame()
     
-    logger.info(f"Successfully fetched {len(combined_df_15m)} rows of 15m data and {len(combined_df_1h)} rows of 1h data.")
+    # Return 15m data and an empty DataFrame for 1h to maintain structure
+    logger.info(f"Successfully fetched {len(combined_df_15m)} rows of 15m data. SKIPPED 1h data fetch.")
     
-    return {"15m": combined_df_15m, "1h": combined_df_1h}
+    return {"15m": combined_df_15m, "1h": pd.DataFrame()}
 
 def calculate_indicators(price_df):
     """
@@ -549,15 +545,16 @@ def analyze_market_internals(price_data_dict):
         return market_context
 
     # 1. Analyze VIX
-    vix_symbol = MARKET_BREADTH_SYMBOLS["VIX"]
-    vix_data = df_1h[df_1h['instrument'] == vix_symbol].copy()
-    if not vix_data.empty:
-        latest_vix = vix_data.iloc[-1]
-        market_context['vix_level'] = latest_vix['close']
-        if latest_vix['close'] > VIX_THRESHOLD:
-            market_context['is_vix_high'] = True
-            market_context['sentiment'] = 'CAUTIOUS'
-            logger.info(f"Market sentiment is CAUTIOUS: VIX is high at {latest_vix['close']:.2f}")
+    vix_symbol = MARKET_BREADTH_SYMBOLS.get("VIX")
+    if vix_symbol:
+        vix_data = df_1h[df_1h['instrument'] == vix_symbol].copy()
+        if not vix_data.empty:
+            latest_vix = vix_data.iloc[-1]
+            market_context['vix_level'] = latest_vix['close']
+            if latest_vix['close'] > VIX_THRESHOLD:
+                market_context['is_vix_high'] = True
+                market_context['sentiment'] = 'CAUTIOUS'
+                logger.info(f"Market sentiment is CAUTIOUS: VIX is high at {latest_vix['close']:.2f}")
 
     # 2. Analyze Sector Performance (e.g., find the strongest sector over the last 5 periods)
     sector_performance = {}
@@ -597,6 +594,8 @@ def generate_signals(price_data_dict, manual_controls_df, trade_log_df, sentimen
     all_potential_signals = []
     price_df_15m = price_data_dict['15m']
     price_df_1h = price_data_dict['1h']
+    if price_df_1h.empty:
+        logger.warning("1h data not available. Multi-timeframe confluence check will be skipped for all signals.")
     if market_context.get('is_vix_high', False):
         logger.info(f"Market Context Alert: VIX is above {VIX_THRESHOLD}. Avoiding new aggressive long positions.")
     if market_context.get('sentiment') == 'BEARISH':
@@ -648,13 +647,15 @@ def generate_signals(price_data_dict, manual_controls_df, trade_log_df, sentimen
             continue
 
         # --- Rule 2: Multi-Timeframe Confluence ---
-        group_1h = price_df_1h[price_df_1h['instrument'] == instrument].copy()
-        group_1h = group_1h.dropna(subset=['SMA_20', 'SMA_50'])
-        if group_1h.empty:
-            logger.info(f"Skipping {instrument}: Not enough 1-hour data for trend analysis.")
-            continue
-        latest_1h = group_1h.iloc[-1]
-        is_1h_bullish = latest_1h['SMA_20'] > latest_1h['SMA_50']
+        is_1h_bullish = True # Default to True, will be overridden if 1h data is available
+        if not price_df_1h.empty:
+            group_1h = price_df_1h[price_df_1h['instrument'] == instrument].copy()
+            group_1h = group_1h.dropna(subset=['SMA_20', 'SMA_50'])
+            if group_1h.empty:
+                logger.info(f"Skipping {instrument}: Not enough 1-hour data for trend analysis.")
+                continue
+            latest_1h = group_1h.iloc[-1]
+            is_1h_bullish = latest_1h['SMA_20'] > latest_1h['SMA_50']
 
         # --- Automated Signal Logic (with new rules) ---
         sentiment_score = get_news_sentiment(instrument, sentiment_analyzer)
@@ -899,7 +900,7 @@ def write_to_sheets(spreadsheet, price_df, signals_df):
         logger.info("Clearing Price Data sheet...")
         data_worksheet.clear()
         logger.info("Updating Price Data sheet...")
-        data_worksheet.update('A1', price_data_to_write, value_input_option='USER_ENTERED')
+        data_worksheet.update(range_name='A1', values=price_data_to_write, value_input_option='USER_ENTERED')
         logger.info("Price data written successfully.")
     else:
         logger.info("No price data to write. Clearing old price data from sheet.")
@@ -915,7 +916,7 @@ def write_to_sheets(spreadsheet, price_df, signals_df):
         logger.info("Clearing Signals sheet...")
         signals_worksheet.clear()
         logger.info("Updating Signals sheet...")
-        signals_worksheet.update('A1', signal_data_to_write, value_input_option='USER_ENTERED')
+        signals_worksheet.update(range_name='A1', values=signal_data_to_write, value_input_option='USER_ENTERED')
         logger.info("Signal data written successfully.")
     else:
         logger.info("No signals to write. Clearing old signals from sheet.")
@@ -936,12 +937,12 @@ def write_to_sheets(spreadsheet, price_df, signals_df):
         advice_string, confidence_score = generate_advisor_output(top_signal)
         
         logger.info("Updating Advisor_Output sheet with the top opportunity...")
-        advisor_output_worksheet.update('A1', advice_string, value_input_option='USER_ENTERED')
-        advisor_output_worksheet.update('B1', confidence_score, value_input_option='USER_ENTERED')
+        advisor_output_worksheet.update(range_name='A1', values=[[advice_string]], value_input_option='USER_ENTERED')
+        advisor_output_worksheet.update(range_name='B1', values=[[confidence_score]], value_input_option='USER_ENTERED')
         logger.info("Advisor output written successfully.")
     else:
         logger.info("No signals to generate advice. Clearing and updating Advisor_Output sheet with status.")
-        advisor_output_worksheet.update('A1', "No valid trading signals found after applying all rules.", value_input_option='USER_ENTERED')
+        advisor_output_worksheet.update(range_name='A1', values=[["No valid trading signals found after applying all rules."]], value_input_option='USER_ENTERED')
     logger.info("--- Sheet Update Process Completed ---")
 
 def main():

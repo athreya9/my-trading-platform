@@ -853,25 +853,25 @@ def generate_signals(price_data_dict, manual_controls_df, trade_log_df, sentimen
     return final_signals_df
 
 def generate_advisor_output(signal):
-    """Formats the top signal into a natural language string for the advisor output."""
+    """Formats the top signal into a structured list for the advisor output sheet."""
     stock_name = signal['instrument'].replace('.NS', '')
     action = f"BUY {signal['option_type']}"
     reason = signal['reason']
     entry_price = f"~{signal['underlying_price']:.2f}"
     stop_loss = f"{signal['stop_loss']:.2f}"
     target_price = f"{signal['take_profit']:.2f}"
-    confidence = signal.get('confidence_score', 0)
+    confidence = signal.get('confidence_score', "N/A")
 
-    advice = f"""💡 TODAY'S TOP OPPORTUNITY:
-   Stock: {stock_name}
-   Action: {action}
-   Reason: {reason}
-   Entry: {entry_price}
-   Stop Loss: {stop_loss}
-   Target: {target_price}
-   Confidence: {confidence:.0f}%"""
-
-    return advice, confidence
+    advisor_data = [
+        ["🎯 TRADING ADVICE", f"{action} {stock_name}"],
+        ["Reason", reason],
+        ["Entry", entry_price],
+        ["Stop Loss", stop_loss],
+        ["Target", target_price],
+        ["Confidence", f"{confidence:.0f}%" if isinstance(confidence, (int, float)) else confidence],
+        ["Updated", datetime.now().strftime("%Y-%m-%d %H:%M:%S")]
+    ]
+    return advisor_data
 
 def get_or_create_worksheet(spreadsheet, name, rows="1000", cols="20"):
     """Gets a worksheet by name, creating it if it doesn't exist."""
@@ -926,23 +926,25 @@ def write_to_sheets(spreadsheet, price_df, signals_df):
     logger.info("Preparing to write to 'Advisor_Output' sheet...")
     advisor_output_worksheet.clear()
     if not signals_df.empty:
-        # --- NEW: Rank signals to find the best opportunity ---
-        # Sort by quality score (higher is better) and then by sentiment (higher is better) as a tie-breaker.
+        # Rank signals to find the best opportunity
         signals_df_sorted = signals_df.sort_values(by=['confidence_score', 'sentiment_score'], ascending=[False, False])
-        
-        # Select the top opportunity after ranking
         top_signal = signals_df_sorted.iloc[0]
         
-        # Generate the natural language advice and confidence score
-        advice_string, confidence_score = generate_advisor_output(top_signal)
+        # Generate the structured advisor data
+        advisor_data = generate_advisor_output(top_signal)
         
         logger.info("Updating Advisor_Output sheet with the top opportunity...")
-        advisor_output_worksheet.update(range_name='A1', values=[[advice_string]], value_input_option='USER_ENTERED')
-        advisor_output_worksheet.update(range_name='B1', values=[[confidence_score]], value_input_option='USER_ENTERED')
+        advisor_output_worksheet.update(range_name='A1', values=advisor_data, value_input_option='USER_ENTERED')
         logger.info("Advisor output written successfully.")
     else:
         logger.info("No signals to generate advice. Clearing and updating Advisor_Output sheet with status.")
-        advisor_output_worksheet.update(range_name='A1', values=[["No valid trading signals found after applying all rules."]], value_input_option='USER_ENTERED')
+        no_signal_data = [
+            ["⚠️ NO SIGNALS"],
+            ["Market may be in consolidation."],
+            ["Wait for a clearer setup."],
+            ["Updated:", datetime.now().strftime("%Y-%m-%d %H:%M:%S")]
+        ]
+        advisor_output_worksheet.update(range_name='A1', values=no_signal_data, value_input_option='USER_ENTERED')
     logger.info("--- Sheet Update Process Completed ---")
 
 def main():

@@ -31,12 +31,16 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: Test Secrets
+        run: |
+          echo "API Key: ${{ secrets.KITE_API_KEY != '' && 'SET' || 'MISSING' }}"
+          echo "Access Token: ${{ secrets.KITE_ACCESS_TOKEN != '' && 'SET' || 'MISSING' }}"
+
       - name: Run the data processing script
         env:
           # This sets the environment variable the Python script expects,
           # using the secret you created in repository settings.
           GOOGLE_SHEETS_CREDENTIALS: ${{ secrets.GOOGLE_SHEETS_CREDENTIALS }}
           KITE_API_KEY: ${{ secrets.KITE_API_KEY }}
-          KITE_API_SECRET: ${{ secrets.KITE_API_SECRET }}
           KITE_ACCESS_TOKEN: ${{ secrets.KITE_ACCESS_TOKEN }}
         run: python api/process_data.py

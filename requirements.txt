@@ -4,6 +4,8 @@ pandas-ta==0.3.14b0
 numpy~=1.26.0
 yfinance~=0.2.30
 kiteconnect==4.0.0
+requests
+
 
 # Machine Learning and NLP
 torch~=2.3.0

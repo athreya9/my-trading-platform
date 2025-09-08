@@ -6,7 +6,7 @@ import gspread
 import json
 import os
 import sys
-from google.oauth2 import service_account
+
 
 def enhance_sheet_structure():
     """Connects to Google Sheets and ensures all essential tabs exist with the correct headers."""
@@ -19,9 +19,8 @@ def enhance_sheet_structure():
             print("❌ ERROR: GOOGLE_SHEETS_CREDENTIALS secret is missing.", file=sys.stderr)
             sys.exit(1)
             
-        creds_dict = json.loads(creds_json)
-        credentials = service_account.Credentials.from_service_account_info(creds_dict)
-        gc = gspread.service_account(credentials=credentials)
+        credentials = json.loads(creds_json)
+        gc = gspread.service_account_from_dict(credentials)
         sheet = gc.open("Algo Trading Dashboard")
         existing_titles = [ws.title for ws in sheet.worksheets()]
         print(f"Found existing tabs: {existing_titles}")
@@ -30,7 +29,7 @@ def enhance_sheet_structure():
         essential_tabs = {
             "Advisor_Output": [["Recommendation", "Confidence", "Reasons", "Timestamp"]],
             "Signals": [["Action", "Symbol", "Price", "Confidence", "Reasons", "Timestamp"]],
-            "Bot_Control": [["Parameter", "Value"], ["status", "running"], ["mode", "EMERGENCY"]],
+            "Bot_Control": [["Parameter", "Value"], ["status", "running"], ["mode", "EMERGENCY"], ["last_updated", "never"]],
             "Price_Data": [["Symbol", "Price", "Volume", "Change", "Timestamp"]],
             "Trade_Log": [["Date", "Instrument", "Action", "Quantity", "Entry", "Exit", "P/L"]]
         }

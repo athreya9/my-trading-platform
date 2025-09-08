@@ -20,8 +20,15 @@ from api import config
 import feedparser
 
 # --- Logging Configuration ---
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', stream=sys.stdout)
+# Use a custom formatter to ensure all log times are in UTC for consistency
+formatter = logging.Formatter('%(asctime)s UTC - %(levelname)s - %(message)s')
+formatter.converter = time.gmtime  # Use UTC for asctime
+
 logger = logging.getLogger(__name__)
+handler = logging.StreamHandler(sys.stdout)
+handler.setFormatter(formatter)
+logger.addHandler(handler)
+logger.setLevel(logging.INFO)
 
 # --- Sheet & Symbol Configuration ---
 SHEET_NAME = "Algo Trading Dashboard" # The name of your Google Sheet
@@ -151,7 +158,7 @@ def check_bot_status(spreadsheet):
         # Read the status from cell A2
         status = worksheet.acell('A2').value
         logger.info(f"Bot status from sheet: '{status}'")
-        if status and status.strip().lower() == 'running':
+        if status and status.strip().strip('.').lower() == 'running':
             return True
         else:
             logger.warning(f"Bot status is '{status}'. Halting execution as per Bot_Control sheet.")
@@ -302,9 +309,44 @@ def run_data_collection(kite, instrument_map):
     combined_df_15m = pd.concat(data_frames["15m"], ignore_index=True) if data_frames["15m"] else pd.DataFrame()
     combined_df_30m = pd.concat(data_frames["30m"], ignore_index=True) if data_frames["30m"] else pd.DataFrame()
     combined_df_1h = pd.concat(data_frames["1h"], ignore_index=True) if data_frames["1h"] else pd.DataFrame()
+
+    # --- NEW: Fetch LIVE data and merge it to prevent using stale historical data ---
+    logger.info("Fetching live quote data to merge with historical data...")
     
-    logger.info(f"Fetched {len(combined_df_15m)} rows (15m), {len(combined_df_30m)} rows (30m), {len(combined_df_1h)} rows (1h).")
-    
+    # Create a list of Kite-formatted instrument names for the quote API
+    kite_symbols_for_quote = [f"NSE:{YFINANCE_TO_KITE_MAP.get(s, s.replace('.NS', ''))}" for s in config.SYMBOLS]
+
+    if not kite_symbols_for_quote:
+        logger.warning("No symbols to fetch live quotes for.")
+    else:
+        try:
+            live_quotes = kite.quote(kite_symbols_for_quote)
+
+            # Create a reverse map from Kite API symbol back to our internal symbol
+            kite_to_internal_map = {f"NSE:{YFINANCE_TO_KITE_MAP.get(s, s.replace('.NS', ''))}": s for s in config.SYMBOLS}
+
+            # Update the last row of each instrument in the dataframes with live data
+            for df in [combined_df_15m, combined_df_30m, combined_df_1h]:
+                if df.empty: continue
+                
+                last_indices = df.groupby('instrument').tail(1).index
+                for idx in last_indices:
+                    internal_symbol = df.loc[idx, 'instrument']
+                    kite_api_symbol = next((k for k, v in kite_to_internal_map.items() if v == internal_symbol), None)
+                    
+                    if kite_api_symbol and kite_api_symbol in live_quotes:
+                        quote = live_quotes[kite_api_symbol]
+                        ltp = quote['last_price']
+                        
+                        df.loc[idx, 'close'] = ltp
+                        df.loc[idx, 'high'] = max(df.loc[idx, 'high'], ltp)
+                        df.loc[idx, 'low'] = min(df.loc[idx, 'low'], ltp)
+                        df.loc[idx, 'timestamp'] = datetime.now(pytz.timezone('Asia/Kolkata'))
+            logger.info("Successfully merged live quote data into historical dataframes.")
+        except Exception as e:
+            logger.error(f"Could not fetch or merge live quotes: {e}")
+
+    logger.info(f"Processed {len(combined_df_15m)} rows (15m), {len(combined_df_30m)} rows (30m), {len(combined_df_1h)} rows (1h).")
     return {"15m": combined_df_15m, "30m": combined_df_30m, "1h": combined_df_1h}
 
 def calculate_indicators(price_df):
@@ -945,7 +987,7 @@ def write_to_sheets(spreadsheet, price_df, signals_df):
     # --- NEW: Update Bot Control Timestamp ---
     try:
         timestamp_str = datetime.now(pytz.timezone('Asia/Kolkata')).strftime('%Y-%m-%d %H:%M:%S IST')
-        bot_control_worksheet.update_acell('B2', timestamp_str)
+        bot_control_worksheet.update_acell('B4', timestamp_str) # Update the correct cell for the timestamp
         logger.info("Successfully updated 'last_updated' timestamp in Bot_Control sheet.")
     except Exception as e:
         logger.warning(f"Could not update Bot_Control timestamp: {e}")

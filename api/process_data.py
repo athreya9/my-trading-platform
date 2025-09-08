@@ -15,6 +15,7 @@ from functools import wraps, lru_cache
 import os
 from dotenv import load_dotenv
 
+
 # Load environment variables from .env file for local development.
 # This will not override environment variables set in the GitHub Actions runner.
 load_dotenv()
@@ -23,6 +24,7 @@ import logging
 import re
 import sys
 from api import config
+import requests
 import feedparser
 
 # --- Logging Configuration ---
@@ -1033,6 +1035,33 @@ def generate_advisor_output(signal):
     advisor_data = [recommendation, confidence_str, reasons, timestamp_str]
     return advisor_data
 
+@retry(logger=logger)
+def send_telegram_notification(message):
+    """Sends a message to a Telegram chat using a bot, with Markdown formatting."""
+    logger.info("Attempting to send Telegram notification...")
+    bot_token = os.getenv('TELEGRAM_BOT_TOKEN')
+    chat_id = os.getenv('TELEGRAM_CHAT_ID')
+
+    if not bot_token or not chat_id:
+        logger.warning("TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID not set. Skipping notification.")
+        return
+
+    url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+    payload = {
+        'chat_id': chat_id,
+        'text': message,
+        'parse_mode': 'Markdown' # Use Markdown for bold, italics, etc.
+    }
+
+    try:
+        response = requests.post(url, json=payload, timeout=10)
+        response.raise_for_status() # Raises an exception for 4xx/5xx status codes
+        logger.info("Telegram notification sent successfully.")
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Failed to send Telegram notification: {e}")
+        # The @retry decorator will handle re-attempts on failure.
+        raise
+
 @retry()
 def write_to_sheets(spreadsheet, price_df, signals_df):
     """Writes price data, signals, and the final advice to their respective sheets."""
@@ -1098,11 +1127,30 @@ def write_to_sheets(spreadsheet, price_df, signals_df):
         logger.info("Appending top opportunity to Advisor_Output sheet...")
         advisor_worksheet.append_row(values=advisor_data, value_input_option='USER_ENTERED')
         logger.info("Advisor output written successfully.")
+
+        # --- NEW: Send Telegram Notification for the top signal ---
+        # advisor_data is a list: [recommendation, confidence_str, reasons, timestamp_str]
+        notification_message = (
+            f"📈 *New Trading Signal*\n\n"
+            f"*Action:* {advisor_data[0]}\n"
+            f"*Confidence:* {advisor_data[1]}\n"
+            f"*Reason:* {advisor_data[2]}\n\n"
+            f"_{advisor_data[3]} UTC_"
+        )
+        send_telegram_notification(notification_message)
     else:
         logger.info("No signals to generate advice. Clearing and updating Advisor_Output sheet with status.")
         # Append a "no signal" status row
         no_signal_row = ["No high-confidence signals found.", "0%", "Market conditions not met.", datetime.now().strftime("%Y-%m-%d %H:%M:%S")]
         advisor_worksheet.append_row(values=no_signal_row, value_input_option='USER_ENTERED')
+
+        # --- NEW: Send a status update to Telegram if no signal is found ---
+        # This only runs on the first 15 minutes of the hour to avoid spam.
+        if datetime.now().minute < 15:
+            notification_message = (
+                f"✅ *Bot Status Update*\n\nNo new high-confidence signals were found that met all criteria."
+            )
+            send_telegram_notification(notification_message)
 
     # --- NEW: Update Bot Control Timestamp ---
     try:

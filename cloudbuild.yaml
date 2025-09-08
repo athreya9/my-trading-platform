@@ -1,0 +1,47 @@
+# cloudbuild.yaml - place this file in the root of your 'my-trading-platform' directory
+steps:
+# Step 1: Build the Docker image for your application.
+# This uses the Dockerfile in your project's root directory.
+- name: 'gcr.io/cloud-builders/docker'
+  id: 'Build'
+  args: [
+    'build',
+    '-t',
+    # The image will be tagged with the format: LOCATION-docker.pkg.dev/PROJECT_ID/REPOSITORY/IMAGE_NAME:COMMIT_SHA
+    # Cloud Build automatically substitutes $PROJECT_ID and $COMMIT_SHA.
+    # TODO: Replace 'us-central1' and 'my-trading-repo' with your Artifact Registry details if they are different.
+    'us-central1-docker.pkg.dev/$PROJECT_ID/my-trading-repo/my-trading-platform-image:$COMMIT_SHA',
+    '.'
+  ]
+
+# Step 2: Push the Docker image to Google Artifact Registry.
+# This makes the image available for deployment.
+- name: 'gcr.io/cloud-builders/docker'
+  id: 'Push'
+  args: [
+    'push',
+    # The image path must exactly match the one from the 'Build' step.
+    'us-central1-docker.pkg.dev/$PROJECT_ID/my-trading-repo/my-trading-platform-image:$COMMIT_SHA'
+  ]
+
+# --- OPTIONAL DEPLOYMENT STEP ---
+# Step 3: Deploy the container to Cloud Run to make it a live service.
+# Uncomment the following lines to enable automatic deployment after a successful build.
+#
+# - name: 'gcr.io/google-cloud-builders/gcloud'
+#   id: 'Deploy to Cloud Run'
+#   args: [
+#     'run',
+#     'deploy',
+#     'my-trading-platform-service', # Choose a name for your Cloud Run service.
+#     '--image', 'us-central1-docker.pkg.dev/$PROJECT_ID/my-trading-repo/my-trading-platform-image:$COMMIT_SHA',
+#     '--region', 'us-central1', # TODO: Set this to your preferred Google Cloud region.
+#     '--platform', 'managed',
+#     '--allow-unauthenticated' # Allows public access. Remove for a private service.
+#     # To pass secrets to your application (like API keys), you would add --set-secrets flags here.
+#     # Example: '--set-secrets=KITE_API_KEY=my-kite-api-key:latest'
+#   ]
+
+# This section lists the images that were built and pushed.
+images:
+- 'us-central1-docker.pkg.dev/$PROJECT_ID/my-trading-repo/my-trading-platform-image:$COMMIT_SHA'

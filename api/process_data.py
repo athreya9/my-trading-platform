@@ -9,9 +9,6 @@ import pandas_ta as ta
 import numpy as np
 import os
 import json
-# COMMENT THIS OUT FOR NOW:
-# from transformers import pipeline
-import torch
 import time
 from datetime import datetime, timedelta
 import pytz
@@ -19,6 +16,8 @@ from functools import wraps, lru_cache
 import logging
 import re
 import sys
+from api import config
+import feedparser
 
 # --- Logging Configuration ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', stream=sys.stdout)
@@ -29,24 +28,7 @@ SHEET_NAME = "Algo Trading Dashboard" # The name of your Google Sheet
 DATA_WORKSHEET_NAME = "Price_Data"
 SIGNALS_WORKSHEET_NAME = "Signals"
 
-# Data collection settings
-# REDUCED FOR CREDIT EMERGENCY
-WATCHLIST_SYMBOLS = [
-    'RELIANCE.NS',    # Your focus stock
-    'HDFCBANK.NS',    # One banking stock
-    # 'TCS.NS',
-    # 'INFY.NS',
-    # 'ICICIBANK.NS',
-    # 'BHARTIARTL.NS'
-]
-MARKET_BREADTH_SYMBOLS = {
-    # "VIX": "^INDIAVIX",
-    # "NIFTY_IT": "^CNXIT",
-    # "NIFTY_BANK": "^NSEBANK",
-    # "NIFTY_AUTO": "^CNXAUTO"
-}
-# Combine the main index (^NSEI), watchlist, and market breadth symbols
-SYMBOLS = ['^NSEI'] + WATCHLIST_SYMBOLS + list(MARKET_BREADTH_SYMBOLS.values())
+# Data collection settings are now imported from config.py
 
 # Signal generation settings
 SIGNAL_HEADERS = ['timestamp', 'instrument', 'option_type', 'strike_price', 'underlying_price', 'stop_loss', 'take_profit', 'position_size', 'reason', 'sentiment_score', 'kelly_pct', 'win_rate_p', 'win_loss_ratio_b', 'quality_score']
@@ -55,6 +37,8 @@ SIGNAL_HEADERS = ['timestamp', 'instrument', 'option_type', 'strike_price', 'und
 ATR_PERIOD = 14
 STOP_LOSS_MULTIPLIER = 2.0  # e.g., 2 * ATR below entry price
 TAKE_PROFIT_MULTIPLIER = 4.0 # e.g., 4 * ATR above entry price (for a 1:2 risk/reward ratio)
+MAX_RISK_PER_TRADE = 0.01  # Golden Rule: 1% of capital
+ACCOUNT_SIZE = 100000.0 # Example account size
 
 # Microstructure settings
 REALIZED_VOL_WINDOW = 20 # e.g., 20 periods for volatility calculation
@@ -68,8 +52,7 @@ VIX_THRESHOLD = 20 # VIX level above which market is considered fearful/volatile
 SWING_POINT_LOOKBACK = 1
 
 # NLP Sentiment Analysis settings
-NLP_MODEL_NAME = "ProsusAI/finbert"
-SENTIMENT_THRESHOLD = 0.1 # Minimum positive/negative sentiment score to influence a signal
+SENTIMENT_THRESHOLD = 0 # Keyword score must be positive to be considered.
 
 # --- Kite Connect to yfinance Symbol Mapping ---
 # This helps translate yfinance index names to Kite's trading symbols
@@ -159,6 +142,24 @@ def read_trade_log(spreadsheet):
         logger.warning(f"Could not read trade log: {e}")
         return pd.DataFrame()
 
+@retry()
+def check_bot_status(spreadsheet):
+    """Checks the 'Bot_Control' tab for a 'running' status."""
+    logger.info("Checking bot operational status...")
+    try:
+        worksheet = spreadsheet.worksheet("Bot_Control")
+        # Read the status from cell A2
+        status = worksheet.acell('A2').value
+        logger.info(f"Bot status from sheet: '{status}'")
+        if status and status.strip().lower() == 'running':
+            return True
+        else:
+            logger.warning(f"Bot status is '{status}'. Halting execution as per Bot_Control sheet.")
+            return False
+    except Exception as e:
+        logger.error(f"Could not read bot status: {e}. Halting for safety.")
+        return False
+
 def calculate_kelly_criterion(trades_df):
     """Calculates the Kelly Criterion percentage, win rate, and win/loss ratio."""
     if trades_df.empty or len(trades_df) < 20:
@@ -212,20 +213,10 @@ def connect_to_google_sheets():
 def connect_to_kite():
     """Initializes the Kite Connect client using credentials from environment variables."""
     logger.info("Attempting to authenticate with Kite Connect...")
-    
-    # Get credentials from environment variables
-    api_key = os.getenv('KITE_API_KEY', '').strip()
-    access_token = os.getenv('KITE_ACCESS_TOKEN', '').strip()
-    
-    # DEBUG: Print what we actually received
-    print(f"DEBUG - API Key: '{api_key}'")
-    print(f"DEBUG - Access Token: '{access_token}'")
-    print(f"DEBUG - API Key length: {len(api_key)}")
-    print(f"DEBUG - Access Token length: {len(access_token)}")
-    
+    api_key = os.getenv('KITE_API_KEY', '').strip().strip('"\'')
+    access_token = os.getenv('KITE_ACCESS_TOKEN', '').strip().strip('"\'')
     if not api_key or not access_token:
         raise ValueError("KITE_API_KEY or KITE_ACCESS_TOKEN environment variables not found.")
-
     try:
         kite = KiteConnect(api_key=api_key)
         kite.set_access_token(access_token)
@@ -279,7 +270,7 @@ def run_data_collection(kite, instrument_map):
     data_frames = {"15m": []}
     to_date = datetime.now()
     
-    for symbol in SYMBOLS:
+    for symbol in config.SYMBOLS:
         # Translate yfinance symbol to Kite tradingsymbol
         kite_symbol = YFINANCE_TO_KITE_MAP.get(symbol, symbol.replace('.NS', ''))
         instrument_token = instrument_map.get(kite_symbol)
@@ -460,10 +451,19 @@ def calculate_confidence_score(signal, latest_15m):
     # Base score on the quality of the price action pattern
     score += signal.get('quality_score', 1) * 20  # Max 60 for a high-quality pattern
     if latest_15m.get('RSI_14', 50) < 65: score += 15 # Reward signals that are not overbought
-    # Sentiment score is removed for now
-    # if signal.get('sentiment_score', 0) > 0.1: score += 25
+    if signal.get('sentiment_score', 0) > 0: score += 25 # Reward signals with positive news sentiment
     return min(100, int(score)) # Return an integer score capped at 100
 
+def calculate_current_drawdown(trade_log_df, account_size):
+    """Calculates the current drawdown from the peak portfolio value."""
+    if trade_log_df.empty:
+        return 0.0
+    
+    equity_curve = account_size + trade_log_df['profit'].cumsum()
+    peak = equity_curve.cummax()
+    drawdown = (equity_curve - peak) / peak
+    
+    return drawdown.iloc[-1] if not drawdown.empty else 0.0
 
 @retry()
 def get_news_sentiment(instrument, analyzer):
@@ -471,6 +471,43 @@ def get_news_sentiment(instrument, analyzer):
     # If sentiment analysis is disabled (analyzer is None), return neutral score immediately.
     logger.info("Sentiment analysis is disabled. Skipping news fetch.")
     return 0.0
+
+def fetch_news_from_rss(ticker):
+    """Fetches news headlines from a Google News RSS feed."""
+    # Sanitize ticker for URL and create a search query
+    query = ticker.replace('.NS', '') + " stock"
+    url = f"https://news.google.com/rss/search?q={query}&hl=en-IN&gl=IN&ceid=IN:en"
+    
+    try:
+        feed = feedparser.parse(url)
+        # Get top 10 headlines for a good sample size
+        headlines = [entry.title for entry in feed.entries[:10]]
+        return headlines
+    except Exception as e:
+        logger.warning(f"Failed to fetch RSS feed for {ticker}: {e}")
+        return []
+
+def analyze_sentiment(ticker):
+    """Safe sentiment analysis without huge AI models"""
+    try:
+        news_headlines = fetch_news_from_rss(ticker)
+        if not news_headlines:
+            return 0
+            
+        sentiment_score = 0
+        positive_words = ['profit', 'growth', 'deal', 'expansion', 'beat', 'record', 'hike', 'strong', 'upgrade', 'buy']
+        negative_words = ['loss', 'decline', 'cut', 'miss', 'investigation', 'probe', 'fall', 'weak', 'downgrade', 'sell']
+        
+        for headline in news_headlines:
+            headline_lower = headline.lower()
+            if any(word in headline_lower for word in positive_words): sentiment_score += 1
+            elif any(word in headline_lower for word in negative_words): sentiment_score -= 1
+        
+        logger.info(f"Keyword sentiment score for {ticker}: {sentiment_score}")
+        return sentiment_score
+    except Exception as e:
+        logger.warning(f"Sentiment analysis failed for {ticker}: {e}")
+        return 0  # Neutral on failure
 
 def analyze_market_internals(price_data_dict):
     """
@@ -492,7 +529,7 @@ def analyze_market_internals(price_data_dict):
         return market_context
 
     # 1. Analyze VIX
-    vix_symbol = MARKET_BREADTH_SYMBOLS.get("VIX")
+    vix_symbol = config.MARKET_BREADTH_SYMBOLS.get("VIX")
     if vix_symbol:
         vix_data = df_1h[df_1h['instrument'] == vix_symbol].copy()
         if not vix_data.empty:
@@ -505,7 +542,7 @@ def analyze_market_internals(price_data_dict):
 
     # 2. Analyze Sector Performance (e.g., find the strongest sector over the last 5 periods)
     sector_performance = {}
-    for name, symbol in MARKET_BREADTH_SYMBOLS.items():
+    for name, symbol in config.MARKET_BREADTH_SYMBOLS.items():
         if "NIFTY" in name: # Only check sectors, not VIX
             sector_data = df_1h[df_1h['instrument'] == symbol]
             if len(sector_data) >= 5:
@@ -532,12 +569,17 @@ def analyze_market_internals(price_data_dict):
 
     return market_context
 
-def generate_signals(price_data_dict, manual_controls_df, trade_log_df, sentiment_analyzer, market_context):
+def generate_signals(price_data_dict, manual_controls_df, trade_log_df, market_context, economic_events):
     """Generates trading signals for all instruments, applying a suite of validation and risk rules."""
     logger.info("Generating signals with advanced rule validation...")
     
     # --- Setup & Market Context Filter ---
     kelly_pct, win_rate, win_loss_ratio = calculate_kelly_criterion(trade_log_df)
+    current_drawdown = calculate_current_drawdown(trade_log_df, ACCOUNT_SIZE)
+    logger.info(f"Current portfolio drawdown: {current_drawdown:.2%}")
+    if current_drawdown <= -0.05:
+        logger.warning(f"Risk appetite check FAILED. Current drawdown ({current_drawdown:.2%}) exceeds -5% threshold. No new trades will be opened.")
+
     all_potential_signals = []
     price_df_15m = price_data_dict['15m']
     price_df_1h = price_data_dict['1h']
@@ -547,6 +589,10 @@ def generate_signals(price_data_dict, manual_controls_df, trade_log_df, sentimen
         logger.info(f"Market Context Alert: VIX is above {VIX_THRESHOLD}. Avoiding new aggressive long positions.")
     if market_context.get('sentiment') == 'BEARISH':
         logger.info("Market Context Alert: Overall market trend is Bearish. Long signals will be suppressed.")
+    
+    is_high_impact_event_today = any(event.get('impact') == 'high' for event in economic_events)
+    if is_high_impact_event_today:
+        logger.warning("High-impact economic event scheduled today. Trading will be more conservative.")
 
     # --- Iterate over each instrument's 15-minute data ---
     for instrument, group_15m in price_df_15m.groupby('instrument'):
@@ -559,7 +605,7 @@ def generate_signals(price_data_dict, manual_controls_df, trade_log_df, sentimen
         instrument_signals = []
 
         # Skip signal generation for the market internal instruments themselves
-        if instrument in MARKET_BREADTH_SYMBOLS.values():
+        if instrument in config.MARKET_BREADTH_SYMBOLS.values():
             continue
 
         latest_15m = group_15m.iloc[-1]
@@ -602,62 +648,66 @@ def generate_signals(price_data_dict, manual_controls_df, trade_log_df, sentimen
             is_1h_bullish = latest_1h['SMA_20'] > latest_1h['SMA_50']
 
         # --- Automated Signal Logic (with new rules) ---
-        sentiment_score = get_news_sentiment(instrument, sentiment_analyzer)
+        sentiment_score = analyze_sentiment(instrument)
         signal_generated = False
         reasons = []
 
         # --- BUY (CALL) Signal Conditions ---
         is_15m_bullish = latest_15m['SMA_20'] > latest_15m['SMA_50'] and latest_15m['RSI_14'] < 70
         volume_confirmed = latest_15m['volume'] > latest_15m['volume_avg_20']
+        if is_high_impact_event_today:
+            logger.info(f"Skipping signal generation for {instrument} due to scheduled high-impact economic event.")
+            continue
 
         # --- New VWAP Filter ---
         price_above_vwap = latest_15m['close'] > latest_15m['vwap']
 
-        if not signal_generated and is_15m_bullish and is_1h_bullish and volume_confirmed and price_above_vwap and sentiment_score > SENTIMENT_THRESHOLD:
-            # CONTEXT CHECK: Do not open long positions if VIX is too high or market is bearish
-            if market_context.get('is_vix_high', False) or market_context.get('sentiment') == 'BEARISH':
-                logger.info(f"Skipping BUY for {instrument}: Market context is unfavorable (High VIX or Bearish Trend).")
-                continue
-
-            option_type = "CALL"
-            reasons.append("15m/1h Bullish Trend")
-            reasons.append("Volume Confirmation")
-            reasons.append("Price > VWAP")
-            reasons.append("Positive Sentiment")
+        if not signal_generated and is_15m_bullish and is_1h_bullish and price_above_vwap:
+            reasons = ["📈 Bullish Trend (15m & 1h)"]
             
-            atr_val = latest_15m[f'ATRr_{ATR_PERIOD}']
-            entry_price = latest_15m['close']
-            stop_loss = entry_price - (atr_val * STOP_LOSS_MULTIPLIER)
-            take_profit = entry_price + (atr_val * TAKE_PROFIT_MULTIPLIER)
+            # --- Start Safety Checks ---
+            confidence_score = calculate_confidence_score({'quality_score': 1, 'sentiment_score': sentiment_score}, latest_15m)
+            
+            if confidence_score > 70:
+                reasons.append("✅ High Confidence Score")
+            if market_context.get('sentiment') == 'BULLISH':
+                reasons.append("✅ Bullish Market Context")
+            if not market_context.get('is_vix_high', False):
+                reasons.append("✅ Low Volatility (VIX)")
+            if volume_confirmed:
+                reasons.append("🔥 High Volume Confirmation")
+            if sentiment_score >= SENTIMENT_THRESHOLD:
+                reasons.append("📰 Positive News Sentiment")
+            if latest_15m['RSI_14'] < 70:
+                reasons.append("📉 RSI Not Overbought")
+            if current_drawdown > -0.05:
+                reasons.append("💰 Healthy Portfolio (Low Drawdown)")
 
-            # --- Per-Trade Risk & Position Sizing ---
-            account_size = 100000 # Example account size
-            risk_per_trade_pct = 0.01 # 1% risk
-            risk_per_share = entry_price - stop_loss
-            if risk_per_share <= 0:
-                continue # Avoid division by zero
-            position_size = (account_size * risk_per_trade_pct) / risk_per_share
+            # Only proceed if we have enough confirmations (e.g., > 4 reasons)
+            if len(reasons) > 4:
+                option_type = "CALL"
+                
+                atr_val = latest_15m[f'ATRr_{ATR_PERIOD}']
+                entry_price = latest_15m['close']
+                stop_loss = entry_price - (atr_val * STOP_LOSS_MULTIPLIER)
+                take_profit = entry_price + (atr_val * TAKE_PROFIT_MULTIPLIER)
+                position_size = (ACCOUNT_SIZE * MAX_RISK_PER_TRADE) / (entry_price - stop_loss) if (entry_price - stop_loss) > 0 else 0
 
-            instrument_signals.append({
-                'option_type': option_type,
-                'strike_price': get_atm_strike(entry_price, instrument),
-                'underlying_price': entry_price,
-                'stop_loss': stop_loss,
-                'take_profit': take_profit,
-                'position_size': round(position_size),
-                'reason': ", ".join(reasons),
-                'sentiment_score': sentiment_score,
-                'win_rate_p': win_rate,
-                'win_loss_ratio_b': win_loss_ratio,
-                'kelly_pct': kelly_pct,
-                'quality_score': 1 # Base quality score for trend signal
-            })
-            signal_generated = True
+                instrument_signals.append({
+                    'option_type': option_type, 'strike_price': get_atm_strike(entry_price, instrument),
+                    'underlying_price': entry_price, 'stop_loss': stop_loss, 'take_profit': take_profit,
+                    'position_size': round(position_size),
+                    'reason': ", ".join(reasons),
+                    'sentiment_score': sentiment_score,
+                    'win_rate_p': win_rate,
+                    'win_loss_ratio_b': win_loss_ratio,
+                    'kelly_pct': kelly_pct,
+                    'quality_score': 1
+                })
+                signal_generated = True
 
         # --- NEW: Price Action (FVG + CHoCH) Signal Logic ---
         if not signal_generated and is_1h_bullish:
-            # Look for a reaction to a recent Bullish FVG
-            # Condition: Price dipped into a recent FVG and is now moving out of it.
             reacted_to_fvg = False
             recent_fvgs = group_15m[~group_15m['fvg_bull_bottom'].isna()].tail(3)
             if not recent_fvgs.empty:
@@ -665,45 +715,47 @@ def generate_signals(price_data_dict, manual_controls_df, trade_log_df, sentimen
                 prev_low = group_15m['low'].iloc[-2]
                 if prev_low <= last_fvg['fvg_bull_top'] and latest_15m['close'] > last_fvg['fvg_bull_bottom']:
                     reacted_to_fvg = True
-                    reasons.append(f"Reacted to Bullish FVG @ {last_fvg['fvg_bull_bottom']:.2f}")
 
             # Check for a recent bullish Change of Character (CHoCH)
             bullish_choch_occured = (group_15m['choch'].tail(3) == 1).any()
 
             if reacted_to_fvg and bullish_choch_occured:
-                # CONTEXT CHECK: Do not open long positions if VIX is too high or market is bearish
-                if market_context.get('is_vix_high', False) or market_context.get('sentiment') == 'BEARISH':
-                    logger.info(f"Skipping FVG+CHoCH BUY for {instrument}: Market context is unfavorable.")
-                    continue
+                reasons = ["🎯 Price Action: FVG + CHoCH"]
+                confidence_score = calculate_confidence_score({'quality_score': 3, 'sentiment_score': sentiment_score}, latest_15m)
 
-                option_type = "CALL"
-                reasons.append("1h Bullish Trend")
-                reasons.append("Bullish CHoCH after FVG pullback")
+                if confidence_score > 70:
+                    reasons.append("✅ High Confidence Score")
+                if market_context.get('sentiment') == 'BULLISH':
+                    reasons.append("✅ Bullish Market Context")
+                if not market_context.get('is_vix_high', False):
+                    reasons.append("✅ Low Volatility (VIX)")
+                if sentiment_score >= SENTIMENT_THRESHOLD:
+                    reasons.append("📰 Positive News Sentiment")
+                if latest_15m['RSI_14'] < 70:
+                    reasons.append("📉 RSI Not Overbought")
+                if current_drawdown > -0.05:
+                    reasons.append("💰 Healthy Portfolio (Low Drawdown)")
 
-                atr_val = latest_15m[f'ATRr_{ATR_PERIOD}']
-                entry_price = latest_15m['close']
-                stop_loss = entry_price - (atr_val * STOP_LOSS_MULTIPLIER)
-                take_profit = entry_price + (atr_val * TAKE_PROFIT_MULTIPLIER)
-                position_size = 10 # Simplified for now
+                if len(reasons) > 4:
+                    option_type = "CALL"
+                    atr_val = latest_15m[f'ATRr_{ATR_PERIOD}']
+                    entry_price = latest_15m['close']
+                    stop_loss = entry_price - (atr_val * STOP_LOSS_MULTIPLIER)
+                    take_profit = entry_price + (atr_val * TAKE_PROFIT_MULTIPLIER)
+                    position_size = (ACCOUNT_SIZE * MAX_RISK_PER_TRADE) / (entry_price - stop_loss) if (entry_price - stop_loss) > 0 else 0
 
-                instrument_signals.append({
-                    'option_type': option_type,
-                    'strike_price': get_atm_strike(entry_price, instrument),
-                    'underlying_price': entry_price,
-                    'stop_loss': stop_loss,
-                    'take_profit': take_profit,
-                    'position_size': round(position_size),
-                    'reason': ", ".join(reasons),
-                    'sentiment_score': sentiment_score,
-                    'win_rate_p': win_rate,
-                    'win_loss_ratio_b': win_loss_ratio,
-                    'kelly_pct': kelly_pct,
-                    'quality_score': 3 # High quality score for FVG+CHoCH pattern
-                })
+                    instrument_signals.append({
+                        'option_type': option_type, 'strike_price': get_atm_strike(entry_price, instrument), 'underlying_price': entry_price,
+                        'stop_loss': stop_loss, 'take_profit': take_profit,
+                        'position_size': round(position_size), 'reason': ", ".join(reasons),
+                        'sentiment_score': sentiment_score, 'win_rate_p': win_rate,
+                        'win_loss_ratio_b': win_loss_ratio, 'kelly_pct': kelly_pct,
+                        'quality_score': 3
+                    })
+                    signal_generated = True
 
         # --- NEW: Order Block Entry Signal Logic ---
         if not signal_generated and is_1h_bullish:
-            # Check if price has recently entered a bullish order block zone
             last_ob_top = latest_15m.get('last_bull_ob_top')
             last_ob_bottom = latest_15m.get('last_bull_ob_bottom')
 
@@ -715,39 +767,39 @@ def generate_signals(price_data_dict, manual_controls_df, trade_log_df, sentimen
                 exiting_ob_bullishly = latest_15m['close'] > last_ob_top
 
                 if entered_ob and exiting_ob_bullishly:
-                    # CONTEXT CHECK
-                    if market_context.get('is_vix_high', False) or market_context.get('sentiment') == 'BEARISH':
-                        logger.info(f"Skipping Order Block BUY for {instrument}: Market context is unfavorable.")
-                        continue
+                    reasons = [f"🎯 Price Action: Reclaimed Bullish OB @ {last_ob_bottom:.2f}"]
+                    confidence_score = calculate_confidence_score({'quality_score': 3, 'sentiment_score': sentiment_score}, latest_15m)
 
-                    option_type = "CALL"
-                    reasons.append("1h Bullish Trend")
-                    reasons.append(f"Reclaimed Bullish OB @ {last_ob_bottom:.2f}")
+                    if confidence_score > 70:
+                        reasons.append("✅ High Confidence Score")
+                    if market_context.get('sentiment') == 'BULLISH':
+                        reasons.append("✅ Bullish Market Context")
+                    if not market_context.get('is_vix_high', False):
+                        reasons.append("✅ Low Volatility (VIX)")
+                    if sentiment_score >= SENTIMENT_THRESHOLD:
+                        reasons.append("📰 Positive News Sentiment")
+                    if latest_15m['RSI_14'] < 70:
+                        reasons.append("📉 RSI Not Overbought")
+                    if current_drawdown > -0.05:
+                        reasons.append("💰 Healthy Portfolio (Low Drawdown)")
 
-                    entry_price = latest_15m['close']
-                    # Place stop loss just below the low of the order block for a defined risk
-                    stop_loss = last_ob_bottom
-                    
-                    if entry_price <= stop_loss: continue
+                    if len(reasons) > 4:
+                        option_type = "CALL"
+                        entry_price = latest_15m['close']
+                        stop_loss = last_ob_bottom
+                        if entry_price <= stop_loss: continue
+                        take_profit = entry_price + ((entry_price - stop_loss) * TAKE_PROFIT_MULTIPLIER)
+                        position_size = (ACCOUNT_SIZE * MAX_RISK_PER_TRADE) / (entry_price - stop_loss) if (entry_price - stop_loss) > 0 else 0
 
-                    # Calculate take profit based on a fixed risk/reward from this tight stop
-                    risk_amount = entry_price - stop_loss
-                    take_profit = entry_price + (risk_amount * TAKE_PROFIT_MULTIPLIER)
-                    
-                    # Position Sizing
-                    account_size = 100000 # Example
-                    risk_per_trade_pct = 0.01 # 1% risk
-                    position_size = (account_size * risk_per_trade_pct) / risk_amount if risk_amount > 0 else 0
-
-                    instrument_signals.append({
-                        'option_type': option_type, 'strike_price': get_atm_strike(entry_price, instrument),
-                        'underlying_price': entry_price, 'stop_loss': stop_loss, 'take_profit': take_profit,
-                        'position_size': round(position_size), 'reason': ", ".join(reasons),
-                        'sentiment_score': sentiment_score, 'win_rate_p': win_rate,
-                        'win_loss_ratio_b': win_loss_ratio, 'kelly_pct': kelly_pct,
-                        'quality_score': 3 # High quality score for Order Block pattern
-                    })
-                    signal_generated = True
+                        instrument_signals.append({
+                            'option_type': option_type, 'strike_price': get_atm_strike(entry_price, instrument), 'underlying_price': entry_price,
+                            'stop_loss': stop_loss, 'take_profit': take_profit,
+                            'position_size': round(position_size), 'reason': ", ".join(reasons),
+                            'sentiment_score': sentiment_score, 'win_rate_p': win_rate,
+                            'win_loss_ratio_b': win_loss_ratio, 'kelly_pct': kelly_pct,
+                            'quality_score': 3
+                        })
+                        signal_generated = True
 
         # --- SELL (PUT) Signal Conditions (Simplified for now) ---
         is_15m_bearish = latest_15m['SMA_20'] < latest_15m['SMA_50']
@@ -767,17 +819,10 @@ def generate_signals(price_data_dict, manual_controls_df, trade_log_df, sentimen
         
     # --- New Code: Filter and Rank Signals ---
     high_confidence_trades = []
-
     for signal in all_potential_signals:
         signal['risk_reward_ratio'] = calculate_risk_reward_ratio(signal['underlying_price'], signal['stop_loss'], signal['take_profit'])
         signal['confidence_score'] = calculate_confidence_score(signal, price_df_15m[price_df_15m['instrument'] == signal['instrument']].iloc[-1])
-
-        # THE FILTER: Only add trades that pass all checks
-        if (signal['confidence_score'] >= 75 and 
-            signal['risk_reward_ratio'] >= 1.5 and 
-            market_context['sentiment'] == "BULLISH"):
-
-            high_confidence_trades.append(signal)
+        high_confidence_trades.append(signal) # The safety check is now done inside the signal logic
 
     # --- Now, sort the shortlist by confidence, take the top 5 ---
     high_confidence_trades.sort(key=lambda x: x['confidence_score'], reverse=True)
@@ -794,41 +839,43 @@ def generate_signals(price_data_dict, manual_controls_df, trade_log_df, sentimen
 def generate_advisor_output(signal):
     """Formats the top signal into a single row for the Advisor_Output sheet."""
     stock_name = signal['instrument'].replace('.NS', '')
-    action = f"BUY {signal['option_type']}"
     confidence = signal.get('confidence_score', 0)
+    reasons = signal.get('reason', 'N/A') # Get the full reason string
     
-    recommendation = f"{action} {stock_name} due to {signal['reason']}"
+    recommendation = f"BUY {stock_name} ({signal['option_type']})"
     confidence_str = f"{confidence:.0f}%"
     timestamp_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
+    
     # This list directly matches the new "Advisor_Output" tab structure
-    advisor_data = [recommendation, confidence_str, timestamp_str]
+    # ["Recommendation", "Confidence", "Reasons", "Timestamp"]
+    advisor_data = [recommendation, confidence_str, reasons, timestamp_str]
     return advisor_data
-
-def get_or_create_worksheet(spreadsheet, name, rows="1000", cols="20"):
-    """Gets a worksheet by name, creating it if it doesn't exist."""
-    try:
-        return spreadsheet.worksheet(name)
-    except gspread.exceptions.WorksheetNotFound:
-        logger.info(f"Creating '{name}' worksheet.")
-        return spreadsheet.add_worksheet(title=name, rows=str(rows), cols=str(cols))
 
 @retry()
 def write_to_sheets(spreadsheet, price_df, signals_df):
     """Writes price data, signals, and the final advice to their respective sheets."""
     logger.info("--- Starting Sheet Update Process ---")
-    # Get all required worksheets, creating them if they don't exist
-    price_worksheet = get_or_create_worksheet(spreadsheet, "Price_Data")
-    signals_worksheet = get_or_create_worksheet(spreadsheet, "Signals")
-    advisor_worksheet = get_or_create_worksheet(spreadsheet, "Advisor_Output")
-    # Bot_Control is managed by the fix script, not written to here.
+    try:
+        # Get all required worksheets, assuming they exist after running the fix script.
+        price_worksheet = spreadsheet.worksheet("Price_Data")
+        signals_worksheet = spreadsheet.worksheet("Signals")
+        advisor_worksheet = spreadsheet.worksheet("Advisor_Output")
+        bot_control_worksheet = spreadsheet.worksheet("Bot_Control")
+    except gspread.exceptions.WorksheetNotFound as e:
+        logger.error(f"A required worksheet is missing: {e}. Please run emergency_fix.py to set up the sheet structure.")
+        raise
 
     # --- Write Price Data ---
     if not price_df.empty:
         logger.info(f"Preparing to write {len(price_df)} rows to 'Price_Data'...")
         # Select and rename columns to match the new sheet structure
-        price_data_to_write = price_df[['instrument', 'close', 'volume', 'timestamp']].copy()
-        price_data_to_write.rename(columns={'instrument': 'Symbol', 'close': 'Price', 'volume': 'Volume', 'timestamp': 'Timestamp'}, inplace=True)
+        price_data_to_write = price_df[['instrument', 'close', 'volume', 'open', 'timestamp']].copy()
+        price_data_to_write['Change'] = price_data_to_write['close'] - price_data_to_write['open']
+        price_data_to_write.rename(columns={'instrument': 'Symbol', 'close': 'Price', 'volume': 'Volume'}, inplace=True)
+        
+        # Reorder columns to match the sheet
+        price_data_to_write = price_data_to_write[['Symbol', 'Price', 'Volume', 'Change', 'timestamp']]
+        price_data_to_write.rename(columns={'timestamp': 'Timestamp'}, inplace=True)
         price_data_to_write['Timestamp'] = price_data_to_write['Timestamp'].dt.strftime('%Y-%m-%d %H:%M:%S')
         
         # Clear and update the sheet
@@ -845,8 +892,8 @@ def write_to_sheets(spreadsheet, price_df, signals_df):
     if not signals_df.empty:
         logger.info(f"Preparing to write {len(signals_df)} rows to 'Signals'...")
         # Select and rename columns to match the new sheet structure
-        signals_to_write = signals_df[['option_type', 'instrument', 'underlying_price', 'confidence_score', 'timestamp']].copy()
-        signals_to_write.rename(columns={'option_type': 'Action', 'instrument': 'Symbol', 'underlying_price': 'Price', 'confidence_score': 'Confidence', 'timestamp': 'Timestamp'}, inplace=True)
+        signals_to_write = signals_df[['option_type', 'instrument', 'underlying_price', 'confidence_score', 'reason', 'timestamp']].copy()
+        signals_to_write.rename(columns={'option_type': 'Action', 'instrument': 'Symbol', 'underlying_price': 'Price', 'confidence_score': 'Confidence', 'reason': 'Reasons', 'timestamp': 'Timestamp'}, inplace=True)
         signals_to_write['Timestamp'] = signals_to_write['Timestamp'].dt.strftime('%Y-%m-%d %H:%M:%S')
         
         # Clear and update the sheet
@@ -875,18 +922,33 @@ def write_to_sheets(spreadsheet, price_df, signals_df):
     else:
         logger.info("No signals to generate advice. Clearing and updating Advisor_Output sheet with status.")
         # Append a "no signal" status row
-        no_signal_row = ["No high-confidence signals found.", "N/A", datetime.now().strftime("%Y-%m-%d %H:%M:%S")]
+        no_signal_row = ["No high-confidence signals found.", "0%", "Market conditions not met.", datetime.now().strftime("%Y-%m-%d %H:%M:%S")]
         advisor_worksheet.append_row(values=no_signal_row, value_input_option='USER_ENTERED')
+
+    # --- NEW: Update Bot Control Timestamp ---
+    try:
+        timestamp_str = datetime.now(pytz.timezone('Asia/Kolkata')).strftime('%Y-%m-%d %H:%M:%S IST')
+        bot_control_worksheet.update_acell('B2', timestamp_str)
+        logger.info("Successfully updated 'last_updated' timestamp in Bot_Control sheet.")
+    except Exception as e:
+        logger.warning(f"Could not update Bot_Control timestamp: {e}")
+
     logger.info("--- Sheet Update Process Completed ---")
 
 def should_run():
     """
-    Checks if the Indian stock market is open.
-    (Mon-Fri, 9:15 AM - 3:30 PM IST)
+    Checks if the Indian stock market is open, considering weekends and holidays.
+    (Mon-Fri, 9:15 AM - 3:30 PM IST, excluding holidays from config)
     """
     ist = pytz.timezone('Asia/Kolkata')
     now = datetime.now(ist)
+    today_str = now.strftime('%Y-%m-%d')
     
+    # Check if today is a market holiday
+    if today_str in config.MARKET_HOLIDAYS:
+        logger.info(f"Market is closed today for a holiday: {today_str}")
+        return False
+
     # Check if it's a weekday (Monday=0, Sunday=6)
     if now.weekday() >= 5:
         return False
@@ -895,6 +957,21 @@ def should_run():
     market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
     
     return market_open <= now <= market_close
+
+def fetch_economic_events():
+    """
+    Fetches high-impact economic events for the day.
+    (Placeholder function - can be replaced with a real API call)
+    """
+    logger.info("Fetching economic calendar events...")
+    # In a real implementation, you would call an API here.
+    # Example: return requests.get("https://api.economiccalendar.com/events").json()
+    # For now, we return a hardcoded example for demonstration.
+    today_str = datetime.now(pytz.timezone('Asia/Kolkata')).strftime('%Y-%m-%d')
+    
+    # Example: High-impact US inflation data release at 6 PM IST.
+    example_events = [{'date': today_str, 'time': '18:00', 'currency': 'USD', 'event': 'CPI m/m', 'impact': 'high'}]
+    return example_events
 
 def main():
     """Main function that runs the entire process."""
@@ -906,22 +983,21 @@ def main():
         instrument_map = get_instrument_map(kite)
         spreadsheet = connect_to_google_sheets()
         
+        # --- NEW: Bot Control Check ---
+        # Check if the bot is enabled in the Google Sheet before proceeding.
+        if not check_bot_status(spreadsheet):
+            sys.exit(0) # Exit gracefully if bot is stopped
+
         # Step 2: Read supporting data from sheets
         manual_controls_df = read_manual_controls(spreadsheet)
 
         # Step 3: Read historical trade log to calculate performance stats
         trade_log_df = read_trade_log(spreadsheet)
         
-        # Initialize the sentiment analysis pipeline once
-        # AND comment out the sentiment analysis initialization:
-        # logger.info("Initializing sentiment analysis model (this may take a moment on first run)...")
-        # # Use GPU if available, otherwise CPU.
-        # device = 0 if torch.cuda.is_available() else -1
-        # sentiment_analyzer = pipeline("sentiment-analysis", model=NLP_MODEL_NAME, device=device)
-        # logger.info("Sentiment model initialized.")
-        sentiment_analyzer = None # Set to None to disable sentiment analysis
+        # Sentiment analysis model is no longer needed.
 
-        # Step 4: Collect new data for multiple timeframes
+        # Step 4: Collect external data (market data, events)
+        economic_events = fetch_economic_events()
         price_data_dict = run_data_collection(kite, instrument_map)
         
         # Step 5: Calculate all indicators for all instruments and timeframes
@@ -938,7 +1014,7 @@ def main():
         market_context = analyze_market_internals(price_data_dict)
         
         # Step 6: Generate signals using data, controls, performance, sentiment, and the new market context
-        signals_df = generate_signals(price_data_dict, manual_controls_df, trade_log_df, sentiment_analyzer, market_context)
+        signals_df = generate_signals(price_data_dict, manual_controls_df, trade_log_df, market_context, economic_events)
         
         # Step 7: Write both data and signals to the sheets
         write_to_sheets(spreadsheet, price_data_dict["15m"], signals_df)

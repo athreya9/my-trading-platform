@@ -1,14 +1,15 @@
 # Core Trading and Data Libraries
 pandas~=2.2.0
-pandas-ta==0.3.14b0
+pandas-ta~=0.3.14
 numpy~=1.26.0
 kiteconnect==4.0.0
 requests
 pytz
+feedparser # For lightweight news sentiment
 
 # Google Sheets Integration
 gspread~=6.0.0
 google-auth-oauthlib
 
-# Plotting
-matplotlib~=3.9.0
+# Web Server for API
+Flask~=3.0.0

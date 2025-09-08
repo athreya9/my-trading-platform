@@ -248,7 +248,7 @@ def connect_to_kite():
         return kite
     except Exception as e:
         logger.error(f"Failed to connect to Kite Connect: {e}", exc_info=True)
-        raise Exception(f"Error connecting to Kite Connect: {e}")
+        raise e
 
 @lru_cache(maxsize=1) # Cache the result to avoid repeated API calls within the same run
 def get_instrument_map(kite):

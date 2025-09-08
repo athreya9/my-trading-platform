@@ -8,7 +8,7 @@ import hashlib
 # YOUR CREDENTIALS (UPDATED WITH FRESH TOKEN)
 API_KEY = "is2u8bo7z8yjwhhr"
 API_SECRET = "lczq9vywhz57obbjwj4wgtakqaa2s609"  # ✅ Your actual secret
-REQUEST_TOKEN = "bmJHrW7CDk1yWmE5RM9XO15fS5zR9oIH"  # 🆕 FRESH TOKEN
+REQUEST_TOKEN = "YOUR_FRESH_REQUEST_TOKEN_HERE"  # 🆕 PASTE A FRESH TOKEN HERE BEFORE RUNNING
  
 def generate_checksum(api_key, request_token, api_secret):
     """Generate SHA256 checksum for Kite Connect API"""

@@ -716,7 +716,7 @@ def generate_signals(price_data_dict, manual_controls_df, trade_log_df, market_c
 
             if should_enter_trade(signal_params, market_context):
                 logger.info(f"All safety checks passed for {instrument}. Generating BUY signal.")
-                reasons = ["📈 Bullish Trend (15m, 30m, 1h)"] + [key for key, value in safety_checks.items() if value]
+                reasons = [signal_params['reason'], "Passed all safety checks"]
                 option_type = "CALL"
                 
                 atr_val = latest_15m[f'ATRr_{ATR_PERIOD}']
@@ -761,7 +761,7 @@ def generate_signals(price_data_dict, manual_controls_df, trade_log_df, market_c
                 
                 if should_enter_trade(signal_params, market_context):
                     logger.info(f"All safety checks passed for {instrument} (FVG+CHoCH). Generating BUY signal.")
-                    reasons = [signal_params['reason']] + [key for key, value in safety_checks.items() if value]
+                    reasons = [signal_params['reason'], "Passed all safety checks"]
                     option_type = "CALL"
                     atr_val = latest_15m[f'ATRr_{ATR_PERIOD}']
                     entry_price = latest_15m['close']
@@ -801,7 +801,7 @@ def generate_signals(price_data_dict, manual_controls_df, trade_log_df, market_c
 
                     if should_enter_trade(signal_params, market_context):
                         logger.info(f"All safety checks passed for {instrument} (Order Block). Generating BUY signal.")
-                        reasons = [signal_params['reason']] + [key for key, value in safety_checks.items() if value]
+                        reasons = [signal_params['reason'], "Passed all safety checks"]
                         option_type = "CALL"
                         entry_price = latest_15m['close']
                         stop_loss = last_ob_bottom

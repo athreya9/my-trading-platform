@@ -50,4 +50,4 @@ jobs:
 
       - name: Run the data processing script
         if: env.market_open == 'true' || github.event_name == 'workflow_dispatch'
-        run: python api/process_data.py
+        run: python -m api.process_data

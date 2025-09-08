@@ -104,6 +104,38 @@ def retry(tries=3, delay=5, backoff=2, logger=logger):
     return deco_retry
 
 @retry()
+def enhance_sheet_structure(sheet):
+    """Ensures all essential tabs exist in the Google Sheet with the correct headers."""
+    logger.info("Verifying and enhancing Google Sheet structure...")
+    
+    try:
+        existing_titles = [ws.title for ws in sheet.worksheets()]
+        logger.info(f"Found existing tabs: {existing_titles}")
+        
+        # --- Define ALL essential tabs and their required headers ---
+        essential_tabs = {
+            "Advisor_Output": [["Recommendation", "Confidence", "Reasons", "Timestamp"]],
+            "Signals": [["Action", "Symbol", "Price", "Confidence", "Reasons", "Timestamp"]],
+            "Bot_Control": [["Parameter", "Value"], ["status", "running"], ["mode", "EMERGENCY"], ["last_updated", "never"]],
+            "Price_Data": [["Symbol", "Price", "Volume", "Change", "Timestamp"]],
+            "Trade_Log": [["Date", "Instrument", "Action", "Quantity", "Entry", "Exit", "P/L"]]
+        }
+        
+        for tab_name, headers in essential_tabs.items():
+            if tab_name not in existing_titles:
+                logger.info(f"Tab '{tab_name}' not found. Creating it...")
+                worksheet = sheet.add_worksheet(title=tab_name, rows="1000", cols="20")
+                worksheet.update(range_name='A1', values=headers, value_input_option='USER_ENTERED')
+                logger.info(f"Created and structured '{tab_name}'.")
+            else:
+                logger.info(f"Tab '{tab_name}' already exists.")
+        
+        logger.info("Google Sheet structure is verified and up-to-date.")
+    except Exception as e:
+        logger.error(f"An error occurred during sheet structure verification: {e}", exc_info=True)
+        raise # Re-raise the exception to stop the main process
+
+@retry()
 def read_manual_controls(spreadsheet):
     """Reads manual override settings from the 'Manual Control' sheet."""
     logger.info("Reading data from 'Manual Control' sheet...")
@@ -161,9 +193,9 @@ def check_bot_status(spreadsheet):
     logger.info("Checking bot operational status...")
     try:
         worksheet = spreadsheet.worksheet("Bot_Control")
-        # Read the status from cell A2
-        status = worksheet.acell('A2').value
-        logger.info(f"Bot status from sheet: '{status}'")
+        # Read the status from cell B2, which holds the value ("running" or "stopped")
+        status = worksheet.acell('B2').value
+        logger.info(f"Bot status from sheet ('Bot_Control'!B2): '{status}'")
         if status and status.strip().strip('.').lower() == 'running':
             return True
         else:
@@ -248,7 +280,7 @@ def connect_to_kite():
         return kite
     except Exception as e:
         logger.error(f"Failed to connect to Kite Connect: {e}", exc_info=True)
-        raise e
+        raise Exception(f"Error connecting to Kite Connect: {e}")
 
 @lru_cache(maxsize=1) # Cache the result to avoid repeated API calls within the same run
 def get_instrument_map(kite):
@@ -856,7 +888,7 @@ def generate_signals(price_data_dict, manual_controls_df, trade_log_df, market_c
                 entry_price = latest_15m['close']
                 stop_loss = entry_price - (atr_val * STOP_LOSS_MULTIPLIER)
                 take_profit = entry_price + (atr_val * TAKE_PROFIT_MULTIPLIER)
-                position_size = calculate_position_size(entry_price, stop_loss)
+                position_size = calculate_position_size(entry_price, stop_loss, signal_params['confidence_score'])
 
                 instrument_signals.append({
                     'option_type': option_type, 'strike_price': get_atm_strike(entry_price, instrument),
@@ -900,7 +932,7 @@ def generate_signals(price_data_dict, manual_controls_df, trade_log_df, market_c
                     entry_price = latest_15m['close']
                     stop_loss = entry_price - (atr_val * STOP_LOSS_MULTIPLIER)
                     take_profit = entry_price + (atr_val * TAKE_PROFIT_MULTIPLIER)
-                    position_size = calculate_position_size(entry_price, stop_loss)
+                    position_size = calculate_position_size(entry_price, stop_loss, signal_params['confidence_score'])
 
                     instrument_signals.append({
                         'option_type': option_type, 'strike_price': get_atm_strike(entry_price, instrument), 'underlying_price': entry_price,
@@ -940,7 +972,7 @@ def generate_signals(price_data_dict, manual_controls_df, trade_log_df, market_c
                         stop_loss = last_ob_bottom
                         if entry_price <= stop_loss: continue
                         take_profit = entry_price + ((entry_price - stop_loss) * TAKE_PROFIT_MULTIPLIER)
-                        position_size = calculate_position_size(entry_price, stop_loss)
+                        position_size = calculate_position_size(entry_price, stop_loss, signal_params['confidence_score'])
 
                         instrument_signals.append({
                             'option_type': option_type, 'strike_price': get_atm_strike(entry_price, instrument), 'underlying_price': entry_price,
@@ -1017,22 +1049,19 @@ def write_to_sheets(spreadsheet, price_df, signals_df):
 
     # --- Write Price Data ---
     if not price_df.empty:
-        logger.info(f"Preparing to write {len(price_df)} rows to 'Price_Data'...")
-        # Select and rename columns to match the new sheet structure
-        price_data_to_write = price_df[['instrument', 'close', 'volume', 'open', 'timestamp']].copy()
-        price_data_to_write['Change'] = price_data_to_write['close'] - price_data_to_write['open']
-        price_data_to_write.rename(columns={'instrument': 'Symbol', 'close': 'Price', 'volume': 'Volume'}, inplace=True)
+        logger.info(f"Preparing to write {len(price_df)} rows to 'Price_Data' sheet...")
+        # Select and format columns for the sheet.
+        price_data_to_write = price_df[['instrument', 'timestamp', 'open', 'high', 'low', 'close', 'volume']].copy()
+        price_data_to_write.rename(columns={'instrument': 'Symbol', 'timestamp': 'Timestamp'}, inplace=True)
         
-        # Reorder columns to match the sheet
-        price_data_to_write = price_data_to_write[['Symbol', 'Price', 'Volume', 'Change', 'timestamp']]
-        price_data_to_write.rename(columns={'timestamp': 'Timestamp'}, inplace=True)
+        # Ensure timestamp is a string for writing
         price_data_to_write['Timestamp'] = price_data_to_write['Timestamp'].dt.strftime('%Y-%m-%d %H:%M:%S')
         
         # Clear and update the sheet
         logger.info("Clearing Price Data sheet...")
         price_worksheet.clear()
         logger.info("Updating Price Data sheet...")
-        price_worksheet.update(range_name='A1', values=[price_data_to_write.columns.values.tolist()] + price_data_to_write.values.tolist(), value_input_option='USER_ENTERED')
+        price_worksheet.update(range_name='A1', values=[price_data_to_write.columns.values.tolist()] + price_data_to_write.fillna('').values.tolist(), value_input_option='USER_ENTERED')
         logger.info("Price data written successfully.")
     else:
         logger.info("No price data to write. Clearing old price data from sheet.")
@@ -1141,6 +1170,9 @@ def main():
             logger.info("-----------------------------------------")
 
         spreadsheet = connect_to_google_sheets()
+        
+        # Step 1.5: Ensure Google Sheet structure is correct
+        enhance_sheet_structure(spreadsheet)
         
         # --- NEW: Bot Control Check ---
         # Check if the bot is enabled in the Google Sheet before proceeding.

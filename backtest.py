@@ -12,13 +12,16 @@ from functools import wraps
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 import sys
+from dotenv import load_dotenv
+
+# Load environment variables from .env file for local development.
+load_dotenv()
 
 # --- Configuration ---
 SHEET_NAME = "Algo Trading Dashboard"
-DATA_WORKSHEET_NAME = "Price Data"
+DATA_WORKSHEET_NAME = "Price_Data"
 TARGET_INSTRUMENT = '^NSEI'
 INITIAL_CAPITAL = 100000.0  # Starting capital for the simulation
-SERVICE_ACCOUNT_FILE = 'service_account.json' # For local execution
 
 # --- Strategy & Risk Configuration (to match process_data.py) ---
 SMA_SHORT_WINDOW = 20
@@ -69,17 +72,19 @@ def get_atm_strike(price, instrument):
 
 @retry()
 def connect_to_google_sheets():
-    """Connects to Google Sheets using credentials from a local file."""
+    """Connects to Google Sheets using credentials from an environment variable."""
     print("Attempting to authenticate with Google Sheets...")
-    if not os.path.exists(SERVICE_ACCOUNT_FILE):
-        raise FileNotFoundError(
-            f"'{SERVICE_ACCOUNT_FILE}' not found. "
-            "Please ensure your service account key file is in the same directory."
+    creds_json_str = os.getenv('GOOGLE_SHEETS_CREDENTIALS')
+    if not creds_json_str:
+        raise ValueError(
+            "GOOGLE_SHEETS_CREDENTIALS environment variable not found. "
+            "Please ensure it's set in your .env file."
         )
     try:
-        client = gspread.service_account(filename=SERVICE_ACCOUNT_FILE)
+        creds_dict = json.loads(creds_json_str)
+        client = gspread.service_account_from_dict(creds_dict)
         spreadsheet = client.open(SHEET_NAME)
-        print(f"Successfully connected to Google Sheet: '{SHEET_NAME}'")
+        print(f"Successfully connected to Google Sheet: '{spreadsheet.title}'")
         return spreadsheet
     except Exception as e:
         raise Exception(f"Error connecting to Google Sheet: {e}")
@@ -92,24 +97,25 @@ def read_price_data(spreadsheet):
         worksheet = spreadsheet.worksheet(DATA_WORKSHEET_NAME)
         records = worksheet.get_all_records() # Reads data into a list of dicts
         if not records:
-            raise ValueError("No data found in 'Price Data' tab.")
+            raise ValueError(f"No data found in '{DATA_WORKSHEET_NAME}' tab.")
         
         df = pd.DataFrame(records)
         print(f"Successfully read {len(df)} rows of historical data.")
         
         # --- Data Cleaning and Preparation ---
         # Filter for the target instrument
-        df = df[df['instrument'] == TARGET_INSTRUMENT].copy()
+        df = df[df['Symbol'] == TARGET_INSTRUMENT].copy()
         if df.empty:
             raise ValueError(f"No data found for target instrument '{TARGET_INSTRUMENT}'.")
 
         # Convert columns to correct data types
-        df['timestamp'] = pd.to_datetime(df['timestamp'])
+        df['Timestamp'] = pd.to_datetime(df['Timestamp'])
         numeric_cols = ['open', 'high', 'low', 'close', 'volume']
         for col in numeric_cols:
             # Replace empty strings with NaN and convert to numeric
             df[col] = pd.to_numeric(df[col].replace('', np.nan), errors='coerce')
         
+        df.rename(columns={'Timestamp': 'timestamp', 'Symbol': 'instrument'}, inplace=True)
         df.sort_values('timestamp', inplace=True)
         df.reset_index(drop=True, inplace=True)
         print("Data cleaned and prepared for backtesting.")

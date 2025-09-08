@@ -60,7 +60,7 @@ def main():
         password = os.environ['KITE_PASSWORD']
         totp_secret = os.environ['KITE_TOTP_SECRET']
         
-        print("--- Starting Automated Token Generation ---")
+        print("--- Starting Automated Token Generation ---", file=sys.stderr)
 
         # --- Configure Selenium WebDriver ---
         options = webdriver.ChromeOptions()
@@ -68,32 +68,32 @@ def main():
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-dev-shm-usage")
         
-        print("Setting up Chrome WebDriver...")
+        print("Setting up Chrome WebDriver...", file=sys.stderr)
         service = Service(ChromeDriverManager().install())
         driver = webdriver.Chrome(service=service, options=options)
         
         # --- Step 1: Initial Login ---
         login_url = f"https://kite.zerodha.com/connect/login?v=3&api_key={api_key}"
-        print(f"Navigating to login URL...")
+        print(f"Navigating to login URL...", file=sys.stderr)
         driver.get(login_url)
 
         wait = WebDriverWait(driver, 20)
         
         # Enter User ID and Password
-        print("Entering User ID and Password...")
+        print("Entering User ID and Password...", file=sys.stderr)
         wait.until(EC.presence_of_element_located((By.ID, "userid"))).send_keys(user_id)
         driver.find_element(By.ID, "password").send_keys(password)
         driver.find_element(By.XPATH, "//button[@type='submit']").click()
         
         # --- Step 2: Handle 2FA/TOTP ---
-        print("Generating and entering TOTP...")
+        print("Generating and entering TOTP...", file=sys.stderr)
         totp = pyotp.TOTP(totp_secret)
         totp_input = wait.until(EC.visibility_of_element_located((By.ID, "totp")))
         totp_input.send_keys(totp.now())
         driver.find_element(By.XPATH, "//button[@type='submit']").click()
 
         # --- Step 3: Capture the Request Token ---
-        print("Waiting for redirect to capture request_token...")
+        print("Waiting for redirect to capture request_token...", file=sys.stderr)
         wait.until(EC.url_contains("request_token"))
         
         redirect_url = driver.current_url
@@ -104,15 +104,15 @@ def main():
             raise Exception("Login succeeded but could not find 'request_token' in the redirect URL.")
             
         request_token = query_params['request_token'][0]
-        print(f"Successfully captured request_token.")
+        print(f"Successfully captured request_token.", file=sys.stderr)
 
         # --- Step 4: Generate the Access Token ---
-        print("Generating access_token...")
+        print("Generating access_token...", file=sys.stderr)
         access_token = generate_access_token(api_key, api_secret, request_token)
         
-        print("\n" + "="*60)
-        print("✅ SUCCESS! NEW ACCESS TOKEN GENERATED")
-        print("="*60)
+        print("\n" + "="*60, file=sys.stderr)
+        print("✅ SUCCESS! NEW ACCESS TOKEN GENERATED", file=sys.stderr)
+        print("="*60, file=sys.stderr)
         
         # Print the token to stdout so it can be captured by the GitHub Action
         print(access_token)

@@ -267,7 +267,7 @@ def fetch_historical_data(kite, instrument_token, from_date, to_date, interval, 
 
 def run_data_collection(kite, instrument_map):
     """Fetches data for all symbols and timeframes and returns a dictionary of DataFrames."""
-    data_frames = {"15m": []}
+    data_frames = {"15m": [], "30m": [], "1h": []}
     to_date = datetime.now()
     
     for symbol in config.SYMBOLS:
@@ -279,24 +279,33 @@ def run_data_collection(kite, instrument_map):
             logger.warning(f"Could not find instrument token for symbol '{symbol}' (Kite: '{kite_symbol}'). Skipping.")
             continue
 
-        # --- Fetch 15-minute data ONLY ---
+        # --- Fetch data for all required timeframes ---
         from_date_15m = to_date - timedelta(days=5)
-        # Kite interval names are different from yfinance
         df_15m = fetch_historical_data(kite, instrument_token, from_date_15m, to_date, "15minute", symbol)
         if not df_15m.empty:
             data_frames["15m"].append(df_15m)
-        # --- 1-hour data fetch is SKIPPED to save API credits ---
+
+        from_date_30m = to_date - timedelta(days=10)
+        df_30m = fetch_historical_data(kite, instrument_token, from_date_30m, to_date, "30minute", symbol)
+        if not df_30m.empty:
+            data_frames["30m"].append(df_30m)
+
+        from_date_1h = to_date - timedelta(days=60)
+        df_1h = fetch_historical_data(kite, instrument_token, from_date_1h, to_date, "60minute", symbol)
+        if not df_1h.empty:
+            data_frames["1h"].append(df_1h)
 
     if not data_frames["15m"]:
         raise Exception("No 15m data was fetched for any symbol. Halting process.")
 
     # Combine the lists of dataframes into single dataframes
     combined_df_15m = pd.concat(data_frames["15m"], ignore_index=True) if data_frames["15m"] else pd.DataFrame()
+    combined_df_30m = pd.concat(data_frames["30m"], ignore_index=True) if data_frames["30m"] else pd.DataFrame()
+    combined_df_1h = pd.concat(data_frames["1h"], ignore_index=True) if data_frames["1h"] else pd.DataFrame()
     
-    # Return 15m data and an empty DataFrame for 1h to maintain structure
-    logger.info(f"Successfully fetched {len(combined_df_15m)} rows of 15m data. SKIPPED 1h data fetch.")
+    logger.info(f"Fetched {len(combined_df_15m)} rows (15m), {len(combined_df_30m)} rows (30m), {len(combined_df_1h)} rows (1h).")
     
-    return {"15m": combined_df_15m, "1h": pd.DataFrame()}
+    return {"15m": combined_df_15m, "30m": combined_df_30m, "1h": combined_df_1h}
 
 def calculate_indicators(price_df):
     """
@@ -454,16 +463,38 @@ def calculate_confidence_score(signal, latest_15m):
     if signal.get('sentiment_score', 0) > 0: score += 25 # Reward signals with positive news sentiment
     return min(100, int(score)) # Return an integer score capped at 100
 
-def calculate_current_drawdown(trade_log_df, account_size):
-    """Calculates the current drawdown from the peak portfolio value."""
-    if trade_log_df.empty:
-        return 0.0
+def calculate_position_size(entry_price, stop_loss):
+    """
+    Calculates position size based on the Golden Rule (max 1% risk per trade).
+    """
+    risk_per_share = entry_price - stop_loss
+    if risk_per_share <= 0:
+        return 0
+
+    # Golden Rule: Never risk more than 1% of capital per trade.
+    risk_amount = ACCOUNT_SIZE * MAX_RISK_PER_TRADE
+    position_size = risk_amount / risk_per_share
+    return round(position_size)
+
+def should_enter_trade(signal_params, market_conditions):
+    """
+    Performs a series of multi-layer safety checks before entering a trade.
+    """
+    # MULTI-LAYER SAFETY CHECKS
+    checks = {
+        'confidence_is_high': signal_params.get('confidence_score', 0) > 70,
+        'market_trend_is_bullish': market_conditions.get('sentiment') == 'BULLISH',
+        'volatility_is_low': not market_conditions.get('is_vix_high', False),
+        'volume_is_confirmed': signal_params.get('volume_confirmed', False),
+        'rsi_is_not_overbought': signal_params.get('rsi', 100) < 70
+    }
     
-    equity_curve = account_size + trade_log_df['profit'].cumsum()
-    peak = equity_curve.cummax()
-    drawdown = (equity_curve - peak) / peak
-    
-    return drawdown.iloc[-1] if not drawdown.empty else 0.0
+    if not all(checks.values()):
+        failed_checks = [key for key, value in checks.items() if not value]
+        logger.info(f"Trade for {signal_params.get('instrument')} REJECTED. Failed checks: {failed_checks}")
+        return False
+        
+    return True
 
 @retry()
 def get_news_sentiment(instrument, analyzer):
@@ -575,16 +606,15 @@ def generate_signals(price_data_dict, manual_controls_df, trade_log_df, market_c
     
     # --- Setup & Market Context Filter ---
     kelly_pct, win_rate, win_loss_ratio = calculate_kelly_criterion(trade_log_df)
-    current_drawdown = calculate_current_drawdown(trade_log_df, ACCOUNT_SIZE)
-    logger.info(f"Current portfolio drawdown: {current_drawdown:.2%}")
-    if current_drawdown <= -0.05:
-        logger.warning(f"Risk appetite check FAILED. Current drawdown ({current_drawdown:.2%}) exceeds -5% threshold. No new trades will be opened.")
-
     all_potential_signals = []
     price_df_15m = price_data_dict['15m']
+    price_df_30m = price_data_dict['30m']
     price_df_1h = price_data_dict['1h']
+    if price_df_30m.empty:
+        logger.warning("30m data not available. Multi-timeframe confluence check will be skipped.")
     if price_df_1h.empty:
         logger.warning("1h data not available. Multi-timeframe confluence check will be skipped for all signals.")
+
     if market_context.get('is_vix_high', False):
         logger.info(f"Market Context Alert: VIX is above {VIX_THRESHOLD}. Avoiding new aggressive long positions.")
     if market_context.get('sentiment') == 'BEARISH':
@@ -637,15 +667,26 @@ def generate_signals(price_data_dict, manual_controls_df, trade_log_df, market_c
             continue
 
         # --- Rule 2: Multi-Timeframe Confluence ---
-        is_1h_bullish = True # Default to True, will be overridden if 1h data is available
+        # Default to True, will be set to False if any timeframe disagrees.
+        is_30m_bullish = True
+        is_1h_bullish = True
+        
+        if not price_df_30m.empty:
+            group_30m = price_df_30m[price_df_30m['instrument'] == instrument].copy().dropna(subset=['SMA_20', 'SMA_50'])
+            if not group_30m.empty:
+                is_30m_bullish = group_30m.iloc[-1]['SMA_20'] > group_30m.iloc[-1]['SMA_50']
+            else:
+                is_30m_bullish = False # Not enough data to confirm
+
         if not price_df_1h.empty:
-            group_1h = price_df_1h[price_df_1h['instrument'] == instrument].copy()
-            group_1h = group_1h.dropna(subset=['SMA_20', 'SMA_50'])
-            if group_1h.empty:
-                logger.info(f"Skipping {instrument}: Not enough 1-hour data for trend analysis.")
-                continue
-            latest_1h = group_1h.iloc[-1]
-            is_1h_bullish = latest_1h['SMA_20'] > latest_1h['SMA_50']
+            group_1h = price_df_1h[price_df_1h['instrument'] == instrument].copy().dropna(subset=['SMA_20', 'SMA_50'])
+            if not group_1h.empty:
+                is_1h_bullish = group_1h.iloc[-1]['SMA_20'] > group_1h.iloc[-1]['SMA_50']
+            else:
+                is_1h_bullish = False # Not enough data to confirm
+
+        # The final trend check: all timeframes must agree
+        all_timeframes_bullish = is_15m_bullish and is_30m_bullish and is_1h_bullish
 
         # --- Automated Signal Logic (with new rules) ---
         sentiment_score = analyze_sentiment(instrument)
@@ -662,36 +703,27 @@ def generate_signals(price_data_dict, manual_controls_df, trade_log_df, market_c
         # --- New VWAP Filter ---
         price_above_vwap = latest_15m['close'] > latest_15m['vwap']
 
-        if not signal_generated and is_15m_bullish and is_1h_bullish and price_above_vwap:
-            reasons = ["📈 Bullish Trend (15m & 1h)"]
-            
-            # --- Start Safety Checks ---
-            confidence_score = calculate_confidence_score({'quality_score': 1, 'sentiment_score': sentiment_score}, latest_15m)
-            
-            if confidence_score > 70:
-                reasons.append("✅ High Confidence Score")
-            if market_context.get('sentiment') == 'BULLISH':
-                reasons.append("✅ Bullish Market Context")
-            if not market_context.get('is_vix_high', False):
-                reasons.append("✅ Low Volatility (VIX)")
-            if volume_confirmed:
-                reasons.append("🔥 High Volume Confirmation")
-            if sentiment_score >= SENTIMENT_THRESHOLD:
-                reasons.append("📰 Positive News Sentiment")
-            if latest_15m['RSI_14'] < 70:
-                reasons.append("📉 RSI Not Overbought")
-            if current_drawdown > -0.05:
-                reasons.append("💰 Healthy Portfolio (Low Drawdown)")
+        if not signal_generated and all_timeframes_bullish and price_above_vwap:
+            signal_params = {
+                'instrument': instrument,
+                'reason': 'Bullish Trend',
+                'quality_score': 1,
+                'rsi': latest_15m['RSI_14'],
+                'volume_confirmed': latest_15m['volume'] > (latest_15m['volume_avg_20'] * 1.2), # 120% of avg volume
+                'sentiment_score': sentiment_score,
+            }
+            signal_params['confidence_score'] = calculate_confidence_score(signal_params, latest_15m)
 
-            # Only proceed if we have enough confirmations (e.g., > 4 reasons)
-            if len(reasons) > 4:
+            if should_enter_trade(signal_params, market_context):
+                logger.info(f"All safety checks passed for {instrument}. Generating BUY signal.")
+                reasons = ["📈 Bullish Trend (15m, 30m, 1h)"] + [key for key, value in safety_checks.items() if value]
                 option_type = "CALL"
                 
                 atr_val = latest_15m[f'ATRr_{ATR_PERIOD}']
                 entry_price = latest_15m['close']
                 stop_loss = entry_price - (atr_val * STOP_LOSS_MULTIPLIER)
                 take_profit = entry_price + (atr_val * TAKE_PROFIT_MULTIPLIER)
-                position_size = (ACCOUNT_SIZE * MAX_RISK_PER_TRADE) / (entry_price - stop_loss) if (entry_price - stop_loss) > 0 else 0
+                position_size = calculate_position_size(entry_price, stop_loss)
 
                 instrument_signals.append({
                     'option_type': option_type, 'strike_price': get_atm_strike(entry_price, instrument),
@@ -702,12 +734,13 @@ def generate_signals(price_data_dict, manual_controls_df, trade_log_df, market_c
                     'win_rate_p': win_rate,
                     'win_loss_ratio_b': win_loss_ratio,
                     'kelly_pct': kelly_pct,
-                    'quality_score': 1
+                    'quality_score': signal_params['quality_score'],
+                    'confidence_score': signal_params['confidence_score']
                 })
                 signal_generated = True
 
         # --- NEW: Price Action (FVG + CHoCH) Signal Logic ---
-        if not signal_generated and is_1h_bullish:
+        if not signal_generated and all_timeframes_bullish:
             reacted_to_fvg = False
             recent_fvgs = group_15m[~group_15m['fvg_bull_bottom'].isna()].tail(3)
             if not recent_fvgs.empty:
@@ -720,29 +753,21 @@ def generate_signals(price_data_dict, manual_controls_df, trade_log_df, market_c
             bullish_choch_occured = (group_15m['choch'].tail(3) == 1).any()
 
             if reacted_to_fvg and bullish_choch_occured:
-                reasons = ["🎯 Price Action: FVG + CHoCH"]
-                confidence_score = calculate_confidence_score({'quality_score': 3, 'sentiment_score': sentiment_score}, latest_15m)
-
-                if confidence_score > 70:
-                    reasons.append("✅ High Confidence Score")
-                if market_context.get('sentiment') == 'BULLISH':
-                    reasons.append("✅ Bullish Market Context")
-                if not market_context.get('is_vix_high', False):
-                    reasons.append("✅ Low Volatility (VIX)")
-                if sentiment_score >= SENTIMENT_THRESHOLD:
-                    reasons.append("📰 Positive News Sentiment")
-                if latest_15m['RSI_14'] < 70:
-                    reasons.append("📉 RSI Not Overbought")
-                if current_drawdown > -0.05:
-                    reasons.append("💰 Healthy Portfolio (Low Drawdown)")
-
-                if len(reasons) > 4:
+                signal_params = {
+                    'instrument': instrument, 'reason': 'FVG + CHoCH', 'quality_score': 3,
+                    'rsi': latest_15m['RSI_14'], 'volume_confirmed': True, 'sentiment_score': sentiment_score,
+                }
+                signal_params['confidence_score'] = calculate_confidence_score(signal_params, latest_15m)
+                
+                if should_enter_trade(signal_params, market_context):
+                    logger.info(f"All safety checks passed for {instrument} (FVG+CHoCH). Generating BUY signal.")
+                    reasons = [signal_params['reason']] + [key for key, value in safety_checks.items() if value]
                     option_type = "CALL"
                     atr_val = latest_15m[f'ATRr_{ATR_PERIOD}']
                     entry_price = latest_15m['close']
                     stop_loss = entry_price - (atr_val * STOP_LOSS_MULTIPLIER)
                     take_profit = entry_price + (atr_val * TAKE_PROFIT_MULTIPLIER)
-                    position_size = (ACCOUNT_SIZE * MAX_RISK_PER_TRADE) / (entry_price - stop_loss) if (entry_price - stop_loss) > 0 else 0
+                    position_size = calculate_position_size(entry_price, stop_loss)
 
                     instrument_signals.append({
                         'option_type': option_type, 'strike_price': get_atm_strike(entry_price, instrument), 'underlying_price': entry_price,
@@ -750,12 +775,13 @@ def generate_signals(price_data_dict, manual_controls_df, trade_log_df, market_c
                         'position_size': round(position_size), 'reason': ", ".join(reasons),
                         'sentiment_score': sentiment_score, 'win_rate_p': win_rate,
                         'win_loss_ratio_b': win_loss_ratio, 'kelly_pct': kelly_pct,
-                        'quality_score': 3
+                        'quality_score': signal_params['quality_score'],
+                        'confidence_score': signal_params['confidence_score']
                     })
                     signal_generated = True
 
         # --- NEW: Order Block Entry Signal Logic ---
-        if not signal_generated and is_1h_bullish:
+        if not signal_generated and all_timeframes_bullish:
             last_ob_top = latest_15m.get('last_bull_ob_top')
             last_ob_bottom = latest_15m.get('last_bull_ob_bottom')
 
@@ -767,29 +793,21 @@ def generate_signals(price_data_dict, manual_controls_df, trade_log_df, market_c
                 exiting_ob_bullishly = latest_15m['close'] > last_ob_top
 
                 if entered_ob and exiting_ob_bullishly:
-                    reasons = [f"🎯 Price Action: Reclaimed Bullish OB @ {last_ob_bottom:.2f}"]
-                    confidence_score = calculate_confidence_score({'quality_score': 3, 'sentiment_score': sentiment_score}, latest_15m)
+                    signal_params = {
+                        'instrument': instrument, 'reason': f'Reclaimed Bullish OB @ {last_ob_bottom:.2f}', 'quality_score': 3,
+                        'rsi': latest_15m['RSI_14'], 'volume_confirmed': True, 'sentiment_score': sentiment_score,
+                    }
+                    signal_params['confidence_score'] = calculate_confidence_score(signal_params, latest_15m)
 
-                    if confidence_score > 70:
-                        reasons.append("✅ High Confidence Score")
-                    if market_context.get('sentiment') == 'BULLISH':
-                        reasons.append("✅ Bullish Market Context")
-                    if not market_context.get('is_vix_high', False):
-                        reasons.append("✅ Low Volatility (VIX)")
-                    if sentiment_score >= SENTIMENT_THRESHOLD:
-                        reasons.append("📰 Positive News Sentiment")
-                    if latest_15m['RSI_14'] < 70:
-                        reasons.append("📉 RSI Not Overbought")
-                    if current_drawdown > -0.05:
-                        reasons.append("💰 Healthy Portfolio (Low Drawdown)")
-
-                    if len(reasons) > 4:
+                    if should_enter_trade(signal_params, market_context):
+                        logger.info(f"All safety checks passed for {instrument} (Order Block). Generating BUY signal.")
+                        reasons = [signal_params['reason']] + [key for key, value in safety_checks.items() if value]
                         option_type = "CALL"
                         entry_price = latest_15m['close']
                         stop_loss = last_ob_bottom
                         if entry_price <= stop_loss: continue
                         take_profit = entry_price + ((entry_price - stop_loss) * TAKE_PROFIT_MULTIPLIER)
-                        position_size = (ACCOUNT_SIZE * MAX_RISK_PER_TRADE) / (entry_price - stop_loss) if (entry_price - stop_loss) > 0 else 0
+                        position_size = calculate_position_size(entry_price, stop_loss)
 
                         instrument_signals.append({
                             'option_type': option_type, 'strike_price': get_atm_strike(entry_price, instrument), 'underlying_price': entry_price,
@@ -797,7 +815,8 @@ def generate_signals(price_data_dict, manual_controls_df, trade_log_df, market_c
                             'position_size': round(position_size), 'reason': ", ".join(reasons),
                             'sentiment_score': sentiment_score, 'win_rate_p': win_rate,
                             'win_loss_ratio_b': win_loss_ratio, 'kelly_pct': kelly_pct,
-                            'quality_score': 3
+                            'quality_score': signal_params['quality_score'],
+                            'confidence_score': signal_params['confidence_score']
                         })
                         signal_generated = True
 
@@ -820,9 +839,7 @@ def generate_signals(price_data_dict, manual_controls_df, trade_log_df, market_c
     # --- New Code: Filter and Rank Signals ---
     high_confidence_trades = []
     for signal in all_potential_signals:
-        signal['risk_reward_ratio'] = calculate_risk_reward_ratio(signal['underlying_price'], signal['stop_loss'], signal['take_profit'])
-        signal['confidence_score'] = calculate_confidence_score(signal, price_df_15m[price_df_15m['instrument'] == signal['instrument']].iloc[-1])
-        high_confidence_trades.append(signal) # The safety check is now done inside the signal logic
+        high_confidence_trades.append(signal) # All signals here have already passed the safety checks
 
     # --- Now, sort the shortlist by confidence, take the top 5 ---
     high_confidence_trades.sort(key=lambda x: x['confidence_score'], reverse=True)
@@ -1005,6 +1022,9 @@ def main():
             price_data_dict["15m"] = calculate_indicators(price_data_dict["15m"])
             # Apply price action indicators after main indicators are calculated
             price_data_dict["15m"] = price_data_dict["15m"].groupby('instrument', group_keys=False).apply(apply_price_action_indicators)
+        if not price_data_dict["30m"].empty:
+            price_data_dict["30m"] = calculate_indicators(price_data_dict["30m"])
+            price_data_dict["30m"] = price_data_dict["30m"].groupby('instrument', group_keys=False).apply(apply_price_action_indicators)
         if not price_data_dict["1h"].empty:
             price_data_dict["1h"] = calculate_indicators(price_data_dict["1h"])
             # Also apply to 1h data for completeness, though we primarily use it for trend context

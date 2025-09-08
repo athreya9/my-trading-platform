@@ -1,6 +1,21 @@
+# Environment variables - DO NOT COMMIT
+.env
 
-.venv
-__pycache__
-*.pyc
-download_corpora.py
+# Service account keys - DO NOT COMMIT
 service_account.json
+
+# Python cache
+__pycache__/
+*.pyc
+
+# IDE-specific files
+.vscode/
+.idea/
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
+
+# Generated plots
+equity_curve.png

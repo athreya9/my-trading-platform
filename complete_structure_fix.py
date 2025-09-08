@@ -2,10 +2,14 @@
 """
 A script to perform a complete and robust overhaul of the Google Sheet structure.
 """
+from dotenv import load_dotenv
 import gspread
 import json
 import os
 import sys
+
+# Load environment variables from .env file for local development.
+load_dotenv()
 
 
 def enhance_sheet_structure():

@@ -1,10 +1,14 @@
 # test_auth.py
 import os
+from dotenv import load_dotenv
 import sys
 import json
 from kiteconnect import KiteConnect
 import re
 import gspread
+
+# Load environment variables from .env file for local development.
+load_dotenv()
 
 def test_kite_auth():
     """Tests Kite Connect authentication using environment variables."""

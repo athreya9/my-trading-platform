@@ -1,0 +1,145 @@
+# .github/workflows/main.yml
+name: Trading Bot Workflow
+
+# --------------------------------------------------------------------------
+#  WORKFLOW TRIGGERS
+#  Defines when this workflow runs.
+# --------------------------------------------------------------------------
+on:
+  # 1. Runs on a schedule
+  schedule:
+    # Runs every 15 minutes from Monday to Friday during Indian market hours.
+    # NOTE: Cron time is in UTC. 9:15 AM - 3:30 PM IST is approx. 3:45 - 10:00 UTC.
+    - cron: '*/15 4-10 * * 1-5'
+
+  # 2. Allows manual runs from the GitHub Actions UI
+  workflow_dispatch:
+
+# --------------------------------------------------------------------------
+#  CONCURRENCY CONTROL
+#  Ensures only one instance of this workflow runs at a time.
+#  This prevents race conditions and duplicate trading signals.
+# --------------------------------------------------------------------------
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+
+# --------------------------------------------------------------------------
+#  JOBS
+#  The workflow is split into sequential jobs.
+# --------------------------------------------------------------------------
+jobs:
+  # ========================================================================
+  #  JOB 1: Generate a fresh daily access token for Kite Connect
+  # ========================================================================
+  generate-token:
+    name: "🔑 Generate Kite Access Token"
+    runs-on: ubuntu-latest
+    timeout-minutes: 5 # Fail fast if token generation gets stuck
+
+    # This job outputs the generated access token for the next job to use.
+    outputs:
+      access_token: ${{ steps.token_generator.outputs.access_token }}
+
+    steps:
+      - name: "Checkout Code"
+        uses: actions/checkout@v4
+
+      - name: "Set up Python"
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: "Cache Pip Dependencies"
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          # Create a new cache if requirements files change
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: "Install Automation Dependencies"
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-automation.txt
+
+      - name: "🤖 Run Automated Token Generation"
+        id: token_generator
+        env:
+          KITE_API_KEY: ${{ secrets.KITE_API_KEY }}
+          KITE_API_SECRET: ${{ secrets.KITE_API_SECRET }}
+          KITE_USER_ID: ${{ secrets.KITE_USER_ID }}
+          KITE_PASSWORD: ${{ secrets.KITE_PASSWORD }}
+          KITE_TOTP_SECRET: ${{ secrets.KITE_TOTP_SECRET }}
+        run: |
+          # Exit on error and fail if any command in a pipeline fails.
+          set -eo pipefail
+
+          echo "::group::Generating new access token"
+          # Run the script and capture the last line of output (the token)
+          # Stderr is tee'd to a log file for artifact upload on failure.
+          NEW_TOKEN=$(python automate_token_generation.py 2> >(tee -a /tmp/stderr.log >&2) | tail -n 1)
+          echo "::endgroup::"
+
+          if [ -z "$NEW_TOKEN" ]; then
+            echo "::error::Captured token is empty. See stderr log below for details."
+            cat /tmp/stderr.log
+            echo "::error::Failed to generate new access token. Script output was empty."
+            exit 1
+          fi
+
+          # Securely mask the token in logs and set it as an output
+          echo "::add-mask::$NEW_TOKEN"
+          echo "access_token=$NEW_TOKEN" >> "$GITHUB_OUTPUT"
+          echo "Successfully generated and masked a new access token."
+          echo "DEBUG: Captured token length: ${#NEW_TOKEN}"
+
+      - name: "Upload screenshot and logs on failure"
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: error-screenshot-and-logs
+          path: |
+            error_screenshot.png
+            /tmp/stderr.log
+          if-no-files-found: ignore # Don't fail if files don't exist
+
+  # ========================================================================
+  #  JOB 2: Run the main trading logic using the fresh token
+  # ========================================================================
+  run-trading-logic:
+    name: "📈 Run Trading Signal Process"
+    needs: generate-token # Depends on the successful completion of the previous job
+    runs-on: ubuntu-latest
+    timeout-minutes: 10 # Allow more time for data processing and API calls
+
+    steps:
+      - name: "Checkout Code"
+        uses: actions/checkout@v4
+
+      - name: "Set up Python"
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: "Cache Pip Dependencies"
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: "Install Main Dependencies"
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: "📊 Run Trading Signal Process"
+        env:
+          KITE_API_KEY: ${{ secrets.KITE_API_KEY }}
+          KITE_ACCESS_TOKEN: ${{ needs.generate-token.outputs.access_token }}
+          GOOGLE_SHEETS_CREDENTIALS: ${{ secrets.GOOGLE_SHEETS_CREDENTIALS }}
+          market_open: true # This flag may be redundant if should_run() is used in the script
+        run: python -m api.process_data

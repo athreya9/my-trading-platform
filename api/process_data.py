@@ -7,12 +7,18 @@ from kiteconnect import KiteConnect
 import pandas as pd
 import pandas_ta as ta
 import numpy as np
-import os
 import json
 import time
 from datetime import datetime, timedelta
 import pytz
 from functools import wraps, lru_cache
+import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env file for local development.
+# This will not override environment variables set in the GitHub Actions runner.
+load_dotenv()
+
 import logging
 import re
 import sys
@@ -222,6 +228,14 @@ def connect_to_kite():
     logger.info("Attempting to authenticate with Kite Connect...")
     api_key = os.getenv('KITE_API_KEY', '').strip().strip('"\'')
     access_token = os.getenv('KITE_ACCESS_TOKEN', '').strip().strip('"\'')
+
+    # --- START: Added for debugging authentication issues ---
+    logger.info(f"DEBUG: API Key (first 4 chars): '{api_key[:4]}...'")
+    logger.info(f"DEBUG: Access Token (first 4 chars): '{access_token[:4]}...'")
+    logger.info(f"DEBUG: API Key length: {len(api_key)}")
+    logger.info(f"DEBUG: Access Token length: {len(access_token)}")
+    # --- END: Added for debugging ---
+
     if not api_key or not access_token:
         raise ValueError("KITE_API_KEY or KITE_ACCESS_TOKEN environment variables not found.")
     try:
@@ -271,6 +285,83 @@ def fetch_historical_data(kite, instrument_token, from_date, to_date, interval, 
     except Exception as e:
         logger.warning(f"Could not fetch Kite data for {original_symbol}: {e}")
         return pd.DataFrame()
+
+
+@retry()
+def fetch_option_chain(kite, underlying_instrument):
+    """Fetches and structures the option chain for a given underlying instrument."""
+    logger.info(f"Fetching and structuring option chain for {underlying_instrument}...")
+    try:
+        # Get all instruments for the NFO exchange
+        nfo_instruments = kite.instruments('NFO')
+        nfo_df = pd.DataFrame(nfo_instruments)
+
+        # Filter for options of the underlying instrument
+        options_df = nfo_df[(nfo_df['name'] == underlying_instrument) & (nfo_df['segment'] == 'NFO-OPT')].copy()
+
+        if options_df.empty:
+            logger.warning(f"No options found for {underlying_instrument}")
+            return None
+
+        # Find the nearest expiry date
+        options_df['expiry'] = pd.to_datetime(options_df['expiry'])
+        nearest_expiry = options_df['expiry'].min()
+        options_df = options_df[options_df['expiry'] == nearest_expiry]
+
+        # Get the LTP of the underlying instrument to find the ATM strike
+        # Use the correct tradingsymbol for the quote API
+        underlying_tradingsymbol_for_quote = YFINANCE_TO_KITE_MAP.get('^NSEI') if underlying_instrument == 'NIFTY' else underlying_instrument
+        quote = kite.quote([f"NSE:{underlying_tradingsymbol_for_quote}"])
+        if not quote or f"NSE:{underlying_tradingsymbol_for_quote}" not in quote:
+            logger.warning(f"Could not fetch quote for NSE:{underlying_tradingsymbol_for_quote}. Cannot determine ATM strike.")
+            return None
+        ltp = quote[underlying_tradingsymbol_for_quote]['last_price']
+        atm_strike = round(ltp / 50) * 50
+
+        # Filter for a range of strike prices around the ATM strike
+        strike_range = 10
+        min_strike = atm_strike - (strike_range * 50)
+        max_strike = atm_strike + (strike_range * 50)
+        options_df = options_df[(options_df['strike'] >= min_strike) & (options_df['strike'] <= max_strike)]
+
+        # Separate call and put options
+        calls_df = options_df[options_df['instrument_type'] == 'CE']
+        puts_df = options_df[options_df['instrument_type'] == 'PE']
+
+        # Fetch quotes for the filtered options
+        call_instruments = calls_df['tradingsymbol'].tolist()
+        put_instruments = puts_df['tradingsymbol'].tolist()
+        option_quotes = kite.quote(call_instruments + put_instruments)
+
+        # Create the structured option chain
+        option_chain_data = []
+        for strike in sorted(options_df['strike'].unique()):
+            call_instrument = calls_df[calls_df['strike'] == strike]
+            put_instrument = puts_df[puts_df['strike'] == strike]
+
+            if not call_instrument.empty and not put_instrument.empty:
+                call_symbol = call_instrument.iloc[0]['tradingsymbol']
+                put_symbol = put_instrument.iloc[0]['tradingsymbol']
+
+                call_quote = option_quotes.get(call_symbol, {})
+                put_quote = option_quotes.get(put_symbol, {})
+
+                option_chain_data.append({
+                    'strike': strike,
+                    'call_ltp': call_quote.get('last_price', 0),
+                    'call_oi': call_quote.get('oi', 0),
+                    'put_ltp': put_quote.get('last_price', 0),
+                    'put_oi': put_quote.get('oi', 0),
+                })
+
+        option_chain_df = pd.DataFrame(option_chain_data)
+        logger.info(f"Successfully built option chain for {underlying_instrument} with {len(option_chain_df)} strikes.")
+        return option_chain_df
+
+    except Exception as e:
+        logger.error(f"Failed to fetch and structure option chain for {underlying_instrument}: {e}", exc_info=True)
+        return None
+
 
 def run_data_collection(kite, instrument_map):
     """Fetches data for all symbols and timeframes and returns a dictionary of DataFrames."""
@@ -1040,6 +1131,15 @@ def main():
         # Step 1: Connect to services and prepare data map
         kite = connect_to_kite()
         instrument_map = get_instrument_map(kite)
+
+        # --- NEW: Fetch Option Chain Data ---
+        option_chain_df = fetch_option_chain(kite, 'NIFTY')
+        if option_chain_df is not None:
+            # For now, just print the first 5 rows of the dataframe to verify
+            logger.info("--- Option Chain Data (first 5 rows) ---")
+            logger.info(option_chain_df.head())
+            logger.info("-----------------------------------------")
+
         spreadsheet = connect_to_google_sheets()
         
         # --- NEW: Bot Control Check ---

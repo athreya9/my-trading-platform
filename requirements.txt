@@ -1,13 +1,10 @@
-# Core Trading and Data Libraries
+gspread
+kiteconnect
+pandas
 pandas-ta
-kiteconnect==4.0.0
-requests
+numpy
 pytz
-feedparser # For lightweight news sentiment
-
-# Google Sheets Integration
-gspread~=6.0.0
-google-auth-oauthlib
-
-# Web Server for API
-Flask~=3.0.0
+feedparser
+python-dotenv
+matplotlib
+requests

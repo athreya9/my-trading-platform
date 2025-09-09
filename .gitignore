@@ -19,3 +19,10 @@ build/
 
 # Generated plots
 equity_curve.png
+
+# Generated files and temporary directories
+access_token.txt
+chromedriver.log
+error_screenshot.png
+google_sheets_credentials.json
+chromedriver-mac-arm64/

@@ -18,6 +18,7 @@ import sys
 import hashlib
 import requests
 import pyotp
+import time
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
@@ -64,31 +65,44 @@ def main():
 
         # --- Configure Selenium WebDriver ---
         options = webdriver.ChromeOptions()
-        options.add_argument("--headless") # Run in background
+        
+        # options.add_argument("--headless") # Run in background
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-dev-shm-usage")
+        options.add_argument("--remote-debugging-pipe")
         
         print("Setting up Chrome WebDriver...", file=sys.stderr)
-        service = Service(ChromeDriverManager().install())
+        service = Service(
+            ChromeDriverManager().install(),
+            log_path="chromedriver.log",
+            service_args=["--verbose"]
+        )
         driver = webdriver.Chrome(service=service, options=options)
         
         # --- Step 1: Initial Login ---
         login_url = f"https://kite.zerodha.com/connect/login?v=3&api_key={api_key}"
+        print(f"DEBUG: Navigating to URL: {login_url}", file=sys.stderr)  # <-- Add this line for debugging
         print(f"Navigating to login URL...", file=sys.stderr)
         driver.get(login_url)
 
-        wait = WebDriverWait(driver, 20)
+        wait = WebDriverWait(driver, 60)
         
         # Enter User ID and Password
         print("Entering User ID and Password...", file=sys.stderr)
         wait.until(EC.presence_of_element_located((By.ID, "userid"))).send_keys(user_id)
-        driver.find_element(By.ID, "password").send_keys(password)
-        driver.find_element(By.XPATH, "//button[@type='submit']").click()
+        time.sleep(1) # Add a small delay
+        # Use JavaScript to set the password to bypass potential interactability issues
+        password_input = wait.until(EC.visibility_of_element_located((By.NAME, "password")))
+        driver.execute_script("arguments[0].value = arguments[1];", password_input, password)
+
+        # Wait for the submit button to be clickable before clicking
+        wait.until(EC.element_to_be_clickable((By.XPATH, "//button[@type='submit']"))).click()
         
         # --- Step 2: Handle 2FA/TOTP ---
         print("Generating and entering TOTP...", file=sys.stderr)
         totp = pyotp.TOTP(totp_secret)
-        totp_input = wait.until(EC.visibility_of_element_located((By.ID, "totp")))
+        time.sleep(2)
+        totp_input = wait.until(EC.visibility_of_element_located((By.NAME, "totp")))
         totp_input.send_keys(totp.now())
         driver.find_element(By.XPATH, "//button[@type='submit']").click()
 

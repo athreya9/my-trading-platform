@@ -2,6 +2,7 @@
 # A single, combined script for GitHub Actions.
 # It fetches data, generates signals, and updates Google Sheets.
 
+from flask import Flask, request, jsonify
 import gspread
 from kiteconnect import KiteConnect
 import pandas as pd
@@ -15,7 +16,6 @@ from functools import wraps, lru_cache
 import os
 from dotenv import load_dotenv
 
-
 # Load environment variables from .env file for local development.
 # This will not override environment variables set in the GitHub Actions runner.
 load_dotenv()
@@ -26,6 +26,8 @@ import sys
 from api import config
 import requests
 import feedparser
+
+app = Flask(__name__)
 
 # --- Logging Configuration ---
 # Use a custom formatter to ensure all log times are in UTC for consistency
@@ -1269,9 +1271,24 @@ def main():
         sys.exit(1) # Exit with a non-zero code to fail the GitHub Action
 
 # --- Script Execution ---
-if __name__ == "__main__":
-    if should_run():
+@app.route('/run', methods=['GET'])
+def run_bot():
+    """
+    HTTP endpoint to trigger the trading bot's main logic.
+    """
+    logger.info("Received request to run the trading bot.")
+    try:
+        # Call the existing main function
         main()
-    else:
-        logger.info("Market is closed. Exiting script.")
-        sys.exit(0)
+        return jsonify({"status": "success", "message": "Trading bot executed successfully."}), 200
+    except Exception as e:
+        logger.error(f"Error executing trading bot: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+# Modify the __main__ block to run the Flask app
+if __name__ == "__main__":
+    # If running locally, you can still use the should_run() check
+    # For Cloud Run, the service will be started and listen for requests
+    # The actual execution of main() will happen when /run is hit.
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host="0.0.0.0", port=port)

@@ -1,0 +1,4 @@
+selenium
+pyotp
+requests
+webdriver-manager

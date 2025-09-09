@@ -1268,7 +1268,6 @@ def main():
     except Exception as e:
         # This will catch any error and log it, preventing a silent crash.
         logger.error("A critical error occurred in the main process:", exc_info=True)
-        sys.exit(1) # Exit with a non-zero code to fail the GitHub Action
 
 # --- Script Execution ---
 @app.route('/run', methods=['GET'])

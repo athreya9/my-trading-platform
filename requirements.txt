@@ -12,3 +12,4 @@ gunicorn
 scikit-learn
 xgboost
 seaborn
+flask

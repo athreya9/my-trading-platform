@@ -1287,8 +1287,5 @@ def run_bot():
 
 # Modify the __main__ block to run the Flask app
 if __name__ == "__main__":
-    # If running locally, you can still use the should_run() check
-    # For Cloud Run, the service will be started and listen for requests
-    # The actual execution of main() will happen when /run is hit.
     port = int(os.environ.get("PORT", 8080))
     app.run(host="0.0.0.0", port=port)

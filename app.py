@@ -5,10 +5,30 @@ A Flask web server to provide API endpoints for controlling the trading bot.
 import gspread
 from flask import Flask, request, jsonify
 import os
+import json
+
+# Import the blueprint
+from api.process_data import process_data_bp
 
 app = Flask(__name__)
 
+# Register the blueprint from api/process_data.py
+app.register_blueprint(process_data_bp)
+
 CONFIG_PATH = os.path.join(os.path.dirname(__file__), 'api', 'config.py')
+
+@app.route('/')
+def index():
+    """A simple welcome message to confirm the app is running."""
+    return jsonify({
+        "status": "online",
+        "message": "Welcome to the Trading Bot API.",
+        "endpoints": [
+            "/run?force=true",
+            "/api/switch-mode (POST)",
+            "/api/bot-status (POST)"
+        ]
+    })
 
 @app.route('/api/switch-mode', methods=['POST'])
 def switch_mode():
@@ -45,11 +65,6 @@ def switch_mode():
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
-        return jsonify({'status': 'success', 'mode': new_mode})
-
-    except Exception as e:
-        return jsonify({'status': 'error', 'message': str(e)}), 500
-
 @app.route('/api/bot-status', methods=['POST'])
 def bot_status():
     """
@@ -77,5 +92,6 @@ def bot_status():
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
 if __name__ == '__main__':
-    # Running on 0.0.0.0 makes it accessible on the local network
-    app.run(host='0.0.0.0', port=5001, debug=True)
+    # This block is for running the app in a container like Cloud Run
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host='0.0.0.0', port=port)

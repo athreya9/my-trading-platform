@@ -104,7 +104,7 @@ def read_price_data(spreadsheet, target_instrument=None):
         
         # --- Data Cleaning and Preparation ---
         # Filter for a specific instrument if one is provided
-        if target_instrument:
+        if target_instrument and 'Symbol' in df.columns:
             print(f"Filtering data for target instrument: {target_instrument}")
             df = df[df['Symbol'] == target_instrument].copy()
             if df.empty:
@@ -362,7 +362,7 @@ def main(sma_short, sma_long, rsi_period):
     """Main function that runs the entire backtesting process."""
     try:
         spreadsheet = connect_to_google_sheets()
-        price_df = read_price_data(spreadsheet)
+        price_df = read_price_data(spreadsheet, target_instrument=TARGET_INSTRUMENT)
         portfolio_history, trades = run_backtest(price_df, INITIAL_CAPITAL, sma_short, sma_long, rsi_period)
         calculate_and_print_performance(portfolio_history, trades, INITIAL_CAPITAL)
         # Generate and save the equity curve plot
@@ -374,6 +374,9 @@ def main(sma_short, sma_long, rsi_period):
         sys.exit(1)
 
 if __name__ == "__main__":
+    # This block allows the script to be run directly from the command line
+    # for a quick backtest on the default TARGET_INSTRUMENT (^NSEI).
+    # The AI data preparation script calls the functions directly, bypassing this.
     import argparse
     parser = argparse.ArgumentParser(description="Run a trading strategy backtest.")
     parser.add_argument('--sma_short', type=int, default=SMA_SHORT_WINDOW, 

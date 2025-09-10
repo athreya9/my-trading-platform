@@ -1,4 +1,5 @@
 selenium
+webdriver-manager
 pyotp
 requests
-webdriver-manager
+python-dotenv

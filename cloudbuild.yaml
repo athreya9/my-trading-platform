@@ -9,8 +9,8 @@ steps:
     '-t',
     # The image will be tagged with the format: LOCATION-docker.pkg.dev/PROJECT_ID/REPOSITORY/IMAGE_NAME:COMMIT_SHA
     # Cloud Build automatically substitutes $PROJECT_ID and $COMMIT_SHA.
-    # TODO: Replace 'us-central1' and 'my-trading-repo' with your Artifact Registry details if they are different.
-    'us-central1-docker.pkg.dev/$PROJECT_ID/my-trading-repo/my-trading-platform-image:$COMMIT_SHA',
+    # Using 'asia-south1' for lower latency to Indian markets.
+    'asia-south1-docker.pkg.dev/$PROJECT_ID/my-trading-repo/my-trading-platform-image:$COMMIT_SHA',
     '.'
   ]
 
@@ -21,7 +21,7 @@ steps:
   args: [
     'push',
     # The image path must exactly match the one from the 'Build' step.
-    'us-central1-docker.pkg.dev/$PROJECT_ID/my-trading-repo/my-trading-platform-image:$COMMIT_SHA'
+    'asia-south1-docker.pkg.dev/$PROJECT_ID/my-trading-repo/my-trading-platform-image:$COMMIT_SHA'
   ]
 
 # Step 3: Deploy the container to a private Cloud Run service.
@@ -30,9 +30,9 @@ steps:
   args: [
     'run',
     'deploy',
-    'my-trading-platform-service', # This will be the name of your Cloud Run service.
-    '--image', 'us-central1-docker.pkg.dev/$PROJECT_ID/my-trading-repo/my-trading-platform-image:$COMMIT_SHA',
-    '--region', 'us-central1', # IMPORTANT: Set this to your preferred Google Cloud region.
+    'datradingplatform', # Target your existing Cloud Run service.
+    '--image', 'asia-south1-docker.pkg.dev/$PROJECT_ID/my-trading-repo/my-trading-platform-image:$COMMIT_SHA',
+    '--region', 'asia-south1', # Set to Mumbai for optimal performance with Indian markets.
     '--platform', 'managed',
     '--no-allow-unauthenticated', # Make the service private, invokable only by authenticated requests.
     '--memory', '1Gi', # Allocate sufficient memory for data processing.
@@ -48,4 +48,4 @@ steps:
 
 # This section lists the images that were built and pushed.
 images:
-- 'us-central1-docker.pkg.dev/$PROJECT_ID/my-trading-repo/my-trading-platform-image:$COMMIT_SHA'
+- 'asia-south1-docker.pkg.dev/$PROJECT_ID/my-trading-repo/my-trading-platform-image:$COMMIT_SHA'

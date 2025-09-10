@@ -28,4 +28,4 @@ EXPOSE 8080
 # Define the command to run the app using gunicorn, a production-ready WSGI server.
 # The PORT environment variable is automatically set by Cloud Run.
 # --timeout 0 disables the worker timeout, which is crucial for long-running tasks.
-CMD ["gunicorn", "--bind", "0.0.0.0:8080", "--workers", "1", "--threads", "8", "--timeout", "0", "api.process_data:app"]
+CMD ["gunicorn", "--bind", "0.0.0.0:8080", "--workers", "1", "--threads", "8", "--timeout", "0", "app:app"]

@@ -5,10 +5,11 @@ A Flask web server to provide API endpoints for controlling the trading bot.
 import gspread
 from flask import Flask, request, jsonify
 import os
+import json
 
 app = Flask(__name__)
 
-CONFIG_PATH = os.path.join(os.path.dirname(__file__), 'api', 'config.py')
+CONFIG_PATH = os.path.join(os.path.dirname(__name__), 'api', 'config.py')
 
 @app.route('/api/switch-mode', methods=['POST'])
 def switch_mode():
@@ -39,11 +40,6 @@ def switch_mode():
 
         with open(CONFIG_PATH, 'w') as f:
             f.writelines(updated_lines)
-
-        return jsonify({'status': 'success', 'mode': new_mode})
-
-    except Exception as e:
-        return jsonify({'status': 'error', 'message': str(e)}), 500
 
         return jsonify({'status': 'success', 'mode': new_mode})
 

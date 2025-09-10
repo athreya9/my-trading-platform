@@ -1055,13 +1055,18 @@ def send_telegram_notification(message):
 @retry()
 def write_to_sheets(spreadsheet, price_df, signals_df):
     """Writes price data, signals, and the final advice to their respective sheets."""
-    logger.info("--- Starting Sheet Update Process ---")
+    logger.info("--- Starting Google Sheet Update Process ---")
     try:
         # Get all required worksheets, assuming they exist after running the fix script.
         price_worksheet = spreadsheet.worksheet("Price_Data")
         signals_worksheet = spreadsheet.worksheet("Signals")
         advisor_worksheet = spreadsheet.worksheet("Advisor_Output")
         bot_control_worksheet = spreadsheet.worksheet("Bot_Control")
+        
+        # Clear all sheets at the beginning of the update process
+        price_worksheet.clear()
+        signals_worksheet.clear()
+        advisor_worksheet.clear()
     except gspread.exceptions.WorksheetNotFound as e:
         logger.error(f"A required worksheet is missing: {e}. Please run emergency_fix.py to set up the sheet structure.")
         raise
@@ -1076,15 +1081,11 @@ def write_to_sheets(spreadsheet, price_df, signals_df):
         # Ensure timestamp is a string for writing
         price_data_to_write['Timestamp'] = price_data_to_write['Timestamp'].dt.strftime('%Y-%m-%d %H:%M:%S')
         
-        # Clear and update the sheet
-        logger.info("Clearing Price Data sheet...")
-        price_worksheet.clear()
-        logger.info("Updating Price Data sheet...")
+        logger.info("Writing to 'Price_Data' sheet...")
         price_worksheet.update(range_name='A1', values=[price_data_to_write.columns.values.tolist()] + price_data_to_write.fillna('').values.tolist(), value_input_option='USER_ENTERED')
         logger.info("Price data written successfully.")
     else:
-        logger.info("No price data to write. Clearing old price data from sheet.")
-        price_worksheet.clear()
+        logger.info("No price data to write.")
 
     # --- Write Signal Data ---
     if not signals_df.empty:
@@ -1094,45 +1095,42 @@ def write_to_sheets(spreadsheet, price_df, signals_df):
         signals_to_write.rename(columns={'option_type': 'Action', 'instrument': 'Symbol', 'underlying_price': 'Price', 'confidence_score': 'Confidence', 'reason': 'Reasons', 'timestamp': 'Timestamp'}, inplace=True)
         signals_to_write['Timestamp'] = signals_to_write['Timestamp'].dt.strftime('%Y-%m-%d %H:%M:%S')
         
-        # Clear and update the sheet
-        logger.info("Clearing Signals sheet...")
-        signals_worksheet.clear()
-        logger.info("Updating Signals sheet...")
+        logger.info("Writing to 'Signals' sheet...")
         signals_worksheet.update(range_name='A1', values=[signals_to_write.columns.values.tolist()] + signals_to_write.values.tolist(), value_input_option='USER_ENTERED')
         logger.info("Signal data written successfully.")
     else:
-        logger.info("No signals to write. Clearing old signals from sheet.")
-        signals_worksheet.clear()
+        logger.info("No signals to write.")
 
     # --- Write Final Advisor Output ---
-    logger.info("Preparing to append to 'Advisor_Output' sheet...")
+    logger.info("Preparing to write to 'Advisor_Output' sheet...")
+    advisor_header = [["Recommendation", "Confidence", "Reasons", "Timestamp"]]
     if not signals_df.empty:
         # Rank signals to find the best opportunity
         signals_df_sorted = signals_df.sort_values(by=['confidence_score', 'sentiment_score'], ascending=[False, False])
         top_signal = signals_df_sorted.iloc[0]
         
         # Generate the single-row advisor data
-        advisor_data = generate_advisor_output(top_signal)
+        advisor_row = generate_advisor_output(top_signal)
         
-        logger.info("Appending top opportunity to Advisor_Output sheet...")
-        advisor_worksheet.append_row(values=advisor_data, value_input_option='USER_ENTERED')
+        logger.info(f"Writing top signal to Advisor_Output: {advisor_row}")
+        advisor_worksheet.update('A1', advisor_header + [advisor_row], value_input_option='USER_ENTERED')
         logger.info("Advisor output written successfully.")
 
         # --- NEW: Send Telegram Notification for the top signal ---
-        # advisor_data is a list: [recommendation, confidence_str, reasons, timestamp_str]
+        # advisor_row is a list: [recommendation, confidence_str, reasons, timestamp_str]
         notification_message = (
             f"📈 *New Trading Signal*\n\n"
-            f"*Action:* {advisor_data[0]}\n"
-            f"*Confidence:* {advisor_data[1]}\n"
-            f"*Reason:* {advisor_data[2]}\n\n"
-            f"_{advisor_data[3]} UTC_"
+            f"*Action:* {advisor_row[0]}\n"
+            f"*Confidence:* {advisor_row[1]}\n"
+            f"*Reason:* {advisor_row[2]}\n\n"
+            f"_{advisor_row[3]} UTC_"
         )
         send_telegram_notification(notification_message)
     else:
         logger.info("No signals to generate advice. Clearing and updating Advisor_Output sheet with status.")
         # Append a "no signal" status row
         no_signal_row = ["No high-confidence signals found.", "0%", "Market conditions not met.", datetime.now().strftime("%Y-%m-%d %H:%M:%S")]
-        advisor_worksheet.append_row(values=no_signal_row, value_input_option='USER_ENTERED')
+        advisor_worksheet.update('A1', advisor_header + [no_signal_row], value_input_option='USER_ENTERED')
 
         # --- NEW: Send a status update to Telegram if no signal is found ---
         # This only runs on the first 15 minutes of the hour to avoid spam.
@@ -1190,11 +1188,17 @@ def fetch_economic_events():
     example_events = [{'date': today_str, 'time': '18:00', 'currency': 'USD', 'event': 'CPI m/m', 'impact': 'high'}]
     return example_events
 
-def main():
+def main(force_run=False):
     """Main function that runs the entire process."""
     try:
         logger.info("--- Trading Signal Process Started ---")
         
+        # --- Market Hours Check ---
+        if not force_run and not should_run():
+            logger.info("Market is closed and 'force_run' is false. Exiting process.")
+            # We can still update the sheet with a "Market Closed" message if desired
+            return
+
         # Step 1: Connect to services and prepare data map
         kite = connect_to_kite()
         instrument_map = get_instrument_map(kite)
@@ -1264,9 +1268,13 @@ def run_bot():
     HTTP endpoint to trigger the trading bot's main logic.
     """
     logger.info("Received request to run the trading bot.")
+    force_run = request.args.get('force', 'false').lower() == 'true'
+    if force_run:
+        logger.warning("'force=true' parameter detected. Bypassing market hours check for this run.")
+
     try:
         # Call the existing main function
-        main()
+        main(force_run=force_run)
         return jsonify({"status": "success", "message": "Trading bot executed successfully."}), 200
     except Exception as e:
         logger.error(f"Error executing trading bot: {e}", exc_info=True)
@@ -1274,5 +1282,6 @@ def run_bot():
 
 # Modify the __main__ block to run the Flask app
 if __name__ == "__main__":
+    # This block is for running the app in a container like Cloud Run
     port = int(os.environ.get("PORT", 8080))
     app.run(host="0.0.0.0", port=port)

@@ -21,6 +21,13 @@ from dotenv import load_dotenv
 # This will not override environment variables set in the GitHub Actions runner.
 load_dotenv()
 
+# --- NEW: Import for Secret Manager ---
+try:
+    from google.cloud import secretmanager
+    GCP_SECRET_MANAGER_AVAILABLE = True
+except ImportError:
+    GCP_SECRET_MANAGER_AVAILABLE = False
+
 import logging
 import re
 import sys
@@ -260,6 +267,26 @@ def calculate_kelly_criterion(trades_df):
     return kelly_pct, win_rate, win_loss_ratio
 
 @retry()
+def get_gcp_secret(secret_id, project_id, version_id="latest"):
+    """Fetches a secret from Google Secret Manager."""
+    if not GCP_SECRET_MANAGER_AVAILABLE:
+        logger.warning("google-cloud-secret-manager library not installed. Cannot fetch secrets from GCP.")
+        return None
+
+    try:
+        client = secretmanager.SecretManagerServiceClient()
+        name = f"projects/{project_id}/secrets/{secret_id}/versions/{version_id}"
+        response = client.access_secret_version(request={"name": name})
+        payload = response.payload.data.decode("UTF-8")
+        logger.info(f"Successfully fetched latest version of secret '{secret_id}'.")
+        return payload
+    except Exception as e:
+        # Log the error but return None to allow fallback to environment variables
+        logger.error(f"Failed to access secret '{secret_id}' in project '{project_id}': {e}")
+        return None
+
+
+@retry()
 def connect_to_google_sheets():
     """Connects to Google Sheets using credentials from an environment variable."""
     logger.info("Attempting to authenticate with Google Sheets...")
@@ -281,17 +308,32 @@ def connect_to_kite():
     """Initializes the Kite Connect client using credentials from environment variables."""
     logger.info("Attempting to authenticate with Kite Connect...")
     api_key = os.getenv('KITE_API_KEY', '').strip().strip('"\'')
-    access_token = os.getenv('KITE_ACCESS_TOKEN', '').strip().strip('"\'')
+    access_token = None
+
+    # --- START: MODIFICATION to fetch token from Secret Manager ---
+    # In a GCP environment (like Cloud Run), fetch the access token from Secret Manager.
+    # This ensures the latest token is always used, even in long-running instances.
+    # The GCP_PROJECT env var is automatically set by Cloud Run.
+    gcp_project_id = os.getenv('GCP_PROJECT')
+    if gcp_project_id:
+        logger.info(f"GCP environment detected (Project: {gcp_project_id}). Fetching KITE_ACCESS_TOKEN from Secret Manager.")
+        access_token = get_gcp_secret("KITE_ACCESS_TOKEN", gcp_project_id)
+
+    # Fallback to environment variable if not in GCP or if Secret Manager fetch fails.
+    if not access_token:
+        logger.info("Falling back to KITE_ACCESS_TOKEN from environment variable for local development or as a backup.")
+        access_token = os.getenv('KITE_ACCESS_TOKEN', '').strip().strip('"\'')
+    # --- END: MODIFICATION ---
 
     # --- START: Added for debugging authentication issues ---
     logger.info(f"DEBUG: API Key (first 4 chars): '{api_key[:4]}...'")
-    logger.info(f"DEBUG: Access Token (first 4 chars): '{access_token[:4]}...'")
+    logger.info(f"DEBUG: Access Token (first 4 chars): '{access_token[:4] if access_token else 'None'}...'")
     logger.info(f"DEBUG: API Key length: {len(api_key)}")
-    logger.info(f"DEBUG: Access Token length: {len(access_token)}")
+    logger.info(f"DEBUG: Access Token length: {len(access_token) if access_token else 0}")
     # --- END: Added for debugging ---
 
     if not api_key or not access_token:
-        raise ValueError("KITE_API_KEY or KITE_ACCESS_TOKEN environment variables not found.")
+        raise ValueError("KITE_API_KEY or KITE_ACCESS_TOKEN could not be obtained.")
     try:
         kite = KiteConnect(api_key=api_key)
         kite.set_access_token(access_token)
@@ -1279,5 +1321,3 @@ def run_bot():
     except Exception as e:
         logger.error(f"Error executing trading bot: {e}", exc_info=True)
         return jsonify({"status": "error", "message": str(e)}), 500
-
-

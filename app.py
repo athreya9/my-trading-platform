@@ -55,4 +55,12 @@ def switch_mode():
                 updated_lines.append(line)
         
         if not found:
-            return jsonify({'status': 'error', 'message': "Could not find 'CURRENT_MODE' variable in config file."
+            return jsonify({'status': 'error', 'message': "Could not find 'CURRENT_MODE' variable in config file."}) 
+
+        with open(CONFIG_PATH, 'w') as f:
+            f.writelines(updated_lines)
+
+        return jsonify({'status': 'success', 'message': f"Mode switched to {new_mode}."})
+
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500

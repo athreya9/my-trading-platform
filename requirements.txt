@@ -13,3 +13,4 @@ scikit-learn
 xgboost
 seaborn
 flask
+google-cloud-secret-manager

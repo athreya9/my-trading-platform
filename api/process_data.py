@@ -20,6 +20,7 @@ from dotenv import load_dotenv
 # Load environment variables from .env file for local development.
 # This will not override environment variables set in the GitHub Actions runner.
 load_dotenv()
+import yfinance as yf
 
 # --- NEW: Import for Secret Manager ---
 try:
@@ -34,6 +35,9 @@ import sys
 from api import config
 import requests
 import feedparser
+
+# --- NEW: Data Source Configuration ---
+DATA_SOURCE = os.getenv('DATA_SOURCE', 'kite').lower()
 
 process_data_bp = Blueprint('process_data', __name__)
 
@@ -104,6 +108,13 @@ YFINANCE_TO_KITE_MAP = {
     '^CNXIT': 'NIFTY IT',
     '^NSEBANK': 'NIFTY BANK',
     '^CNXAUTO': 'NIFTY AUTO'
+}
+
+# --- NEW: yfinance Configuration ---
+KITE_TO_YF_INTERVAL_MAP = {
+    "15minute": "15m",
+    "30minute": "30m",
+    "60minute": "1h",
 }
 
 # --- Main Functions ---
@@ -384,6 +395,35 @@ def fetch_historical_data(kite, instrument_token, from_date, to_date, interval, 
 
 
 @retry()
+def fetch_historical_data_yfinance(symbol, from_date, to_date, interval):
+    """Fetches historical data from Yahoo Finance for a given symbol."""
+    logger.info(f"Fetching {interval} data for {symbol} from yfinance...")
+    try:
+        # yfinance uses 'start' and 'end' parameters
+        df = yf.download(symbol, start=from_date, end=to_date, interval=interval, progress=False)
+        if df.empty:
+            logger.warning(f"No data downloaded for {symbol} from yfinance at {interval} interval.")
+            return pd.DataFrame()
+
+        df.reset_index(inplace=True)
+        # yfinance column names are 'Datetime', 'Open', 'High', 'Low', 'Close', 'Adj Close', 'Volume'
+        # The rest of the script expects lowercase and 'timestamp'
+        df.rename(columns={
+            'Datetime': 'timestamp', 'Date': 'timestamp', # Some intervals return 'Date'
+            'Open': 'open', 'High': 'high', 'Low': 'low', 'Close': 'close', 'Volume': 'volume'
+        }, inplace=True)
+        df['instrument'] = symbol
+        # yfinance might return timezone-aware timestamp, convert to naive UTC to match Kite's output
+        if pd.api.types.is_datetime64_any_dtype(df['timestamp']) and df['timestamp'].dt.tz is not None:
+             df['timestamp'] = df['timestamp'].dt.tz_convert('UTC').dt.tz_localize(None)
+
+        return df[['timestamp', 'instrument', 'open', 'high', 'low', 'close', 'volume']]
+    except Exception as e:
+        logger.warning(f"Could not fetch yfinance data for {symbol}: {e}")
+        return pd.DataFrame()
+
+
+@retry()
 def fetch_option_chain(kite, underlying_instrument):
     """Fetches and structures the option chain for a given underlying instrument."""
     logger.info(f"Fetching and structuring option chain for {underlying_instrument}...")
@@ -459,35 +499,55 @@ def fetch_option_chain(kite, underlying_instrument):
         return None
 
 
-def run_data_collection(kite, instrument_map):
+def run_data_collection(kite=None, instrument_map=None):
     """Fetches data for all symbols and timeframes and returns a dictionary of DataFrames."""
     data_frames = {"15m": [], "30m": [], "1h": []}
     to_date = datetime.now()
     
     for symbol in config.SYMBOLS:
-        # Translate yfinance symbol to Kite tradingsymbol
-        kite_symbol = YFINANCE_TO_KITE_MAP.get(symbol, symbol.replace('.NS', ''))
-        instrument_token = instrument_map.get(kite_symbol)
+        if DATA_SOURCE == 'yfinance':
+            # --- Fetch data for all required timeframes from yfinance ---
+            from_date_15m = to_date - timedelta(days=5)
+            df_15m = fetch_historical_data_yfinance(symbol, from_date_15m, to_date, KITE_TO_YF_INTERVAL_MAP["15minute"])
+            if not df_15m.empty:
+                data_frames["15m"].append(df_15m)
 
-        if not instrument_token:
-            logger.warning(f"Could not find instrument token for symbol '{symbol}' (Kite: '{kite_symbol}'). Skipping.")
-            continue
+            from_date_30m = to_date - timedelta(days=10)
+            df_30m = fetch_historical_data_yfinance(symbol, from_date_30m, to_date, KITE_TO_YF_INTERVAL_MAP["30minute"])
+            if not df_30m.empty:
+                data_frames["30m"].append(df_30m)
 
-        # --- Fetch data for all required timeframes ---
-        from_date_15m = to_date - timedelta(days=5)
-        df_15m = fetch_historical_data(kite, instrument_token, from_date_15m, to_date, "15minute", symbol)
-        if not df_15m.empty:
-            data_frames["15m"].append(df_15m)
+            from_date_1h = to_date - timedelta(days=60)
+            df_1h = fetch_historical_data_yfinance(symbol, from_date_1h, to_date, KITE_TO_YF_INTERVAL_MAP["60minute"])
+            if not df_1h.empty:
+                data_frames["1h"].append(df_1h)
+        else:  # Default to Kite
+            if not kite or not instrument_map:
+                raise ValueError("Kite client and instrument map are required for 'kite' data source.")
+            
+            # Translate yfinance symbol to Kite tradingsymbol
+            kite_symbol = YFINANCE_TO_KITE_MAP.get(symbol, symbol.replace('.NS', ''))
+            instrument_token = instrument_map.get(kite_symbol)
 
-        from_date_30m = to_date - timedelta(days=10)
-        df_30m = fetch_historical_data(kite, instrument_token, from_date_30m, to_date, "30minute", symbol)
-        if not df_30m.empty:
-            data_frames["30m"].append(df_30m)
+            if not instrument_token:
+                logger.warning(f"Could not find instrument token for symbol '{symbol}' (Kite: '{kite_symbol}'). Skipping.")
+                continue
 
-        from_date_1h = to_date - timedelta(days=60)
-        df_1h = fetch_historical_data(kite, instrument_token, from_date_1h, to_date, "60minute", symbol)
-        if not df_1h.empty:
-            data_frames["1h"].append(df_1h)
+            # --- Fetch data for all required timeframes ---
+            from_date_15m = to_date - timedelta(days=5)
+            df_15m = fetch_historical_data(kite, instrument_token, from_date_15m, to_date, "15minute", symbol)
+            if not df_15m.empty:
+                data_frames["15m"].append(df_15m)
+
+            from_date_30m = to_date - timedelta(days=10)
+            df_30m = fetch_historical_data(kite, instrument_token, from_date_30m, to_date, "30minute", symbol)
+            if not df_30m.empty:
+                data_frames["30m"].append(df_30m)
+
+            from_date_1h = to_date - timedelta(days=60)
+            df_1h = fetch_historical_data(kite, instrument_token, from_date_1h, to_date, "60minute", symbol)
+            if not df_1h.empty:
+                data_frames["1h"].append(df_1h)
 
     if not data_frames["15m"]:
         raise Exception("No 15m data was fetched for any symbol. Halting process.")
@@ -497,15 +557,13 @@ def run_data_collection(kite, instrument_map):
     combined_df_30m = pd.concat(data_frames["30m"], ignore_index=True) if data_frames["30m"] else pd.DataFrame()
     combined_df_1h = pd.concat(data_frames["1h"], ignore_index=True) if data_frames["1h"] else pd.DataFrame()
 
-    # --- NEW: Fetch LIVE data and merge it to prevent using stale historical data ---
-    logger.info("Fetching live quote data to merge with historical data...")
-    
-    # Create a list of Kite-formatted instrument names for the quote API
-    kite_symbols_for_quote = [f"NSE:{YFINANCE_TO_KITE_MAP.get(s, s.replace('.NS', ''))}" for s in config.SYMBOLS]
-
-    if not kite_symbols_for_quote:
-        logger.warning("No symbols to fetch live quotes for.")
-    else:
+    # --- NEW: Fetch LIVE data and merge it (Kite only) ---
+    if DATA_SOURCE == 'kite' and kite:
+        logger.info("Fetching live quote data to merge with historical data...")
+        kite_symbols_for_quote = [f"NSE:{YFINANCE_TO_KITE_MAP.get(s, s.replace('.NS', ''))}" for s in config.SYMBOLS]
+        if not kite_symbols_for_quote:
+            logger.warning("No symbols to fetch live quotes for.")
+            return {"15m": combined_df_15m, "30m": combined_df_30m, "1h": combined_df_1h}
         try:
             live_quotes = kite.quote(kite_symbols_for_quote)
 
@@ -532,6 +590,8 @@ def run_data_collection(kite, instrument_map):
             logger.info("Successfully merged live quote data into historical dataframes.")
         except Exception as e:
             logger.error(f"Could not fetch or merge live quotes: {e}")
+    elif DATA_SOURCE == 'yfinance':
+        logger.info("Skipping live data merge for yfinance data source.")
 
     logger.info(f"Processed {len(combined_df_15m)} rows (15m), {len(combined_df_30m)} rows (30m), {len(combined_df_1h)} rows (1h).")
     return {"15m": combined_df_15m, "30m": combined_df_30m, "1h": combined_df_1h}
@@ -1273,7 +1333,7 @@ def main(force_run=False):
 
         # Step 4: Collect external data (market data, events)
         economic_events = fetch_economic_events()
-        price_data_dict = run_data_collection(kite, instrument_map)
+        price_data_dict = run_data_collection(kite=kite, instrument_map=instrument_map)
         
         # Step 5: Calculate all indicators for all instruments and timeframes
         if not price_data_dict["15m"].empty:

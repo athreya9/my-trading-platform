@@ -78,7 +78,7 @@ def connect_to_google_sheets():
     if not creds_json_str:
         raise ValueError(
             "GOOGLE_SHEETS_CREDENTIALS environment variable not found. "
-            "Please ensure it's set in your .env file."
+            "Please ensure it's set in your .env file or GitHub secrets."
         )
     try:
         creds_dict = json.loads(creds_json_str)
@@ -90,7 +90,7 @@ def connect_to_google_sheets():
         raise Exception(f"Error connecting to Google Sheet: {e}")
 
 @retry()
-def read_price_data(spreadsheet):
+def read_price_data(spreadsheet, target_instrument=None):
     """Reads historical price data from the sheet, returning a clean DataFrame."""
     print(f"Reading historical data from '{DATA_WORKSHEET_NAME}' tab...")
     try:
@@ -103,10 +103,12 @@ def read_price_data(spreadsheet):
         print(f"Successfully read {len(df)} rows of historical data.")
         
         # --- Data Cleaning and Preparation ---
-        # Filter for the target instrument
-        df = df[df['Symbol'] == TARGET_INSTRUMENT].copy()
-        if df.empty:
-            raise ValueError(f"No data found for target instrument '{TARGET_INSTRUMENT}'.")
+        # Filter for a specific instrument if one is provided
+        if target_instrument and 'Symbol' in df.columns:
+            print(f"Filtering data for target instrument: {target_instrument}")
+            df = df[df['Symbol'] == target_instrument].copy()
+            if df.empty:
+                raise ValueError(f"No data found for target instrument '{target_instrument}'.")
 
         # Convert columns to correct data types
         df['Timestamp'] = pd.to_datetime(df['Timestamp'])
@@ -360,7 +362,7 @@ def main(sma_short, sma_long, rsi_period):
     """Main function that runs the entire backtesting process."""
     try:
         spreadsheet = connect_to_google_sheets()
-        price_df = read_price_data(spreadsheet)
+        price_df = read_price_data(spreadsheet, target_instrument=TARGET_INSTRUMENT)
         portfolio_history, trades = run_backtest(price_df, INITIAL_CAPITAL, sma_short, sma_long, rsi_period)
         calculate_and_print_performance(portfolio_history, trades, INITIAL_CAPITAL)
         # Generate and save the equity curve plot
@@ -372,6 +374,9 @@ def main(sma_short, sma_long, rsi_period):
         sys.exit(1)
 
 if __name__ == "__main__":
+    # This block allows the script to be run directly from the command line
+    # for a quick backtest on the default TARGET_INSTRUMENT (^NSEI).
+    # The AI data preparation script calls the functions directly, bypassing this.
     import argparse
     parser = argparse.ArgumentParser(description="Run a trading strategy backtest.")
     parser.add_argument('--sma_short', type=int, default=SMA_SHORT_WINDOW, 

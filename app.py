@@ -7,9 +7,28 @@ from flask import Flask, request, jsonify
 import os
 import json
 
+# Import the blueprint
+from api.process_data import process_data_bp
+
 app = Flask(__name__)
 
-CONFIG_PATH = os.path.join(os.path.dirname(__name__), 'api', 'config.py')
+# Register the blueprint from api/process_data.py
+app.register_blueprint(process_data_bp)
+
+CONFIG_PATH = os.path.join(os.path.dirname(__file__), 'api', 'config.py')
+
+@app.route('/')
+def index():
+    """A simple welcome message to confirm the app is running."""
+    return jsonify({
+        "status": "online",
+        "message": "Welcome to the Trading Bot API.",
+        "endpoints": [
+            "/run?force=true",
+            "/api/switch-mode (POST)",
+            "/api/bot-status (POST)"
+        ]
+    })
 
 @app.route('/api/switch-mode', methods=['POST'])
 def switch_mode():
@@ -36,42 +55,4 @@ def switch_mode():
                 updated_lines.append(line)
         
         if not found:
-            return jsonify({'status': 'error', 'message': "Could not find 'CURRENT_MODE' variable in config file."}), 500
-
-        with open(CONFIG_PATH, 'w') as f:
-            f.writelines(updated_lines)
-
-        return jsonify({'status': 'success', 'mode': new_mode})
-
-    except Exception as e:
-        return jsonify({'status': 'error', 'message': str(e)}), 500
-
-@app.route('/api/bot-status', methods=['POST'])
-def bot_status():
-    """
-    Sets the bot's status in the Google Sheet's 'Bot_Control' tab.
-    """
-    try:
-        new_status = request.json.get('status', 'running').lower()
-        if new_status not in ['running', 'stopped']:
-            return jsonify({'status': 'error', 'message': "Invalid status. Must be 'running' or 'stopped'."}), 400
-
-        # Authenticate with Google Sheets using the environment variable
-        creds_json_str = os.getenv('GOOGLE_SHEETS_CREDENTIALS')
-        creds_dict = json.loads(creds_json_str)
-        client = gspread.service_account_from_dict(creds_dict)
-        spreadsheet = client.open("Algo Trading Dashboard")
-        worksheet = spreadsheet.worksheet("Bot_Control")
-
-        # Update the status cell (assuming cell B2 corresponds to 'status')
-        # This overwrites the status to either "running" or "stopped"
-        worksheet.update_acell('B2', new_status)
-
-        return jsonify({'status': 'success', 'message': f"Bot status set to '{new_status}'."})
-
-    except Exception as e:
-        return jsonify({'status': 'error', 'message': str(e)}), 500
-
-if __name__ == '__main__':
-    # Running on 0.0.0.0 makes it accessible on the local network
-    app.run(host='0.0.0.0', port=5001, debug=True)
+            return jsonify({'status': 'error', 'message': "Could not find 'CURRENT_MODE' variable in config file."

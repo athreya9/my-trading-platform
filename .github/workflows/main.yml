@@ -8,12 +8,22 @@ name: Trading Bot Workflow
 on:
   # 1. Runs on a schedule
   schedule:
-    # Runs every 15 minutes from Monday to Friday during Indian market hours.
-    # NOTE: Cron time is in UTC. 9:15 AM - 3:30 PM IST is approx. 3:45 - 10:00 UTC.
-    - cron: '*/15 4-10 * * 1-5'
+    # Runs daily before market open (e.g., 8:30 AM IST which is 3:00 UTC) to generate a new access token.
+    - cron: '0 3 * * 1-5'
+    # Runs weekly on Sunday at 5:30 AM UTC to retrain the AI model
+    - cron: '30 5 * * 0'
 
   # 2. Allows manual runs from the GitHub Actions UI
   workflow_dispatch:
+    inputs:
+      run_token_generation:
+        description: 'Manually generate a new access token?'
+        required: false
+        type: boolean
+      run_retraining:
+        description: 'Manually run AI model retraining?'
+        required: false
+        type: boolean
 
 # --------------------------------------------------------------------------
 #  CONCURRENCY CONTROL
@@ -33,15 +43,21 @@ jobs:
   #  JOB 1: Generate a fresh daily access token for Kite Connect
   # ========================================================================
   generate-token:
-    name: "🔑 Generate Kite Access Token"
+    name: "🔑 Generate & Store Kite Access Token"
+    # This job runs on the daily schedule OR if manually triggered
+    if: |
+      (github.event_name == 'schedule' && github.event.schedule == '0 3 * * 1-5') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.run_token_generation == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 5 # Fail fast if token generation gets stuck
 
-    # This job outputs the generated access token for the next job to use.
-    outputs:
-      access_token: ${{ steps.token_generator.outputs.access_token }}
-
     steps:
+      - name: 'Authenticate to Google Cloud'
+        id: 'auth'
+        uses: 'google-github-actions/auth@v2'
+        with:
+          credentials_json: '${{ secrets.GCP_SA_KEY }}'
+
       - name: "Checkout Code"
         uses: actions/checkout@v4
 
@@ -75,65 +91,72 @@ jobs:
         run: |
           # Exit on error and fail if any command in a pipeline fails.
           set -eo pipefail
-
+          
           echo "::group::Generating new access token"
           # Run the script and capture its standard output (the token).
-          # Stderr is tee'd to a log file for artifact upload on failure.
-          NEW_TOKEN=$(python automate_token_generation.py 2> >(tee -a /tmp/stderr.log >&2))
+          NEW_TOKEN=$(python automate_token_generation.py)
           echo "::endgroup::"
 
           if [ -z "$NEW_TOKEN" ]; then
-            echo "::error::Captured token is empty. See stderr log below for details."
-            cat /tmp/stderr.log
             echo "::error::Failed to generate new access token. Script output was empty."
             exit 1
           fi
 
           # Securely mask the token in logs and set it as an output
           echo "::add-mask::$NEW_TOKEN"
-          echo "access_token=$NEW_TOKEN" >> "$GITHUB_OUTPUT"
+          echo "NEW_TOKEN=$NEW_TOKEN" >> "$GITHUB_ENV"
           echo "Successfully generated and masked a new access token."
-          echo "DEBUG: Captured token length: ${#NEW_TOKEN}"
 
-      - name: "Upload screenshot and logs on failure"
-        if: failure()
-        uses: actions/upload-artifact@v4
+      - name: "🔐 Update Secret in Google Secret Manager"
+        if: success()
+        uses: 'google-github-actions/gcloud-cli@v2'
         with:
-          name: error-screenshot-and-logs
-          path: |
-            error_screenshot.png
-            /tmp/stderr.log
-          if-no-files-found: ignore # Don't fail if files don't exist
+          command: |
+            set -x
+            echo "Updating KITE_ACCESS_TOKEN in Secret Manager..."
+            # Pipe the new token into the gcloud command to update the secret's latest version
+            echo -n "${{ env.NEW_TOKEN }}" | gcloud secrets versions add KITE_ACCESS_TOKEN --data-file=- --project=${{ steps.auth.outputs.project_id }}
+            echo "Secret updated successfully."
 
   # ========================================================================
-  #  JOB 2: Run the main trading logic using the fresh token
+  #  JOB 3: Retrain the AI model weekly to keep it updated
   # ========================================================================
-  run-trading-logic:
-    name: "📈 Run Trading Signal Process"
-    needs: generate-token
+  retrain-model:
+    name: "🧠 Retrain AI Model"
+    # This job runs only on the Sunday schedule OR if manually triggered with the specific input.
+    if: |
+      (github.event_name == 'schedule' && github.event.schedule == '30 5 * * 0') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.run_retraining == 'true')
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-    
+    timeout-minutes: 20
+
     steps:
-      - name: Checkout Code
+      - name: "Checkout Code"
         uses: actions/checkout@v4
 
-      - name: Set up Python
+      - name: "Set up Python"
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
 
-      - name: Install Main Dependencies
+      - name: "Install Dependencies"
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: 📊 Run Trading Signal Process
-        # This condition ensures the Python script is run only if market_open is true or if it's a manual trigger.
-        # The Python script will perform a final check internally.
-        if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+      - name: "📊 Prepare Training Data"
         env:
-          KITE_API_KEY: ${{ secrets.KITE_API_KEY }}
-          KITE_ACCESS_TOKEN: ${{ needs.generate-token.outputs.access_token }}
           GOOGLE_SHEETS_CREDENTIALS: ${{ secrets.GOOGLE_SHEETS_CREDENTIALS }}
-        run: python -m api.process_data
+        run: python api/prepare_training_data.py
+
+      - name: "🤖 Train New AI Model"
+        run: python api/train_model.py
+
+      - name: "Commit and Push Updated Model"
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "chore(AI): Automatically retrain and update AI model"
+          file_pattern: "api/trading_model.pkl api/confusion_matrix.png api/feature_importance.png"
+          commit_user_name: "GitHub Actions Bot"
+          commit_user_email: "github-actions[bot]@users.noreply.github.com"
+          commit_author: "github-actions[bot] <github-actions[bot]@users.noreply.github.com>"

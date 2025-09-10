@@ -9,3 +9,7 @@ python-dotenv
 matplotlib
 requests
 gunicorn
+scikit-learn
+xgboost
+seaborn
+flask

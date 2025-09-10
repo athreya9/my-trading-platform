@@ -1,0 +1,51 @@
+# cloudbuild.yaml - place this file in the root of your 'my-trading-platform' directory
+steps:
+# Step 1: Build the Docker image for your application.
+# This uses the Dockerfile in your project's root directory.
+- name: 'gcr.io/cloud-builders/docker'
+  id: 'Build'
+  args: [
+    'build',
+    '-t',
+    # The image will be tagged with the format: LOCATION-docker.pkg.dev/PROJECT_ID/REPOSITORY/IMAGE_NAME:COMMIT_SHA
+    # Cloud Build automatically substitutes $PROJECT_ID and latest.
+    # Using 'asia-south1' for lower latency to Indian markets.
+    'asia-south1-docker.pkg.dev/$PROJECT_ID/my-trading-repo/my-trading-platform-image:latest',
+    '.'
+  ]
+
+# Step 2: Push the Docker image to Google Artifact Registry.
+# This makes the image available for deployment.
+- name: 'gcr.io/cloud-builders/docker'
+  id: 'Push'
+  args: [
+    'push',
+    # The image path must exactly match the one from the 'Build' step.
+    'asia-south1-docker.pkg.dev/$PROJECT_ID/my-trading-repo/my-trading-platform-image:latest'
+  ]
+
+# Step 3: Deploy the container to a private Cloud Run service.
+- name: 'gcr.io/google-cloud-builders/gcloud'
+  id: 'Deploy to Cloud Run'
+  args: [
+    'run',
+    'deploy',
+    'datradingplatform', # Target your existing Cloud Run service.
+    '--image', 'asia-south1-docker.pkg.dev/$PROJECT_ID/my-trading-repo/my-trading-platform-image:latest',
+    '--region', 'asia-south1', # Set to Mumbai for optimal performance with Indian markets.
+    '--platform', 'managed',
+    '--no-allow-unauthenticated', # Make the service private, invokable only by authenticated requests.
+    '--memory', '1Gi', # Allocate sufficient memory for data processing.
+    # Mount secrets from Google Secret Manager as environment variables.
+    # The format is 'ENV_VAR_NAME=SECRET_NAME:VERSION'.
+    # You must create these secrets in Secret Manager first.
+    '--set-secrets=KITE_API_KEY=KITE_API_KEY:latest',
+    '--set-secrets=KITE_ACCESS_TOKEN=KITE_ACCESS_TOKEN:latest',
+    '--set-secrets=GOOGLE_SHEETS_CREDENTIALS=GOOGLE_SHEETS_CREDENTIALS:latest',
+    '--set-secrets=TELEGRAM_BOT_TOKEN=TELEGRAM_BOT_TOKEN:latest',
+    '--set-secrets=TELEGRAM_CHAT_ID=TELEGRAM_CHAT_ID:latest'
+  ]
+
+# This section lists the images that were built and pushed.
+images:
+- 'asia-south1-docker.pkg.dev/$PROJECT_ID/my-trading-repo/my-trading-platform-image:latest'

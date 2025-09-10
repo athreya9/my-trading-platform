@@ -1293,25 +1293,32 @@ def fetch_economic_events():
 def main(force_run=False):
     """Main function that runs the entire process."""
     try:
-        logger.info("--- Trading Signal Process Started ---")
+        logger.info(f"--- Trading Signal Process Started (Data Source: {DATA_SOURCE.upper()}) ---")
         
         # --- Market Hours Check ---
         if not force_run and not should_run():
-            logger.info("Market is closed and 'force_run' is false. Exiting process.")
-            # We can still update the sheet with a "Market Closed" message if desired
-            return
+            # If using yfinance, we can ignore market hours check as it's for testing.
+            if DATA_SOURCE == 'kite':
+                logger.info("Market is closed and 'force_run' is false. Exiting process.")
+                return
+            else:
+                logger.info("Market is closed, but proceeding with yfinance for testing.")
 
         # Step 1: Connect to services and prepare data map
-        kite = connect_to_kite()
-        instrument_map = get_instrument_map(kite)
+        kite = None
+        instrument_map = None
+        if DATA_SOURCE == 'kite':
+            kite = connect_to_kite()
+            instrument_map = get_instrument_map(kite)
 
-        # --- NEW: Fetch Option Chain Data ---
-        option_chain_df = fetch_option_chain(kite, 'NIFTY')
-        if option_chain_df is not None:
-            # For now, just print the first 5 rows of the dataframe to verify
-            logger.info("--- Option Chain Data (first 5 rows) ---")
-            logger.info(option_chain_df.head())
-            logger.info("-----------------------------------------")
+            # --- NEW: Fetch Option Chain Data ---
+            option_chain_df = fetch_option_chain(kite, 'NIFTY')
+            if option_chain_df is not None:
+                logger.info("--- Option Chain Data (first 5 rows) ---")
+                logger.info(option_chain_df.head())
+                logger.info("-----------------------------------------")
+        else:
+            logger.info("Skipping Kite connection and option chain fetch for yfinance data source.")
 
         spreadsheet = connect_to_google_sheets()
         

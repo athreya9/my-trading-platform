@@ -24,23 +24,27 @@ steps:
     'us-central1-docker.pkg.dev/$PROJECT_ID/my-trading-repo/my-trading-platform-image:$COMMIT_SHA'
   ]
 
-# --- OPTIONAL DEPLOYMENT STEP ---
-# Step 3: Deploy the container to Cloud Run to make it a live service.
-# Uncomment the following lines to enable automatic deployment after a successful build.
-#
-# - name: 'gcr.io/google-cloud-builders/gcloud'
-#   id: 'Deploy to Cloud Run'
-#   args: [
-#     'run',
-#     'deploy',
-#     'my-trading-platform-service', # Choose a name for your Cloud Run service.
-#     '--image', 'us-central1-docker.pkg.dev/$PROJECT_ID/my-trading-repo/my-trading-platform-image:$COMMIT_SHA',
-#     '--region', 'us-central1', # TODO: Set this to your preferred Google Cloud region.
-#     '--platform', 'managed',
-#     '--allow-unauthenticated' # Allows public access. Remove for a private service.
-#     # To pass secrets to your application (like API keys), you would add --set-secrets flags here.
-#     # Example: '--set-secrets=KITE_API_KEY=my-kite-api-key:latest'
-#   ]
+# Step 3: Deploy the container to a private Cloud Run service.
+- name: 'gcr.io/google-cloud-builders/gcloud'
+  id: 'Deploy to Cloud Run'
+  args: [
+    'run',
+    'deploy',
+    'my-trading-platform-service', # This will be the name of your Cloud Run service.
+    '--image', 'us-central1-docker.pkg.dev/$PROJECT_ID/my-trading-repo/my-trading-platform-image:$COMMIT_SHA',
+    '--region', 'us-central1', # IMPORTANT: Set this to your preferred Google Cloud region.
+    '--platform', 'managed',
+    '--no-allow-unauthenticated', # Make the service private, invokable only by authenticated requests.
+    '--memory', '1Gi', # Allocate sufficient memory for data processing.
+    # Mount secrets from Google Secret Manager as environment variables.
+    # The format is 'ENV_VAR_NAME=SECRET_NAME:VERSION'.
+    # You must create these secrets in Secret Manager first.
+    '--set-secrets=KITE_API_KEY=KITE_API_KEY:latest',
+    '--set-secrets=KITE_ACCESS_TOKEN=KITE_ACCESS_TOKEN:latest',
+    '--set-secrets=GOOGLE_SHEETS_CREDENTIALS=GOOGLE_SHEETS_CREDENTIALS:latest',
+    '--set-secrets=TELEGRAM_BOT_TOKEN=TELEGRAM_BOT_TOKEN:latest',
+    '--set-secrets=TELEGRAM_CHAT_ID=TELEGRAM_CHAT_ID:latest'
+  ]
 
 # This section lists the images that were built and pushed.
 images:

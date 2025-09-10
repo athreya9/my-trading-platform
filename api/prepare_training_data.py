@@ -35,13 +35,19 @@ def create_target_variable(df):
     """
     print(f"Creating target variable with a {PREDICTION_HORIZON}-period horizon and {TARGET_RETURN_THRESHOLD:.2%} return threshold...")
 
-    # Calculate the future return over the defined horizon
-    future_returns = df['close'].shift(-PREDICTION_HORIZON) / df['close'] - 1
+    def calculate_future_returns(group):
+        """Helper function to apply on a per-instrument basis."""
+        # Calculate the future return over the defined horizon
+        future_returns = group['close'].shift(-PREDICTION_HORIZON) / group['close'] - 1
+        # Create the binary target variable
+        group['target'] = np.where(future_returns > TARGET_RETURN_THRESHOLD, 1, 0)
+        return group
 
-    # Create the binary target variable
-    df['target'] = np.where(future_returns > TARGET_RETURN_THRESHOLD, 1, 0)
+    # Apply the calculation for each instrument to avoid data leakage between symbols
+    df = df.groupby('instrument', group_keys=False).apply(calculate_future_returns)
 
     # The last `PREDICTION_HORIZON` rows will have NaN targets, so we drop them.
+    # This also drops NaNs created by the groupby operation.
     df.dropna(subset=['target'], inplace=True)
     df['target'] = df['target'].astype(int)
 
@@ -57,7 +63,8 @@ def main():
         print("--- Starting ML Data Preparation ---")
         # 1. Read historical data from Google Sheets
         spreadsheet = connect_to_google_sheets()
-        price_df = read_price_data(spreadsheet)
+        # Read data for ALL instruments to create a richer training set
+        price_df = read_price_data(spreadsheet, target_instrument=None)
 
         # 2. Calculate all indicators to use as features
         # We reuse the robust functions from the main processing script.

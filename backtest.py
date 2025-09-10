@@ -78,7 +78,7 @@ def connect_to_google_sheets():
     if not creds_json_str:
         raise ValueError(
             "GOOGLE_SHEETS_CREDENTIALS environment variable not found. "
-            "Please ensure it's set in your .env file."
+            "Please ensure it's set in your .env file or GitHub secrets."
         )
     try:
         creds_dict = json.loads(creds_json_str)
@@ -90,7 +90,7 @@ def connect_to_google_sheets():
         raise Exception(f"Error connecting to Google Sheet: {e}")
 
 @retry()
-def read_price_data(spreadsheet):
+def read_price_data(spreadsheet, target_instrument=None):
     """Reads historical price data from the sheet, returning a clean DataFrame."""
     print(f"Reading historical data from '{DATA_WORKSHEET_NAME}' tab...")
     try:
@@ -103,10 +103,12 @@ def read_price_data(spreadsheet):
         print(f"Successfully read {len(df)} rows of historical data.")
         
         # --- Data Cleaning and Preparation ---
-        # Filter for the target instrument
-        df = df[df['Symbol'] == TARGET_INSTRUMENT].copy()
-        if df.empty:
-            raise ValueError(f"No data found for target instrument '{TARGET_INSTRUMENT}'.")
+        # Filter for a specific instrument if one is provided
+        if target_instrument:
+            print(f"Filtering data for target instrument: {target_instrument}")
+            df = df[df['Symbol'] == target_instrument].copy()
+            if df.empty:
+                raise ValueError(f"No data found for target instrument '{target_instrument}'.")
 
         # Convert columns to correct data types
         df['Timestamp'] = pd.to_datetime(df['Timestamp'])

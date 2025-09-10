@@ -12,6 +12,7 @@ import json
 import time
 from datetime import datetime, timedelta
 import pytz
+import joblib
 from functools import wraps, lru_cache
 import os
 from dotenv import load_dotenv
@@ -53,6 +54,23 @@ SIGNAL_HEADERS = ['timestamp', 'instrument', 'option_type', 'strike_price', 'und
 # Risk Management settings
 ATR_PERIOD = 14
 STOP_LOSS_MULTIPLIER = 2.0  # e.g., 2 * ATR below entry price
+
+# --- AI Model Configuration ---
+# The confidence level the AI must have to generate a signal.
+# Based on your training script, 0.80 (80%) is a good starting point for high precision.
+AI_CONFIDENCE_THRESHOLD = 0.80
+
+# Path to the trained model file
+MODEL_PATH = os.path.join(os.path.dirname(__file__), 'trading_model.pkl')
+
+# Load the AI model once when the script starts.
+try:
+    AI_MODEL = joblib.load(MODEL_PATH)
+    logger.info(f"Successfully loaded AI model from {MODEL_PATH}")
+except FileNotFoundError:
+    logger.warning(f"AI model '{os.path.basename(MODEL_PATH)}' not found. AI-based signals will be disabled.")
+    AI_MODEL = None
+
 TAKE_PROFIT_MULTIPLIER = 4.0 # e.g., 4 * ATR above entry price (for a 1:2 risk/reward ratio)
 MAX_RISK_PER_TRADE = 0.01  # Golden Rule: 1% of capital
 ACCOUNT_SIZE = 100000.0 # Example account size
@@ -809,6 +827,51 @@ def generate_signals(price_data_dict, manual_controls_df, trade_log_df, market_c
 
         latest_15m = group_15m.iloc[-1]
 
+        # --- AI-DRIVEN SIGNAL GENERATION (PRIMARY) ---
+        # This is now the main signal generator. Rule-based signals can act as a fallback.
+        if AI_MODEL is not None:
+            # These features MUST match the ones used in `prepare_training_data.py`
+            feature_columns = [
+                'SMA_20', 'SMA_50', 'RSI_14', 'MACD_12_26_9', 'ATRr_14',
+                'volume_avg_20', 'realized_vol', 'vwap', 'bos', 'choch',
+                'last_bull_ob_top', 'last_bull_ob_bottom'
+            ]
+            # Ensure all required feature columns are present and not NaN
+            if all(col in latest_15m and pd.notna(latest_15m[col]) for col in feature_columns):
+                # Prepare features for the model
+                features = latest_15m[feature_columns].values.reshape(1, -1)
+                
+                # Get prediction probability for the 'BUY' class (1)
+                buy_probability = AI_MODEL.predict_proba(features)[0][1]
+
+                if buy_probability >= AI_CONFIDENCE_THRESHOLD:
+                    logger.info(f"AI SIGNAL for {instrument}: BUY with {buy_probability:.2%} confidence.")
+                    
+                    signal_params = {
+                        'instrument': instrument,
+                        'reason': f'AI Prediction ({buy_probability:.0%})',
+                        'quality_score': 4, # Highest quality score for AI signals
+                        'rsi': latest_15m['RSI_14'],
+                        'volume_confirmed': True, # AI model implicitly learns volume patterns
+                        'sentiment_score': analyze_sentiment(instrument),
+                    }
+                    signal_params['confidence_score'] = int(buy_probability * 100)
+
+                    # Use existing safety checks before finalizing the signal
+                    if should_enter_trade(signal_params, market_context):
+                        entry_price = latest_15m['close']
+                        atr_val = latest_15m[f'ATRr_{ATR_PERIOD}']
+                        stop_loss = entry_price - (atr_val * STOP_LOSS_MULTIPLIER)
+                        take_profit = entry_price + (atr_val * TAKE_PROFIT_MULTIPLIER)
+                        
+                        instrument_signals.append({
+                            'option_type': 'CALL', 'strike_price': get_atm_strike(entry_price, instrument),
+                            'underlying_price': entry_price, 'stop_loss': stop_loss, 'take_profit': take_profit,
+                            'position_size': calculate_position_size(entry_price, stop_loss),
+                            'reason': signal_params['reason'], 'confidence_score': signal_params['confidence_score'],
+                            'win_rate_p': win_rate, 'win_loss_ratio_b': win_loss_ratio, 'kelly_pct': kelly_pct
+                        })
+
         # --- Manual Override Logic ---
         manual_override_triggered = False
         if not manual_controls_df.empty and instrument in manual_controls_df.index:
@@ -892,7 +955,7 @@ def generate_signals(price_data_dict, manual_controls_df, trade_log_df, market_c
                 entry_price = latest_15m['close']
                 stop_loss = entry_price - (atr_val * STOP_LOSS_MULTIPLIER)
                 take_profit = entry_price + (atr_val * TAKE_PROFIT_MULTIPLIER)
-                position_size = calculate_position_size(entry_price, stop_loss, signal_params['confidence_score'])
+                position_size = calculate_position_size(entry_price, stop_loss)
 
                 instrument_signals.append({
                     'option_type': option_type, 'strike_price': get_atm_strike(entry_price, instrument),
@@ -936,7 +999,7 @@ def generate_signals(price_data_dict, manual_controls_df, trade_log_df, market_c
                     entry_price = latest_15m['close']
                     stop_loss = entry_price - (atr_val * STOP_LOSS_MULTIPLIER)
                     take_profit = entry_price + (atr_val * TAKE_PROFIT_MULTIPLIER)
-                    position_size = calculate_position_size(entry_price, stop_loss, signal_params['confidence_score'])
+                    position_size = calculate_position_size(entry_price, stop_loss)
 
                     instrument_signals.append({
                         'option_type': option_type, 'strike_price': get_atm_strike(entry_price, instrument), 'underlying_price': entry_price,
@@ -976,7 +1039,7 @@ def generate_signals(price_data_dict, manual_controls_df, trade_log_df, market_c
                         stop_loss = last_ob_bottom
                         if entry_price <= stop_loss: continue
                         take_profit = entry_price + ((entry_price - stop_loss) * TAKE_PROFIT_MULTIPLIER)
-                        position_size = calculate_position_size(entry_price, stop_loss, signal_params['confidence_score'])
+                        position_size = calculate_position_size(entry_price, stop_loss)
 
                         instrument_signals.append({
                             'option_type': option_type, 'strike_price': get_atm_strike(entry_price, instrument), 'underlying_price': entry_price,

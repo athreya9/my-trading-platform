@@ -15,8 +15,7 @@ import pandas as pd
 import joblib
 import matplotlib.pyplot as plt
 import seaborn as sns
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
+from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
 from xgboost import XGBClassifier
 
@@ -65,7 +64,7 @@ def main():
         # 1. Load Data
         if not os.path.exists(DATA_PATH):
             print(f"❌ Error: Training data file not found at '{DATA_PATH}'", file=sys.stderr)
-            print("Please run 'ml/prepare_training_data.py' first.", file=sys.stderr)
+            print("Please run 'api/prepare_training_data.py' first.", file=sys.stderr)
             sys.exit(1)
         
         df = pd.read_csv(DATA_PATH)
@@ -90,17 +89,34 @@ def main():
         # It's the ratio of negative class samples to positive class samples.
         scale_pos_weight = (y_train == 0).sum() / (y_train == 1).sum()
         
-        model = XGBClassifier(
-            objective='binary:logistic',
-            eval_metric='logloss',
-            use_label_encoder=False,
-            scale_pos_weight=scale_pos_weight,
-            n_estimators=100, # Number of trees
-            max_depth=5,      # Maximum depth of a tree
-            learning_rate=0.1,
-            random_state=42
+        # --- NEW: Hyperparameter Tuning with GridSearchCV ---
+        # Define the grid of parameters to search.
+        param_grid = {
+            'n_estimators': [100, 200],
+            'max_depth': [3, 5, 7],
+            'learning_rate': [0.05, 0.1],
+            'subsample': [0.8, 1.0]
+        }
+
+        # We are optimizing for 'precision' of the positive class (Signal 1)
+        grid_search = GridSearchCV(
+            estimator=XGBClassifier(
+                objective='binary:logistic',
+                eval_metric='logloss',
+                use_label_encoder=False,
+                scale_pos_weight=scale_pos_weight,
+                random_state=42
+            ),
+            param_grid=param_grid,
+            scoring='precision', # This is the key to optimizing for your goal!
+            cv=3, # 3-fold cross-validation
+            n_jobs=-1, # Use all available CPU cores
+            verbose=1
         )
-        model.fit(X_train, y_train)
+        grid_search.fit(X_train, y_train)
+        model = grid_search.best_estimator_
+        print("\n--- Hyperparameter Tuning Complete ---")
+        print(f"Best parameters found: {grid_search.best_params_}")
         print("Model training complete.")
 
         # 5. Evaluate the Model on the Test Set

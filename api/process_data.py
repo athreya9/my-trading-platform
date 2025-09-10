@@ -157,7 +157,7 @@ def enhance_sheet_structure(sheet):
             "Advisor_Output": [["Recommendation", "Confidence", "Reasons", "Timestamp"]],
             "Signals": [["Action", "Symbol", "Price", "Confidence", "Reasons", "Timestamp"]],
             "Bot_Control": [["Parameter", "Value"], ["status", "running"], ["mode", "EMERGENCY"], ["last_updated", "never"]],
-            "Price_Data": [["Symbol", "Price", "Volume", "Change", "Timestamp"]],
+            "Price_Data": [["Symbol", "Timestamp", "open", "high", "low", "close", "volume"]],
             "Trade_Log": [["Date", "Instrument", "Action", "Quantity", "Entry", "Exit", "P/L"]]
         }
         
@@ -1300,7 +1300,7 @@ def main(force_run=False):
             # If using yfinance, we can ignore market hours check as it's for testing.
             if DATA_SOURCE == 'kite':
                 logger.info("Market is closed and 'force_run' is false. Exiting process.")
-                return
+                return {"status": "success", "message": "Market is closed. Bot did not run."}
             else:
                 logger.info("Market is closed, but proceeding with yfinance for testing.")
 
@@ -1328,7 +1328,8 @@ def main(force_run=False):
         # --- NEW: Bot Control Check ---
         # Check if the bot is enabled in the Google Sheet before proceeding.
         if not check_bot_status(spreadsheet):
-            sys.exit(0) # Exit gracefully if bot is stopped
+            logger.warning("Bot is disabled in the 'Bot_Control' sheet. Halting execution.")
+            return {"status": "stopped", "message": "Bot is disabled in Google Sheet."}
 
         # Step 2: Read supporting data from sheets
         manual_controls_df = read_manual_controls(spreadsheet)
@@ -1365,10 +1366,12 @@ def main(force_run=False):
         write_to_sheets(spreadsheet, price_data_dict["15m"], signals_df)
 
         logger.info("--- Trading Signal Process Completed Successfully ---")
+        return {"status": "success", "message": "Trading bot executed successfully."}
 
     except Exception as e:
         # This will catch any error and log it, preventing a silent crash.
         logger.error("A critical error occurred in the main process:", exc_info=True)
+        return {"status": "error", "message": str(e)}
 
 # --- Script Execution ---
 @process_data_bp.route('/run', methods=['GET'])
@@ -1382,9 +1385,16 @@ def run_bot():
         logger.warning("'force=true' parameter detected. Bypassing market hours check for this run.")
 
     try:
-        # Call the existing main function
-        main(force_run=force_run)
-        return jsonify({"status": "success", "message": "Trading bot executed successfully."}), 200
+        # The main function now returns a dictionary with status and message
+        result = main(force_run=force_run)
+        
+        # Determine the HTTP status code based on the result
+        if result.get("status") == "error":
+            http_status = 500
+        else:
+            http_status = 200 # Success or Stopped are both "OK" from an HTTP perspective
+            
+        return jsonify(result), http_status
     except Exception as e:
         logger.error(f"Error executing trading bot: {e}", exc_info=True)
         return jsonify({"status": "error", "message": str(e)}), 500

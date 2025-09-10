@@ -81,6 +81,9 @@ try:
 except FileNotFoundError:
     logger.warning(f"AI model '{os.path.basename(MODEL_PATH)}' not found. AI-based signals will be disabled.")
     AI_MODEL = None
+except Exception as e:
+    logger.error(f"Failed to load AI model from {MODEL_PATH} due to an error: {e}. AI-based signals will be disabled.")
+    AI_MODEL = None
 
 TAKE_PROFIT_MULTIPLIER = 4.0 # e.g., 4 * ATR above entry price (for a 1:2 risk/reward ratio)
 MAX_RISK_PER_TRADE = 0.01  # Golden Rule: 1% of capital

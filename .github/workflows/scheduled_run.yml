@@ -1,0 +1,19 @@
+name: Trigger Trading Bot
+
+on:
+  schedule:
+    # Runs every 15 minutes
+    - cron: '*/15 * * * *'
+
+jobs:
+  trigger-bot:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger the trading bot
+        run: |
+          # Only run on weekdays (Monday=1, Sunday=7)
+          if [ $(date +%u) -lt 6 ]; then
+            curl -X GET "https://datradingplatform-884404713353.asia-south1.run.app/run"
+          else
+            echo "Skipping bot trigger on weekend."
+          fi

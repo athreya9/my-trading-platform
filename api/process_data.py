@@ -1262,6 +1262,13 @@ def main(force_run=False):
         logger.error("A critical error occurred in the main process:", exc_info=True)
 
 # --- Script Execution ---
+@app.route('/', methods=['GET'])
+def health_check():
+    """
+    A simple health check endpoint to confirm the service is running.
+    """
+    return "Healthy", 200
+
 @app.route('/run', methods=['GET'])
 def run_bot():
     """

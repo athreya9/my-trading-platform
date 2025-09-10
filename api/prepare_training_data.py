@@ -14,8 +14,13 @@ import numpy as np
 # Add the parent directory to the path to allow imports from 'api'
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from backtest import read_price_data, connect_to_google_sheets
-from api.process_data import calculate_indicators, apply_price_action_indicators
+from api.process_data import (
+    calculate_indicators,
+    apply_price_action_indicators,
+    connect_to_kite,
+    get_instrument_map,
+    run_data_collection
+)
 
 
 # --- Configuration for the Target Variable ---
@@ -61,10 +66,19 @@ def main():
     """
     try:
         print("--- Starting ML Data Preparation ---")
-        # 1. Read historical data from Google Sheets
-        spreadsheet = connect_to_google_sheets()
-        # Read data for ALL instruments to create a richer training set
-        price_df = read_price_data(spreadsheet, target_instrument=None)
+        # 1. Fetch historical data directly from Kite API
+        print("Connecting to Kite API...")
+        kite = connect_to_kite()
+        instrument_map = get_instrument_map(kite)
+
+        print("Fetching historical data for all instruments...")
+        # We fetch a long history (1h data) to create a robust training set
+        price_data_dict = run_data_collection(kite, instrument_map)
+        price_df = price_data_dict.get("1h")
+
+        if price_df is None or price_df.empty:
+            print("❌ Error: No 1-hour historical data was fetched. Cannot create training data.", file=sys.stderr)
+            sys.exit(1)
 
         # 2. Calculate all indicators to use as features
         # We reuse the robust functions from the main processing script.

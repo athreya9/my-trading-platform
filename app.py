@@ -5,6 +5,7 @@ A Flask web server to provide API endpoints for controlling the trading bot.
 import gspread
 from flask import Flask, request, jsonify
 import os
+import json
 
 app = Flask(__name__)
 

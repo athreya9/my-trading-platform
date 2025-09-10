@@ -1280,4 +1280,5 @@ def run_bot():
         logger.error(f"Error executing trading bot: {e}", exc_info=True)
         return jsonify({"status": "error", "message": str(e)}), 500
 
+main(force_run=True)
 

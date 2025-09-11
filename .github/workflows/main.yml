@@ -109,14 +109,12 @@ jobs:
 
       - name: "🔐 Update Secret in Google Secret Manager"
         if: success()
-        uses: 'google-github-actions/gcloud-cli@v2'
-        with:
-          command: 'secrets versions add KITE_ACCESS_TOKEN --data-file=- --project=${{ steps.auth.outputs.project_id }}'
-          stdin: ${{ env.NEW_TOKEN }}
-
-      - name: "Log Secret Update Success"
-        if: success()
-        run: echo "Secret updated successfully."
+        run: |
+          echo "Updating KITE_ACCESS_TOKEN in Secret Manager..."
+          echo -n "${{ env.NEW_TOKEN }}" | gcloud secrets versions add KITE_ACCESS_TOKEN --data-file=- --project=${{ steps.auth.outputs.project_id }}
+          echo "Secret updated successfully."
+        env:
+          CLOUDSDK_AUTH_CREDENTIAL_FILE_OVERRIDE: ${{ steps.auth.outputs.credentials_file_path }}
 
       - name: "Upload Debug Artifacts on Failure"
         if: failure()

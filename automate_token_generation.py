@@ -133,10 +133,14 @@ def main():
         except TimeoutException:
             # If the PIN input doesn't appear, the login failed.
             print("Login failed: 2FA/PIN page did not load in time.", file=sys.stderr)
-            # Check for a visible error message on the current page.
-            error_message_element = WebDriverWait(driver, 2).until(EC.visibility_of_element_located((By.CSS_SELECTOR, "p.error")))
-            error_text = error_message_element.text
-            raise Exception(f"Login failed. Credentials may be incorrect. Error on page: '{error_text}'")
+            # Try to find a specific error message, but don't crash if it's not there.
+            try:
+                error_message_element = WebDriverWait(driver, 2).until(EC.visibility_of_element_located((By.CSS_SELECTOR, "p.error")))
+                error_text = error_message_element.text
+                raise Exception(f"Login failed. Credentials may be incorrect. Error on page: '{error_text}'")
+            except TimeoutException:
+                # If we can't find a specific error, raise a clear, generic message.
+                raise Exception("Login failed and no specific error message was found. Please double-check your KITE_USER_ID and KITE_PASSWORD secrets.")
 
         # --- Step 3: Capture the Request Token ---
         print("Waiting for redirect to capture request_token...", file=sys.stderr)

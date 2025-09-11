@@ -28,6 +28,37 @@ from selenium.common.exceptions import TimeoutException
 from webdriver_manager.chrome import ChromeDriverManager
 from urllib.parse import urlparse, parse_qs
 
+class url_or_iframe_with_token:
+    """
+    An expected condition for waiting for a URL to contain a substring,
+    checking both the main URL and the src of any iframes. This is robust
+    against redirects that happen inside a frame.
+    """
+    def __init__(self, substring):
+        self.substring = substring
+        self.captured_url = None
+
+    def __call__(self, driver):
+        try:
+            # 1. Check the main browser URL
+            if self.substring in driver.current_url:
+                self.captured_url = driver.current_url
+                print(f"DEBUG: Found token in main URL: {self.captured_url}", file=sys.stderr)
+                return True
+            
+            # 2. Check the src of all iframes
+            iframes = driver.find_elements(By.TAG_NAME, "iframe")
+            for frame in iframes:
+                iframe_src = frame.get_attribute('src')
+                if iframe_src and self.substring in iframe_src:
+                    self.captured_url = iframe_src
+                    print(f"DEBUG: Found token in iframe src: {self.captured_url}", file=sys.stderr)
+                    return True
+        except Exception:
+            # Ignore exceptions like StaleElementReferenceException during page loads.
+            return False
+        return False
+
 def generate_access_token(api_key, api_secret, request_token):
     """Generates an access token using the request token."""
     data = api_key + request_token + api_secret
@@ -113,24 +144,17 @@ def main():
         
         # --- Step 2: Handle 2FA/TOTP and verify login success ---
         try:
-            # Wait for the 2FA/TOTP input field to be present on the page.
             print("Login submitted. Waiting for 2FA/TOTP page...", file=sys.stderr)
             pin_input = WebDriverWait(driver, 25).until(
                 EC.presence_of_element_located((By.CSS_SELECTOR, "form.twofa-form input#userid"))
             )
             print("2FA page loaded successfully. Found TOTP input.", file=sys.stderr)
 
-        except TimeoutException:
-            # This is the first potential failure point.
-            print("Login failed: The 2FA/TOTP input field was not found in time.", file=sys.stderr)
-            raise Exception("Login succeeded, but the script could not find the 2FA/TOTP input field. The website's structure may have changed.")
-
-        try:
             # Now that the input is found, enter the TOTP and submit.
             print("Generating and entering TOTP...", file=sys.stderr)
             totp = pyotp.TOTP(totp_secret)
             pin_input.send_keys(totp.now())
-            time.sleep(1) # Brief pause after entering TOTP
+            time.sleep(1)
 
             print("Submitting TOTP and waiting for redirect...", file=sys.stderr)
             totp_submit_button = wait.until(
@@ -138,48 +162,21 @@ def main():
             )
             driver.execute_script("arguments[0].click();", totp_submit_button)
 
-            # --- Robust URL Capture Loop ---
-            # This loop is more reliable than a standard WebDriverWait for SPAs
-            # that might clean the URL parameters very quickly after loading.
-            redirect_url = None
-            start_time = time.time()
-            timeout = 60 # seconds
+            # --- NEW ROBUST WAIT ---
+            # Use the custom expected condition to safely wait for the token.
+            print("Waiting for request_token in URL or iframe...", file=sys.stderr)
+            token_condition = url_or_iframe_with_token("request_token")
+            WebDriverWait(driver, 25).until(token_condition)
             
-            while time.time() - start_time < timeout:
-                current_url = driver.current_url
-                # We prioritize finding the request_token.
-                if "request_token" in current_url:
-                    redirect_url = current_url
-                    print(f"DEBUG: Immediately captured URL with request_token: {redirect_url}", file=sys.stderr)
-                    break
-                # As a fallback, if we land on the frontend, we grab that URL.
-                if "trading-dashboard-app.vercel.app" in current_url:
-                    redirect_url = current_url
-                    print(f"DEBUG: Landed on frontend URL, capturing immediately: {redirect_url}", file=sys.stderr)
-                    break
-                time.sleep(0.2) # Poll every 200ms
-
+            redirect_url = token_condition.captured_url
             if not redirect_url:
-                # --- NEW DIAGNOSTIC STEP ---
-                # If the loop times out, the redirect didn't happen as expected.
-                # The most likely cause, given the screenshot, is that the content is in an iframe.
-                print("DEBUG: Redirect URL not captured. Investigating for iframes...", file=sys.stderr)
-                print(f"DEBUG: Final page URL is: {driver.current_url}", file=sys.stderr)
-                iframes = driver.find_elements(By.TAG_NAME, "iframe")
-                if iframes:
-                    print(f"DEBUG: Found {len(iframes)} iframe(s) on the page.", file=sys.stderr)
-                    for i, frame in enumerate(iframes):
-                        frame_src = frame.get_attribute('src')
-                        print(f"DEBUG: iframe #{i} src: {frame_src}", file=sys.stderr)
-                else:
-                    print("DEBUG: No iframes found on the final page.", file=sys.stderr)
-                raise TimeoutException("Timed out waiting for redirect. See debug logs for iframe analysis.")
+                 raise Exception("Condition passed but no URL was captured. This indicates a logic error.")
 
-            print(f"Redirect successful. Final URL for parsing: {redirect_url}", file=sys.stderr)
+            print(f"Redirect successful. Captured URL for parsing: {redirect_url}", file=sys.stderr)
 
         except TimeoutException as e:
-            print(f"Login failed during 2FA submission or redirect: {e}", file=sys.stderr)
-            raise Exception("The script timed out after TOTP submission. This could be due to a slow redirect or the content being loaded in an iframe. Check the logs for iframe analysis.")
+            print(f"Login failed during 2FA/redirect process: {e}", file=sys.stderr)
+            raise Exception(f"The script timed out. This could be due to incorrect credentials, a change in the website's structure, or a slow redirect. The original error was: {e}")
 
         # --- Step 3: Capture the Request Token ---
         # Use the captured redirect_url, not driver.current_url which might be cleaned by the SPA.

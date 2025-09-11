@@ -239,9 +239,18 @@ def main():
         print("Generating and entering TOTP...", file=sys.stderr)
         totp = pyotp.TOTP(totp_secret)
         pin_input.send_keys(totp.now())
-        time.sleep(1) # Brief pause
-        totp_submit_button = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[@type='submit']")))
-        driver.execute_script("arguments[0].click();", totp_submit_button)
+        time.sleep(1) # Brief pause for any JS validation or auto-submit triggers
+
+        # Attempt to click submit, but don't fail if it's not there (auto-submit case)
+        try:
+            # Use a much shorter wait specifically for this button
+            short_wait = WebDriverWait(driver, 3)
+            totp_submit_button = short_wait.until(EC.element_to_be_clickable((By.XPATH, "//button[@type='submit']")))
+            print("Found 2FA submit button. Clicking...", file=sys.stderr)
+            driver.execute_script("arguments[0].click();", totp_submit_button)
+        except TimeoutException:
+            print("2FA submit button not found. Assuming auto-submission and proceeding...", file=sys.stderr)
+            pass
 
         # --- Step 3: Capture the Request Token ---
         # IMPORTANT: Switch back to the main document before waiting for the redirect.

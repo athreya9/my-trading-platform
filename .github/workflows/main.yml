@@ -52,6 +52,12 @@ jobs:
     timeout-minutes: 5 # Fail fast if token generation gets stuck
 
     steps:
+      - name: 'Authenticate to Google Cloud'
+        id: 'auth'
+        uses: 'google-github-actions/auth@v2'
+        with:
+          credentials_json: '${{ secrets.GCP_SA_KEY }}'
+
       - name: "Checkout Code"
         uses: actions/checkout@v4
 
@@ -104,25 +110,11 @@ jobs:
       - name: "🔐 Update Secret in Google Secret Manager"
         if: success()
         run: |
-          set -eo pipefail
-          echo "Authenticating to GCP and updating secret..."
-
-          # Use printf for safer multi-line string handling.
-          # This requires the GCP_SA_KEY secret to be the raw, unmodified JSON content.
-          printf "%s" "${{ secrets.GCP_SA_KEY }}" > gcp-credentials.json
-
-          # Authenticate the gcloud CLI using the service account file.
-          gcloud auth activate-service-account --key-file=gcp-credentials.json
-
-          # Set the active project for gcloud.
-          gcloud config set project my-trading-platform-471103
-
-          # Update the secret in Secret Manager.
-          echo "Updating KITE_ACCESS_TOKEN..."
-          echo -n "${{ env.NEW_TOKEN }}" | gcloud secrets versions add KITE_ACCESS_TOKEN --data-file=-
-
-          # Clean up the temporary credential file.
-          rm gcp-credentials.json
+          set -eo pipefail # Exit on any error
+          
+          echo "Updating KITE_ACCESS_TOKEN in Secret Manager..."
+          # The gcloud CLI is already authenticated by the 'google-github-actions/auth' step.
+          echo -n "${{ env.NEW_TOKEN }}" | gcloud secrets versions add KITE_ACCESS_TOKEN --data-file=- --project=${{ steps.auth.outputs.project_id }}
           echo "Secret KITE_ACCESS_TOKEN updated successfully."
 
       - name: "Upload Debug Artifacts on Failure"

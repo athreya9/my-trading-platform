@@ -144,29 +144,46 @@ def main():
         
         # --- Step 2: Handle 2FA/TOTP and verify login success ---
         try:
-            print("Login submitted. Waiting for 2FA/TOTP page...", file=sys.stderr)
-            pin_input = WebDriverWait(driver, 25).until(
-                EC.presence_of_element_located((By.CSS_SELECTOR, "form.twofa-form input#userid"))
+            print("Login submitted. Waiting for 2FA/PIN page...", file=sys.stderr)
+
+            # The 2FA form might be in an iframe. Try to switch to it.
+            try:
+                WebDriverWait(driver, 10).until(
+                    EC.frame_to_be_available_and_switch_to_it((By.TAG_NAME, "iframe"))
+                )
+                print("Switched to an iframe for 2FA.", file=sys.stderr)
+            except TimeoutException:
+                # If no iframe, assume the form is in the main document.
+                print("No iframe found, proceeding in main document.", file=sys.stderr)
+                pass
+
+            # Now, look for the PIN input, whether in the iframe or main document.
+            pin_input = WebDriverWait(driver, 15).until(
+                EC.presence_of_element_located((By.ID, "pin"))
             )
-            print("2FA page loaded successfully. Found TOTP input.", file=sys.stderr)
+            print("2FA page loaded successfully.", file=sys.stderr)
 
             # Now that the input is found, enter the TOTP and submit.
             print("Generating and entering TOTP...", file=sys.stderr)
             totp = pyotp.TOTP(totp_secret)
             pin_input.send_keys(totp.now())
-            time.sleep(1)
-
-            print("Submitting TOTP and waiting for redirect...", file=sys.stderr)
+            time.sleep(1) # Brief pause after entering TOTP
+            
+            # Find and click the 2FA submit button
             totp_submit_button = wait.until(
-                EC.presence_of_element_located((By.CSS_SELECTOR, "form.twofa-form button[type='submit']"))
+                EC.element_to_be_clickable((By.XPATH, "//button[@type='submit']"))
             )
             driver.execute_script("arguments[0].click();", totp_submit_button)
+
+            # IMPORTANT: Switch back to the main document before the next step
+            driver.switch_to.default_content()
+            print("Switched back to default content.", file=sys.stderr)
 
             # --- NEW ROBUST WAIT ---
             # Use the custom expected condition to safely wait for the token.
             print("Waiting for request_token in URL or iframe...", file=sys.stderr)
             token_condition = url_or_iframe_with_token("request_token")
-            WebDriverWait(driver, 25).until(token_condition)
+            WebDriverWait(driver, 25).until(token_condition) # Keep this, as it's robust for final token capture
             
             redirect_url = token_condition.captured_url
             if not redirect_url:
@@ -175,8 +192,16 @@ def main():
             print(f"Redirect successful. Captured URL for parsing: {redirect_url}", file=sys.stderr)
 
         except TimeoutException as e:
-            print(f"Login failed during 2FA/redirect process: {e}", file=sys.stderr)
-            raise Exception(f"The script timed out. This could be due to incorrect credentials, a change in the website's structure, or a slow redirect. The original error was: {e}")
+            # If the PIN input doesn't appear, the login failed.
+            print("Login failed: 2FA/PIN page did not load in time.", file=sys.stderr)
+            # Try to find a specific error message, but don't crash if it's not there.
+            try:
+                error_message_element = WebDriverWait(driver, 2).until(EC.visibility_of_element_located((By.CSS_SELECTOR, "p.error")))
+                error_text = error_message_element.text
+                raise Exception(f"Login failed. Credentials may be incorrect. Error on page: '{error_text}'")
+            except TimeoutException:
+                # If we can't find a specific error, raise a clear, generic message.
+                raise Exception("Login failed and no specific error message was found. Please double-check your KITE_USER_ID and KITE_PASSWORD secrets.")
 
         # --- Step 3: Capture the Request Token ---
         # Use the captured redirect_url, not driver.current_url which might be cleaned by the SPA.

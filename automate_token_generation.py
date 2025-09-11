@@ -70,6 +70,8 @@ def main():
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-dev-shm-usage")
         options.add_argument("--remote-debugging-pipe")
+        # Add a common user-agent to avoid headless detection
+        options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36")
         
         print("Setting up Chrome WebDriver...", file=sys.stderr)
         service = Service(
@@ -89,11 +91,10 @@ def main():
         
         # Enter User ID and Password
         print("Entering User ID and Password...", file=sys.stderr)
-        wait.until(EC.presence_of_element_located((By.ID, "userid"))).send_keys(user_id)
-        time.sleep(1) # Add a small delay
-        # Use JavaScript to set the password to bypass potential interactability issues
-        password_input = wait.until(EC.visibility_of_element_located((By.NAME, "password")))
-        driver.execute_script("arguments[0].value = arguments[1];", password_input, password)
+        # Wait for the user ID field to be visible before interacting
+        wait.until(EC.visibility_of_element_located((By.ID, "userid"))).send_keys(user_id)
+        # Wait for the password field to be visible and use its ID
+        wait.until(EC.visibility_of_element_located((By.ID, "password"))).send_keys(password)
 
         # Wait for the submit button to be clickable before clicking
         wait.until(EC.element_to_be_clickable((By.XPATH, "//button[@type='submit']"))).click()
@@ -101,9 +102,9 @@ def main():
         # --- Step 2: Handle 2FA/TOTP ---
         print("Generating and entering TOTP...", file=sys.stderr)
         totp = pyotp.TOTP(totp_secret)
-        time.sleep(2)
-        totp_input = wait.until(EC.visibility_of_element_located((By.NAME, "totp")))
-        totp_input.send_keys(totp.now())
+        # The 2FA input field ID is 'pin'
+        pin_input = wait.until(EC.visibility_of_element_located((By.ID, "pin")))
+        pin_input.send_keys(totp.now())
         driver.find_element(By.XPATH, "//button[@type='submit']").click()
 
         # --- Step 3: Capture the Request Token ---

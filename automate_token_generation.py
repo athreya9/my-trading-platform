@@ -132,25 +132,20 @@ def main():
             pin_input.send_keys(totp.now())
             time.sleep(1) # Brief pause after entering TOTP
 
-            print("Submitting TOTP and waiting for redirect...", file=sys.stderr)
-            # Get the current URL before we click, so we can wait for it to change.
-            pre_redirect_url = driver.current_url
-
+            print("Submitting TOTP and waiting for redirect to frontend...", file=sys.stderr)
             totp_submit_button = wait.until(
                 EC.presence_of_element_located((By.CSS_SELECTOR, "form.twofa-form button[type='submit']"))
             )
             driver.execute_script("arguments[0].click();", totp_submit_button)
 
-            # The crucial step: Wait for the browser to navigate away from the Kite login page.
-            # This is more reliable than waiting for the new URL to contain a specific string,
-            # especially with fast-loading Single-Page Applications (SPAs) that might
-            # clean the URL's query parameters.
-            wait.until(EC.url_changes(pre_redirect_url))
-            print(f"Redirect successful. New URL is: {driver.current_url}", file=sys.stderr)
+            # The crucial step: Wait for the browser to be redirected to your frontend app.
+            # This is the most reliable signal that the login was fully successful.
+            wait.until(EC.url_contains("trading-dashboard-app.vercel.app"))
+            print(f"Redirect to frontend successful. Current URL: {driver.current_url}", file=sys.stderr)
 
         except TimeoutException:
-            print("Login failed: Timed out while submitting TOTP or waiting for redirect.", file=sys.stderr)
-            raise Exception("The script entered the TOTP, but timed out. This could mean the 'Continue' button was not found, or the redirect to your frontend application failed to happen in time.")
+            print("Login failed: Timed out while waiting for redirect to the frontend application.", file=sys.stderr)
+            raise Exception("The script submitted the TOTP, but it timed out waiting to be redirected to your frontend app. This could mean the redirect URL in your Kite app is incorrect, or the frontend failed to load.")
 
         # --- Step 3: Capture the Request Token ---
         redirect_url = driver.current_url

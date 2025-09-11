@@ -20,6 +20,14 @@ from dotenv import load_dotenv
 # Load environment variables from .env file for local development.
 # This will not override environment variables set in the GitHub Actions runner.
 load_dotenv()
+import yfinance as yf
+
+# --- NEW: Import for Secret Manager ---
+try:
+    from google.cloud import secretmanager
+    GCP_SECRET_MANAGER_AVAILABLE = True
+except ImportError:
+    GCP_SECRET_MANAGER_AVAILABLE = False
 
 import logging
 import re
@@ -27,6 +35,9 @@ import sys
 from api import config
 import requests
 import feedparser
+
+# --- NEW: Data Source Configuration ---
+DATA_SOURCE = os.getenv('DATA_SOURCE', 'kite').lower()
 
 process_data_bp = Blueprint('process_data', __name__)
 
@@ -70,6 +81,9 @@ try:
 except FileNotFoundError:
     logger.warning(f"AI model '{os.path.basename(MODEL_PATH)}' not found. AI-based signals will be disabled.")
     AI_MODEL = None
+except Exception as e:
+    logger.error(f"Failed to load AI model from {MODEL_PATH} due to an error: {e}. AI-based signals will be disabled.")
+    AI_MODEL = None
 
 TAKE_PROFIT_MULTIPLIER = 4.0 # e.g., 4 * ATR above entry price (for a 1:2 risk/reward ratio)
 MAX_RISK_PER_TRADE = 0.01  # Golden Rule: 1% of capital
@@ -97,6 +111,13 @@ YFINANCE_TO_KITE_MAP = {
     '^CNXIT': 'NIFTY IT',
     '^NSEBANK': 'NIFTY BANK',
     '^CNXAUTO': 'NIFTY AUTO'
+}
+
+# --- NEW: yfinance Configuration ---
+KITE_TO_YF_INTERVAL_MAP = {
+    "15minute": "15m",
+    "30minute": "30m",
+    "60minute": "1h",
 }
 
 # --- Main Functions ---
@@ -139,7 +160,7 @@ def enhance_sheet_structure(sheet):
             "Advisor_Output": [["Recommendation", "Confidence", "Reasons", "Timestamp"]],
             "Signals": [["Action", "Symbol", "Price", "Confidence", "Reasons", "Timestamp"]],
             "Bot_Control": [["Parameter", "Value"], ["status", "running"], ["mode", "EMERGENCY"], ["last_updated", "never"]],
-            "Price_Data": [["Symbol", "Price", "Volume", "Change", "Timestamp"]],
+            "Price_Data": [["Symbol", "Timestamp", "open", "high", "low", "close", "volume"]],
             "Trade_Log": [["Date", "Instrument", "Action", "Quantity", "Entry", "Exit", "P/L"]]
         }
         
@@ -260,6 +281,26 @@ def calculate_kelly_criterion(trades_df):
     return kelly_pct, win_rate, win_loss_ratio
 
 @retry()
+def get_gcp_secret(secret_id, project_id, version_id="latest"):
+    """Fetches a secret from Google Secret Manager."""
+    if not GCP_SECRET_MANAGER_AVAILABLE:
+        logger.warning("google-cloud-secret-manager library not installed. Cannot fetch secrets from GCP.")
+        return None
+
+    try:
+        client = secretmanager.SecretManagerServiceClient()
+        name = f"projects/{project_id}/secrets/{secret_id}/versions/{version_id}"
+        response = client.access_secret_version(request={"name": name})
+        payload = response.payload.data.decode("UTF-8")
+        logger.info(f"Successfully fetched latest version of secret '{secret_id}'.")
+        return payload
+    except Exception as e:
+        # Log the error but return None to allow fallback to environment variables
+        logger.error(f"Failed to access secret '{secret_id}' in project '{project_id}': {e}")
+        return None
+
+
+@retry()
 def connect_to_google_sheets():
     """Connects to Google Sheets using credentials from an environment variable."""
     logger.info("Attempting to authenticate with Google Sheets...")
@@ -281,17 +322,32 @@ def connect_to_kite():
     """Initializes the Kite Connect client using credentials from environment variables."""
     logger.info("Attempting to authenticate with Kite Connect...")
     api_key = os.getenv('KITE_API_KEY', '').strip().strip('"\'')
-    access_token = os.getenv('KITE_ACCESS_TOKEN', '').strip().strip('"\'')
+    access_token = None
+
+    # --- START: MODIFICATION to fetch token from Secret Manager ---
+    # In a GCP environment (like Cloud Run), fetch the access token from Secret Manager.
+    # This ensures the latest token is always used, even in long-running instances.
+    # The GCP_PROJECT env var is automatically set by Cloud Run.
+    gcp_project_id = os.getenv('GCP_PROJECT')
+    if gcp_project_id:
+        logger.info(f"GCP environment detected (Project: {gcp_project_id}). Fetching KITE_ACCESS_TOKEN from Secret Manager.")
+        access_token = get_gcp_secret("KITE_ACCESS_TOKEN", gcp_project_id)
+
+    # Fallback to environment variable if not in GCP or if Secret Manager fetch fails.
+    if not access_token:
+        logger.info("Falling back to KITE_ACCESS_TOKEN from environment variable for local development or as a backup.")
+        access_token = os.getenv('KITE_ACCESS_TOKEN', '').strip().strip('"\'')
+    # --- END: MODIFICATION ---
 
     # --- START: Added for debugging authentication issues ---
     logger.info(f"DEBUG: API Key (first 4 chars): '{api_key[:4]}...'")
-    logger.info(f"DEBUG: Access Token (first 4 chars): '{access_token[:4]}...'")
+    logger.info(f"DEBUG: Access Token (first 4 chars): '{access_token[:4] if access_token else 'None'}...'")
     logger.info(f"DEBUG: API Key length: {len(api_key)}")
-    logger.info(f"DEBUG: Access Token length: {len(access_token)}")
+    logger.info(f"DEBUG: Access Token length: {len(access_token) if access_token else 0}")
     # --- END: Added for debugging ---
 
     if not api_key or not access_token:
-        raise ValueError("KITE_API_KEY or KITE_ACCESS_TOKEN environment variables not found.")
+        raise ValueError("KITE_API_KEY or KITE_ACCESS_TOKEN could not be obtained.")
     try:
         kite = KiteConnect(api_key=api_key)
         kite.set_access_token(access_token)
@@ -338,6 +394,35 @@ def fetch_historical_data(kite, instrument_token, from_date, to_date, interval, 
         return df[['timestamp', 'instrument', 'open', 'high', 'low', 'close', 'volume']]
     except Exception as e:
         logger.warning(f"Could not fetch Kite data for {original_symbol}: {e}")
+        return pd.DataFrame()
+
+
+@retry()
+def fetch_historical_data_yfinance(symbol, from_date, to_date, interval):
+    """Fetches historical data from Yahoo Finance for a given symbol."""
+    logger.info(f"Fetching {interval} data for {symbol} from yfinance...")
+    try:
+        # yfinance uses 'start' and 'end' parameters
+        df = yf.download(symbol, start=from_date, end=to_date, interval=interval, progress=False)
+        if df.empty:
+            logger.warning(f"No data downloaded for {symbol} from yfinance at {interval} interval.")
+            return pd.DataFrame()
+
+        df.reset_index(inplace=True)
+        # yfinance column names are 'Datetime', 'Open', 'High', 'Low', 'Close', 'Adj Close', 'Volume'
+        # The rest of the script expects lowercase and 'timestamp'
+        df.rename(columns={
+            'Datetime': 'timestamp', 'Date': 'timestamp', # Some intervals return 'Date'
+            'Open': 'open', 'High': 'high', 'Low': 'low', 'Close': 'close', 'Volume': 'volume'
+        }, inplace=True)
+        df['instrument'] = symbol
+        # yfinance might return timezone-aware timestamp, convert to naive UTC to match Kite's output
+        if pd.api.types.is_datetime64_any_dtype(df['timestamp']) and df['timestamp'].dt.tz is not None:
+             df['timestamp'] = df['timestamp'].dt.tz_convert('UTC').dt.tz_localize(None)
+
+        return df[['timestamp', 'instrument', 'open', 'high', 'low', 'close', 'volume']]
+    except Exception as e:
+        logger.warning(f"Could not fetch yfinance data for {symbol}: {e}")
         return pd.DataFrame()
 
 
@@ -417,35 +502,55 @@ def fetch_option_chain(kite, underlying_instrument):
         return None
 
 
-def run_data_collection(kite, instrument_map):
+def run_data_collection(kite=None, instrument_map=None):
     """Fetches data for all symbols and timeframes and returns a dictionary of DataFrames."""
     data_frames = {"15m": [], "30m": [], "1h": []}
     to_date = datetime.now()
     
     for symbol in config.SYMBOLS:
-        # Translate yfinance symbol to Kite tradingsymbol
-        kite_symbol = YFINANCE_TO_KITE_MAP.get(symbol, symbol.replace('.NS', ''))
-        instrument_token = instrument_map.get(kite_symbol)
+        if DATA_SOURCE == 'yfinance':
+            # --- Fetch data for all required timeframes from yfinance ---
+            from_date_15m = to_date - timedelta(days=5)
+            df_15m = fetch_historical_data_yfinance(symbol, from_date_15m, to_date, KITE_TO_YF_INTERVAL_MAP["15minute"])
+            if not df_15m.empty:
+                data_frames["15m"].append(df_15m)
 
-        if not instrument_token:
-            logger.warning(f"Could not find instrument token for symbol '{symbol}' (Kite: '{kite_symbol}'). Skipping.")
-            continue
+            from_date_30m = to_date - timedelta(days=10)
+            df_30m = fetch_historical_data_yfinance(symbol, from_date_30m, to_date, KITE_TO_YF_INTERVAL_MAP["30minute"])
+            if not df_30m.empty:
+                data_frames["30m"].append(df_30m)
 
-        # --- Fetch data for all required timeframes ---
-        from_date_15m = to_date - timedelta(days=5)
-        df_15m = fetch_historical_data(kite, instrument_token, from_date_15m, to_date, "15minute", symbol)
-        if not df_15m.empty:
-            data_frames["15m"].append(df_15m)
+            from_date_1h = to_date - timedelta(days=60)
+            df_1h = fetch_historical_data_yfinance(symbol, from_date_1h, to_date, KITE_TO_YF_INTERVAL_MAP["60minute"])
+            if not df_1h.empty:
+                data_frames["1h"].append(df_1h)
+        else:  # Default to Kite
+            if not kite or not instrument_map:
+                raise ValueError("Kite client and instrument map are required for 'kite' data source.")
+            
+            # Translate yfinance symbol to Kite tradingsymbol
+            kite_symbol = YFINANCE_TO_KITE_MAP.get(symbol, symbol.replace('.NS', ''))
+            instrument_token = instrument_map.get(kite_symbol)
 
-        from_date_30m = to_date - timedelta(days=10)
-        df_30m = fetch_historical_data(kite, instrument_token, from_date_30m, to_date, "30minute", symbol)
-        if not df_30m.empty:
-            data_frames["30m"].append(df_30m)
+            if not instrument_token:
+                logger.warning(f"Could not find instrument token for symbol '{symbol}' (Kite: '{kite_symbol}'). Skipping.")
+                continue
 
-        from_date_1h = to_date - timedelta(days=60)
-        df_1h = fetch_historical_data(kite, instrument_token, from_date_1h, to_date, "60minute", symbol)
-        if not df_1h.empty:
-            data_frames["1h"].append(df_1h)
+            # --- Fetch data for all required timeframes ---
+            from_date_15m = to_date - timedelta(days=5)
+            df_15m = fetch_historical_data(kite, instrument_token, from_date_15m, to_date, "15minute", symbol)
+            if not df_15m.empty:
+                data_frames["15m"].append(df_15m)
+
+            from_date_30m = to_date - timedelta(days=10)
+            df_30m = fetch_historical_data(kite, instrument_token, from_date_30m, to_date, "30minute", symbol)
+            if not df_30m.empty:
+                data_frames["30m"].append(df_30m)
+
+            from_date_1h = to_date - timedelta(days=60)
+            df_1h = fetch_historical_data(kite, instrument_token, from_date_1h, to_date, "60minute", symbol)
+            if not df_1h.empty:
+                data_frames["1h"].append(df_1h)
 
     if not data_frames["15m"]:
         raise Exception("No 15m data was fetched for any symbol. Halting process.")
@@ -455,15 +560,13 @@ def run_data_collection(kite, instrument_map):
     combined_df_30m = pd.concat(data_frames["30m"], ignore_index=True) if data_frames["30m"] else pd.DataFrame()
     combined_df_1h = pd.concat(data_frames["1h"], ignore_index=True) if data_frames["1h"] else pd.DataFrame()
 
-    # --- NEW: Fetch LIVE data and merge it to prevent using stale historical data ---
-    logger.info("Fetching live quote data to merge with historical data...")
-    
-    # Create a list of Kite-formatted instrument names for the quote API
-    kite_symbols_for_quote = [f"NSE:{YFINANCE_TO_KITE_MAP.get(s, s.replace('.NS', ''))}" for s in config.SYMBOLS]
-
-    if not kite_symbols_for_quote:
-        logger.warning("No symbols to fetch live quotes for.")
-    else:
+    # --- NEW: Fetch LIVE data and merge it (Kite only) ---
+    if DATA_SOURCE == 'kite' and kite:
+        logger.info("Fetching live quote data to merge with historical data...")
+        kite_symbols_for_quote = [f"NSE:{YFINANCE_TO_KITE_MAP.get(s, s.replace('.NS', ''))}" for s in config.SYMBOLS]
+        if not kite_symbols_for_quote:
+            logger.warning("No symbols to fetch live quotes for.")
+            return {"15m": combined_df_15m, "30m": combined_df_30m, "1h": combined_df_1h}
         try:
             live_quotes = kite.quote(kite_symbols_for_quote)
 
@@ -490,6 +593,8 @@ def run_data_collection(kite, instrument_map):
             logger.info("Successfully merged live quote data into historical dataframes.")
         except Exception as e:
             logger.error(f"Could not fetch or merge live quotes: {e}")
+    elif DATA_SOURCE == 'yfinance':
+        logger.info("Skipping live data merge for yfinance data source.")
 
     logger.info(f"Processed {len(combined_df_15m)} rows (15m), {len(combined_df_30m)} rows (30m), {len(combined_df_1h)} rows (1h).")
     return {"15m": combined_df_15m, "30m": combined_df_30m, "1h": combined_df_1h}
@@ -1191,25 +1296,32 @@ def fetch_economic_events():
 def main(force_run=False):
     """Main function that runs the entire process."""
     try:
-        logger.info("--- Trading Signal Process Started ---")
+        logger.info(f"--- Trading Signal Process Started (Data Source: {DATA_SOURCE.upper()}) ---")
         
         # --- Market Hours Check ---
         if not force_run and not should_run():
-            logger.info("Market is closed and 'force_run' is false. Exiting process.")
-            # We can still update the sheet with a "Market Closed" message if desired
-            return
+            # If using yfinance, we can ignore market hours check as it's for testing.
+            if DATA_SOURCE == 'kite':
+                logger.info("Market is closed and 'force_run' is false. Exiting process.")
+                return {"status": "success", "message": "Market is closed. Bot did not run."}
+            else:
+                logger.info("Market is closed, but proceeding with yfinance for testing.")
 
         # Step 1: Connect to services and prepare data map
-        kite = connect_to_kite()
-        instrument_map = get_instrument_map(kite)
+        kite = None
+        instrument_map = None
+        if DATA_SOURCE == 'kite':
+            kite = connect_to_kite()
+            instrument_map = get_instrument_map(kite)
 
-        # --- NEW: Fetch Option Chain Data ---
-        option_chain_df = fetch_option_chain(kite, 'NIFTY')
-        if option_chain_df is not None:
-            # For now, just print the first 5 rows of the dataframe to verify
-            logger.info("--- Option Chain Data (first 5 rows) ---")
-            logger.info(option_chain_df.head())
-            logger.info("-----------------------------------------")
+            # --- NEW: Fetch Option Chain Data ---
+            option_chain_df = fetch_option_chain(kite, 'NIFTY')
+            if option_chain_df is not None:
+                logger.info("--- Option Chain Data (first 5 rows) ---")
+                logger.info(option_chain_df.head())
+                logger.info("-----------------------------------------")
+        else:
+            logger.info("Skipping Kite connection and option chain fetch for yfinance data source.")
 
         spreadsheet = connect_to_google_sheets()
         
@@ -1219,7 +1331,8 @@ def main(force_run=False):
         # --- NEW: Bot Control Check ---
         # Check if the bot is enabled in the Google Sheet before proceeding.
         if not check_bot_status(spreadsheet):
-            sys.exit(0) # Exit gracefully if bot is stopped
+            logger.warning("Bot is disabled in the 'Bot_Control' sheet. Halting execution.")
+            return {"status": "stopped", "message": "Bot is disabled in Google Sheet."}
 
         # Step 2: Read supporting data from sheets
         manual_controls_df = read_manual_controls(spreadsheet)
@@ -1231,7 +1344,7 @@ def main(force_run=False):
 
         # Step 4: Collect external data (market data, events)
         economic_events = fetch_economic_events()
-        price_data_dict = run_data_collection(kite, instrument_map)
+        price_data_dict = run_data_collection(kite=kite, instrument_map=instrument_map)
         
         # Step 5: Calculate all indicators for all instruments and timeframes
         if not price_data_dict["15m"].empty:
@@ -1256,10 +1369,12 @@ def main(force_run=False):
         write_to_sheets(spreadsheet, price_data_dict["15m"], signals_df)
 
         logger.info("--- Trading Signal Process Completed Successfully ---")
+        return {"status": "success", "message": "Trading bot executed successfully."}
 
     except Exception as e:
         # This will catch any error and log it, preventing a silent crash.
         logger.error("A critical error occurred in the main process:", exc_info=True)
+        return {"status": "error", "message": str(e)}
 
 # --- Script Execution ---
 @process_data_bp.route('/run', methods=['GET'])
@@ -1273,11 +1388,16 @@ def run_bot():
         logger.warning("'force=true' parameter detected. Bypassing market hours check for this run.")
 
     try:
-        # Call the existing main function
-        main(force_run=force_run)
-        return jsonify({"status": "success", "message": "Trading bot executed successfully."}), 200
+        # The main function now returns a dictionary with status and message
+        result = main(force_run=force_run)
+        
+        # Determine the HTTP status code based on the result
+        if result.get("status") == "error":
+            http_status = 500
+        else:
+            http_status = 200 # Success or Stopped are both "OK" from an HTTP perspective
+            
+        return jsonify(result), http_status
     except Exception as e:
         logger.error(f"Error executing trading bot: {e}", exc_info=True)
         return jsonify({"status": "error", "message": str(e)}), 500
-
-

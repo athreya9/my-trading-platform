@@ -113,41 +113,37 @@ def main():
         
         # --- Step 2: Handle 2FA/TOTP and verify login success ---
         try:
-            # The primary success condition is the appearance of the 2FA/PIN input field.
-            # We will wait up to 20 seconds for it to be present in the DOM.
-            print("Login submitted. Waiting for 2FA/PIN page...", file=sys.stderr)
-            pin_input = WebDriverWait(driver, 20).until(
-                EC.presence_of_element_located((By.ID, "pin"))
+            # The primary success condition is the appearance of the 2FA/TOTP input field.
+            # We will wait up to 20 seconds for it to be present.
+            print("Login submitted. Waiting for 2FA/TOTP page...", file=sys.stderr)
+            # Use a specific CSS selector to avoid conflicts with the previous page's 'userid' field.
+            # The TOTP input is now #userid inside a form with class .twofa-form
+            pin_input = WebDriverWait(driver, 25).until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, "form.twofa-form input#userid"))
             )
-            print("2FA page loaded successfully. Found PIN input.", file=sys.stderr)
+            print("2FA page loaded successfully. Found TOTP input.", file=sys.stderr)
 
             # If we're here, login was successful. Now enter the TOTP.
             print("Generating and entering TOTP...", file=sys.stderr)
             totp = pyotp.TOTP(totp_secret)
             pin_input.send_keys(totp.now())
             time.sleep(1) # Brief pause after entering TOTP
-
+            
             # Find and click the 2FA submit button
             totp_submit_button = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[@type='submit']")))
             driver.execute_script("arguments[0].click();", totp_submit_button)
 
         except TimeoutException:
-            # This is the primary failure path. The PIN input was not found.
-            print("Login failed: 2FA/PIN page did not load or PIN input was not found in time.", file=sys.stderr)
-            
-            # AGGRESSIVE DEBUGGING: Save page source for analysis.
-            print("Saving debug artifacts...", file=sys.stderr)
-            with open('error_page_source.html', 'w', encoding='utf-8') as f:
-                f.write(driver.page_source)
-            print("Saved page source to 'error_page_source.html'.", file=sys.stderr)
-
-            # Now, raise a clear error that explains what to do next.
-            raise Exception(
-                "The script timed out waiting for the 2FA/PIN input field. "
-                "This means the login was successful, but the script could not find the next element to interact with. "
-                "The page source has been saved as 'error_page_source.html' in the artifacts. "
-                "Please inspect this file to see if the PIN input is inside an <iframe> or has a different ID than 'pin'."
-            )
+            # If the TOTP input doesn't appear, the login failed after the first step.
+            print("Login failed: 2FA/TOTP page did not load or the input field was not found.", file=sys.stderr)
+            # Try to find a specific error message on the page.
+            try:
+                error_message_element = WebDriverWait(driver, 2).until(EC.visibility_of_element_located((By.CSS_SELECTOR, "p.error, span.error")))
+                error_text = error_message_element.text
+                raise Exception(f"Login failed. Credentials may be incorrect. Error on page: '{error_text}'")
+            except TimeoutException:
+                # If we can't find a specific error, raise a clear, generic message.
+                raise Exception("Login succeeded, but the script failed to find the 2FA/TOTP input field. The website's structure may have changed.")
 
         # --- Step 3: Capture the Request Token ---
         print("Waiting for redirect to capture request_token...", file=sys.stderr)

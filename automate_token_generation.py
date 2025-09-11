@@ -76,6 +76,9 @@ def main():
         # Disable automation flags
         options.add_experimental_option("excludeSwitches", ["enable-automation"])
         options.add_experimental_option('useAutomationExtension', False)
+        # Further stealth options
+        options.add_argument("--disable-blink-features=AutomationControlled")
+        options.add_argument("--disable-infobars")
         
         print("Setting up Chrome WebDriver...", file=sys.stderr)
         service = Service(

@@ -63,8 +63,8 @@ def find_pin_input(driver, wait):
     """
     Robustly finds the PIN input field by trying three methods:
     1. Direct search in the main document.
-    2. Searching within any iframes.
-    3. Searching within the Shadow DOM of a host element.
+    2. Searching within any iframes (for completeness).
+    3. A recursive search through all Shadow DOMs on the page.
     
     Returns the WebElement if found, otherwise None.
     """
@@ -77,41 +77,54 @@ def find_pin_input(driver, wait):
     except TimeoutException:
         print("PIN input not found directly.", file=sys.stderr)
 
-    # Method 2: Iframe search
+    # Method 2: Iframe search (kept for robustness, though logs suggest no iframes)
     try:
         print("Attempt 2: Searching for PIN input inside iframes...", file=sys.stderr)
+        WebDriverWait(driver, 3).until(EC.presence_of_all_elements_located((By.TAG_NAME, "iframe")))
         iframes = driver.find_elements(By.TAG_NAME, "iframe")
-        if not iframes:
-            print("No iframes found on page.", file=sys.stderr)
-        else:
-            for index, frame_element in enumerate(iframes):
-                try:
-                    driver.switch_to.frame(frame_element)
-                    pin_input = WebDriverWait(driver, 3).until(EC.visibility_of_element_located((By.ID, "pin")))
-                    print(f"✅ Found PIN input in iframe #{index}.", file=sys.stderr)
-                    return pin_input # Return while still in the iframe context
-                except TimeoutException:
-                    driver.switch_to.default_content()
-                    continue
+        for index, frame_element in enumerate(iframes):
+            try:
+                driver.switch_to.frame(frame_element)
+                pin_input = WebDriverWait(driver, 3).until(EC.visibility_of_element_located((By.ID, "pin")))
+                print(f"✅ Found PIN input in iframe #{index}.", file=sys.stderr)
+                return pin_input
+            except TimeoutException:
+                driver.switch_to.default_content()
+                continue
+    except TimeoutException:
+        print("No iframes appeared on the page within the wait time.", file=sys.stderr)
     except Exception as e:
         print(f"An error occurred during iframe search: {e}", file=sys.stderr)
     finally:
-        driver.switch_to.default_content() # Ensure we are back in the main context
+        driver.switch_to.default_content()
 
-    # Method 3: Shadow DOM search
+    # Method 3: Recursive Shadow DOM search (the definitive solution)
+    print("Attempt 3: Searching for PIN input inside a Shadow DOM (recursive)...", file=sys.stderr)
+    js_script = """
+        function findElementRecursive(root, selector) {
+            let element = root.querySelector(selector);
+            if (element) return element;
+            const shadowHosts = root.querySelectorAll('*');
+            for (const host of shadowHosts) {
+                if (host.shadowRoot) {
+                    element = findElementRecursive(host.shadowRoot, selector);
+                    if (element) return element;
+                }
+            }
+            return null;
+        }
+        return findElementRecursive(document, '#pin');
+    """
     try:
-        print("Attempt 3: Searching for PIN input inside a Shadow DOM...", file=sys.stderr)
-        # A common host is the form element itself.
-        host_selector = "form"
-        pin_input = driver.execute_script(f"""
-            const host = document.querySelector('{host_selector}');
-            return host && host.shadowRoot ? host.shadowRoot.querySelector('#pin') : null;
-        """)
+        pin_input = driver.execute_script(js_script)
         if pin_input:
             print("✅ Found PIN input in a Shadow DOM.", file=sys.stderr)
             return pin_input
+        else:
+            print("PIN input not found in any Shadow DOM.", file=sys.stderr)
     except Exception as e:
-        print(f"An error occurred during Shadow DOM search: {e}", file=sys.stderr)
+        print(f"An error occurred during recursive Shadow DOM search: {e}", file=sys.stderr)
+
     return None
 
 def generate_access_token(api_key, api_secret, request_token):

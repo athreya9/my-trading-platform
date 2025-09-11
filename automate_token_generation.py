@@ -143,37 +143,48 @@ def main():
         driver.execute_script("arguments[0].click();", submit_button)
         
         # --- Step 2: Handle 2FA/TOTP and verify login success ---
+        # This logic is designed to be robust against timing issues and iframes.
+        pin_input = None
         try:
-            # First, try to find the PIN input in the main document with a short wait.
-            print("Login submitted. Waiting for 2FA/PIN page...", file=sys.stderr)
-            pin_input = WebDriverWait(driver, 7).until(
-                EC.visibility_of_element_located((By.ID, "pin"))
-            )
-            print("Found PIN input in main document.", file=sys.stderr)
+            # First, try a direct wait for the PIN input. This works if it's not in an iframe.
+            print("Login submitted. Waiting for 2FA/PIN page to load...", file=sys.stderr)
+            pin_input = wait.until(EC.element_to_be_clickable((By.ID, "pin")))
+            print("Found PIN input directly in the main document.", file=sys.stderr)
 
         except TimeoutException:
-            # If not found, it's likely inside an iframe. Wait for the iframe and switch.
-            print("PIN input not in main document. Waiting for iframe...", file=sys.stderr)
+            # If the direct wait fails, the element is likely inside an iframe.
+            print("PIN input not found directly. Searching inside iframes...", file=sys.stderr)
             try:
-                WebDriverWait(driver, 15).until(
-                    EC.frame_to_be_available_and_switch_to_it((By.TAG_NAME, "iframe"))
-                )
-                print("Switched to iframe. Waiting for PIN input inside...", file=sys.stderr)
-                
-                # Now wait for the PIN input inside the iframe.
-                pin_input = WebDriverWait(driver, 10).until(
-                    EC.visibility_of_element_located((By.ID, "pin"))
-                )
-                print("Found PIN input inside iframe.", file=sys.stderr)
-            except TimeoutException:
-                # If it fails here, we're truly stuck.
-                print("Login failed: Could not find PIN input in main document or inside an iframe.", file=sys.stderr)
-                with open('error_page_source.html', 'w', encoding='utf-8') as f:
-                    f.write(driver.page_source)
-                print("Saved page source to 'error_page_source.html' for debugging.", file=sys.stderr)
-                raise Exception("The script timed out waiting for the 2FA/PIN input field. Please inspect the 'error_page_source.html' artifact.")
+                # Wait for at least one iframe to be present on the page.
+                wait.until(EC.presence_of_element_located((By.TAG_NAME, "iframe")))
+                iframes = driver.find_elements(By.TAG_NAME, "iframe")
+                print(f"Found {len(iframes)} iframe(s). Checking each for the PIN input.", file=sys.stderr)
 
-        # --- Now that pin_input is found (either in main doc or iframe), proceed with submission ---
+                for index, frame_element in enumerate(iframes):
+                    try:
+                        print(f"Switching to iframe #{index}...", file=sys.stderr)
+                        driver.switch_to.frame(frame_element)
+                        # Look for the pin input inside this specific iframe with a shorter wait.
+                        pin_input = WebDriverWait(driver, 5).until(EC.element_to_be_clickable((By.ID, "pin")))
+                        print(f"✅ Found PIN input inside iframe #{index}.", file=sys.stderr)
+                        break  # Exit the loop once found
+                    except TimeoutException:
+                        print(f"PIN input not in iframe #{index}. Switching back.", file=sys.stderr)
+                        driver.switch_to.default_content() # IMPORTANT: Switch back before next loop iteration
+                        continue
+            except TimeoutException:
+                # This means no iframes were even found on the page after waiting.
+                print("Search failed: No iframes were found on the page.", file=sys.stderr)
+
+        # Final check: If pin_input is still None after all attempts, we must fail.
+        if not pin_input:
+            print("Login failed: Could not find PIN input in main document or inside any iframe.", file=sys.stderr)
+            with open('error_page_source.html', 'w', encoding='utf-8') as f:
+                f.write(driver.page_source)
+            print("Saved page source to 'error_page_source.html' for debugging.", file=sys.stderr)
+            raise Exception("The script timed out waiting for the 2FA/PIN input field. Please inspect the 'error_page_source.html' artifact.")
+
+        # --- Now that pin_input is found, proceed with submission ---
         print("Generating and entering TOTP...", file=sys.stderr)
         totp = pyotp.TOTP(totp_secret)
         pin_input.send_keys(totp.now())

@@ -65,13 +65,17 @@ def main():
 
         # --- Configure Selenium WebDriver ---
         options = webdriver.ChromeOptions()
-        
-        options.add_argument("--headless") # Run in background
+        # Use the new headless mode which is less detectable
+        options.add_argument("--headless=new")
+        options.add_argument("--window-size=1920,1080")
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-dev-shm-usage")
         options.add_argument("--remote-debugging-pipe")
         # Add a common user-agent to avoid headless detection
         options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36")
+        # Disable automation flags
+        options.add_experimental_option("excludeSwitches", ["enable-automation"])
+        options.add_experimental_option('useAutomationExtension', False)
         
         print("Setting up Chrome WebDriver...", file=sys.stderr)
         service = Service(
@@ -80,12 +84,15 @@ def main():
             service_args=["--verbose"]
         )
         driver = webdriver.Chrome(service=service, options=options)
+        # Hide the "navigator.webdriver" flag to appear more human
+        driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
         
         # --- Step 1: Initial Login ---
         login_url = f"https://kite.zerodha.com/connect/login?v=3&api_key={api_key}"
         print(f"DEBUG: Navigating to URL: {login_url}", file=sys.stderr)  # <-- Add this line for debugging
         print(f"Navigating to login URL...", file=sys.stderr)
         driver.get(login_url)
+        time.sleep(1) # Allow page to settle
 
         wait = WebDriverWait(driver, 60)
         

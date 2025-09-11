@@ -109,14 +109,30 @@ jobs:
 
       - name: "🔐 Update Secret in Google Secret Manager"
         if: success()
-        uses: 'google-github-actions/gcloud-cli@v2'
-        with:
-          command: 'secrets versions add KITE_ACCESS_TOKEN --data-file=- --project=${{ steps.auth.outputs.project_id }}'
-          stdin: ${{ env.NEW_TOKEN }}
+        run: |
+          set -eo pipefail
+          echo "Authenticating and updating secret..."
 
-      - name: "Log Secret Update Success"
-        if: success()
-        run: echo "Secret KITE_ACCESS_TOKEN updated successfully in Google Secret Manager."
+          # Use printf for safer multi-line string handling.
+          # The GCP_SA_KEY secret must contain the raw, multi-line JSON.
+          printf "%s" "${{ secrets.GCP_SA_KEY }}" > gcp-credentials.json
+
+          # Validate the JSON before proceeding. jq is pre-installed on GitHub runners.
+          if ! jq . gcp-credentials.json > /dev/null; then
+            echo "::error::Failed to parse GCP credentials. Ensure the GCP_SA_KEY secret is the raw, unmodified JSON."
+            exit 1
+          fi
+
+          # Authenticate gcloud using the credential file.
+          gcloud auth activate-service-account --key-file=gcp-credentials.json
+
+          # Update the secret in Secret Manager using a "here string" for safety.
+          echo "Updating KITE_ACCESS_TOKEN in Secret Manager..."
+          gcloud secrets versions add KITE_ACCESS_TOKEN --data-file=- --project=${{ steps.auth.outputs.project_id }} <<< "${{ env.NEW_TOKEN }}"
+
+          # Clean up the temporary credential file.
+          rm gcp-credentials.json
+          echo "Secret KITE_ACCESS_TOKEN updated successfully."
 
       - name: "Upload Debug Artifacts on Failure"
         if: failure()

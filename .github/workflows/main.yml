@@ -109,20 +109,14 @@ jobs:
 
       - name: "🔐 Update Secret in Google Secret Manager"
         if: success()
-        # Use a temporary file for credentials and explicitly set GOOGLE_APPLICATION_CREDENTIALS.
-        # This is a more robust way to ensure gcloud finds the credentials when CLOUDSDK_AUTH_CREDENTIAL_FILE_OVERRIDE
-        # is not working as expected or the temporary file is cleaned up too soon.
-        run: |
-          set -euo pipefail # Exit on error, unset variables, and pipefail
-          
-          echo "Updating KITE_ACCESS_TOKEN in Secret Manager..."
-          # Write the service account key to a temporary file
-          echo "${{ secrets.GCP_SA_KEY }}" > gcp_sa_key.json
-          
-          # Use GOOGLE_APPLICATION_CREDENTIALS to point gcloud to the key
-          GOOGLE_APPLICATION_CREDENTIALS=gcp_sa_key.json gcloud secrets versions add KITE_ACCESS_TOKEN --data-file=- --project=${{ steps.auth.outputs.project_id }} --format="value(name)"
-          echo "Secret updated successfully."
-          rm gcp_sa_key.json # Clean up the temporary file
+        uses: 'google-github-actions/gcloud-cli@v2'
+        with:
+          command: 'secrets versions add KITE_ACCESS_TOKEN --data-file=- --project=${{ steps.auth.outputs.project_id }}'
+          stdin: ${{ env.NEW_TOKEN }}
+
+      - name: "Log Secret Update Success"
+        if: success()
+        run: echo "Secret KITE_ACCESS_TOKEN updated successfully in Google Secret Manager."
 
       - name: "Upload Debug Artifacts on Failure"
         if: failure()
@@ -131,6 +125,7 @@ jobs:
           name: error-artifacts
           path: |
             error_screenshot.png
+            error_page_source.html
             chromedriver.log
 
   # ========================================================================

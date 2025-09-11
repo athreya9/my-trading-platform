@@ -116,7 +116,6 @@ jobs:
           echo -n "${{ env.NEW_TOKEN }}" | gcloud secrets versions add KITE_ACCESS_TOKEN --data-file=- --project=${{ steps.auth.outputs.project_id }}
           echo "Secret updated successfully."
 
-      - name: "Upload Screenshot Artifact on Failure"
       - name: "Upload Debug Artifacts on Failure"
         if: failure()
         uses: actions/upload-artifact@v4

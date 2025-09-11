@@ -160,13 +160,26 @@ def main():
                 time.sleep(0.2) # Poll every 200ms
 
             if not redirect_url:
-                raise TimeoutException("Timed out waiting for redirect from Kite. The browser did not navigate to the expected frontend URL.")
+                # --- NEW DIAGNOSTIC STEP ---
+                # If the loop times out, the redirect didn't happen as expected.
+                # The most likely cause, given the screenshot, is that the content is in an iframe.
+                print("DEBUG: Redirect URL not captured. Investigating for iframes...", file=sys.stderr)
+                print(f"DEBUG: Final page URL is: {driver.current_url}", file=sys.stderr)
+                iframes = driver.find_elements(By.TAG_NAME, "iframe")
+                if iframes:
+                    print(f"DEBUG: Found {len(iframes)} iframe(s) on the page.", file=sys.stderr)
+                    for i, frame in enumerate(iframes):
+                        frame_src = frame.get_attribute('src')
+                        print(f"DEBUG: iframe #{i} src: {frame_src}", file=sys.stderr)
+                else:
+                    print("DEBUG: No iframes found on the final page.", file=sys.stderr)
+                raise TimeoutException("Timed out waiting for redirect. See debug logs for iframe analysis.")
 
             print(f"Redirect successful. Final URL for parsing: {redirect_url}", file=sys.stderr)
 
         except TimeoutException as e:
             print(f"Login failed during 2FA submission or redirect: {e}", file=sys.stderr)
-            raise Exception("The script submitted the TOTP, but it timed out waiting for the redirect to complete. This could mean the 'Continue' button was not found, or the redirect to your frontend application failed to happen in time.")
+            raise Exception("The script timed out after TOTP submission. This could be due to a slow redirect or the content being loaded in an iframe. Check the logs for iframe analysis.")
 
         # --- Step 3: Capture the Request Token ---
         # Use the captured redirect_url, not driver.current_url which might be cleaned by the SPA.

@@ -113,9 +113,20 @@ def main():
         
         # --- Step 2: Handle 2FA/TOTP and verify login success ---
         try:
-            # The primary success condition is the appearance of the 2FA/PIN input field.
-            # We'll wait for a reasonable time (e.g., 15 seconds).
             print("Login submitted. Waiting for 2FA/PIN page...", file=sys.stderr)
+
+            # The 2FA form might be in an iframe. Try to switch to it.
+            try:
+                WebDriverWait(driver, 10).until(
+                    EC.frame_to_be_available_and_switch_to_it((By.TAG_NAME, "iframe"))
+                )
+                print("Switched to an iframe for 2FA.", file=sys.stderr)
+            except TimeoutException:
+                # If no iframe, assume the form is in the main document.
+                print("No iframe found, proceeding in main document.", file=sys.stderr)
+                pass
+
+            # Now, look for the PIN input, whether in the iframe or main document.
             pin_input = WebDriverWait(driver, 15).until(
                 EC.presence_of_element_located((By.ID, "pin"))
             )
@@ -130,6 +141,10 @@ def main():
             # Find and click the 2FA submit button
             totp_submit_button = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[@type='submit']")))
             driver.execute_script("arguments[0].click();", totp_submit_button)
+
+            # IMPORTANT: Switch back to the main document before the next step
+            driver.switch_to.default_content()
+            print("Switched back to default content.", file=sys.stderr)
 
         except TimeoutException:
             # If the PIN input doesn't appear, the login failed.

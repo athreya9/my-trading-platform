@@ -59,6 +59,61 @@ class url_or_iframe_with_token:
             return False
         return False
 
+def find_pin_input(driver, wait):
+    """
+    Robustly finds the PIN input field by trying three methods:
+    1. Direct search in the main document.
+    2. Searching within any iframes.
+    3. Searching within the Shadow DOM of a host element.
+    
+    Returns the WebElement if found, otherwise None.
+    """
+    # Method 1: Direct find
+    try:
+        print("Attempt 1: Searching for PIN input directly...", file=sys.stderr)
+        pin_input = WebDriverWait(driver, 5).until(EC.visibility_of_element_located((By.ID, "pin")))
+        print("✅ Found PIN input directly in the main document.", file=sys.stderr)
+        return pin_input
+    except TimeoutException:
+        print("PIN input not found directly.", file=sys.stderr)
+
+    # Method 2: Iframe search
+    try:
+        print("Attempt 2: Searching for PIN input inside iframes...", file=sys.stderr)
+        iframes = driver.find_elements(By.TAG_NAME, "iframe")
+        if not iframes:
+            print("No iframes found on page.", file=sys.stderr)
+        else:
+            for index, frame_element in enumerate(iframes):
+                try:
+                    driver.switch_to.frame(frame_element)
+                    pin_input = WebDriverWait(driver, 3).until(EC.visibility_of_element_located((By.ID, "pin")))
+                    print(f"✅ Found PIN input in iframe #{index}.", file=sys.stderr)
+                    return pin_input # Return while still in the iframe context
+                except TimeoutException:
+                    driver.switch_to.default_content()
+                    continue
+    except Exception as e:
+        print(f"An error occurred during iframe search: {e}", file=sys.stderr)
+    finally:
+        driver.switch_to.default_content() # Ensure we are back in the main context
+
+    # Method 3: Shadow DOM search
+    try:
+        print("Attempt 3: Searching for PIN input inside a Shadow DOM...", file=sys.stderr)
+        # A common host is the form element itself.
+        host_selector = "form"
+        pin_input = driver.execute_script(f"""
+            const host = document.querySelector('{host_selector}');
+            return host && host.shadowRoot ? host.shadowRoot.querySelector('#pin') : null;
+        """)
+        if pin_input:
+            print("✅ Found PIN input in a Shadow DOM.", file=sys.stderr)
+            return pin_input
+    except Exception as e:
+        print(f"An error occurred during Shadow DOM search: {e}", file=sys.stderr)
+    return None
+
 def generate_access_token(api_key, api_secret, request_token):
     """Generates an access token using the request token."""
     data = api_key + request_token + api_secret
@@ -142,43 +197,22 @@ def main():
         submit_button = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[@type='submit']")))
         driver.execute_script("arguments[0].click();", submit_button)
         
-        # --- Step 2: Handle 2FA/TOTP and verify login success ---
-        # This logic is designed to be robust against timing issues and iframes.
-        pin_input = None
+        # --- Step 2: Robustly find the PIN input and handle login errors ---
+        # First, check for an immediate login error to fail fast.
         try:
-            # First, try a direct wait for the PIN input. This works if it's not in an iframe.
-            print("Login submitted. Waiting for 2FA/PIN page to load...", file=sys.stderr)
-            pin_input = wait.until(EC.element_to_be_clickable((By.ID, "pin")))
-            print("Found PIN input directly in the main document.", file=sys.stderr)
-
+            error_element = WebDriverWait(driver, 3).until(
+                EC.visibility_of_element_located((By.CSS_SELECTOR, "p.error"))
+            )
+            raise Exception(f"Login failed. Credentials may be incorrect. Error on page: '{error_element.text}'")
         except TimeoutException:
-            # If the direct wait fails, the element is likely inside an iframe.
-            print("PIN input not found directly. Searching inside iframes...", file=sys.stderr)
-            try:
-                # Wait for at least one iframe to be present on the page.
-                wait.until(EC.presence_of_element_located((By.TAG_NAME, "iframe")))
-                iframes = driver.find_elements(By.TAG_NAME, "iframe")
-                print(f"Found {len(iframes)} iframe(s). Checking each for the PIN input.", file=sys.stderr)
+            print("No immediate login error found. Proceeding to find PIN input...", file=sys.stderr)
 
-                for index, frame_element in enumerate(iframes):
-                    try:
-                        print(f"Switching to iframe #{index}...", file=sys.stderr)
-                        driver.switch_to.frame(frame_element)
-                        # Look for the pin input inside this specific iframe with a shorter wait.
-                        pin_input = WebDriverWait(driver, 5).until(EC.element_to_be_clickable((By.ID, "pin")))
-                        print(f"✅ Found PIN input inside iframe #{index}.", file=sys.stderr)
-                        break  # Exit the loop once found
-                    except TimeoutException:
-                        print(f"PIN input not in iframe #{index}. Switching back.", file=sys.stderr)
-                        driver.switch_to.default_content() # IMPORTANT: Switch back before next loop iteration
-                        continue
-            except TimeoutException:
-                # This means no iframes were even found on the page after waiting.
-                print("Search failed: No iframes were found on the page.", file=sys.stderr)
+        # Now, use the robust multi-method search function.
+        pin_input = find_pin_input(driver, wait)
 
-        # Final check: If pin_input is still None after all attempts, we must fail.
         if not pin_input:
-            print("Login failed: Could not find PIN input in main document or inside any iframe.", file=sys.stderr)
+            # This is the final failure point if the element is truly not findable.
+            print("Login failed: Could not find PIN input via direct, iframe, or Shadow DOM search.", file=sys.stderr)
             with open('error_page_source.html', 'w', encoding='utf-8') as f:
                 f.write(driver.page_source)
             print("Saved page source to 'error_page_source.html' for debugging.", file=sys.stderr)

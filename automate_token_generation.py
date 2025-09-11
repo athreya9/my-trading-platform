@@ -113,37 +113,35 @@ def main():
         
         # --- Step 2: Handle 2FA/TOTP and verify login success ---
         try:
-            # The primary success condition is the appearance of the 2FA/TOTP input field.
-            # We will wait up to 20 seconds for it to be present.
+            # Wait for the 2FA/TOTP input field to be present on the page.
             print("Login submitted. Waiting for 2FA/TOTP page...", file=sys.stderr)
-            # Use a specific CSS selector to avoid conflicts with the previous page's 'userid' field.
-            # The TOTP input is now #userid inside a form with class .twofa-form
             pin_input = WebDriverWait(driver, 25).until(
                 EC.presence_of_element_located((By.CSS_SELECTOR, "form.twofa-form input#userid"))
             )
             print("2FA page loaded successfully. Found TOTP input.", file=sys.stderr)
 
-            # If we're here, login was successful. Now enter the TOTP.
+        except TimeoutException:
+            # This is the first potential failure point.
+            print("Login failed: The 2FA/TOTP input field was not found in time.", file=sys.stderr)
+            raise Exception("Login succeeded, but the script could not find the 2FA/TOTP input field. The website's structure may have changed.")
+
+        try:
+            # Now that the input is found, enter the TOTP and submit.
             print("Generating and entering TOTP...", file=sys.stderr)
             totp = pyotp.TOTP(totp_secret)
             pin_input.send_keys(totp.now())
             time.sleep(1) # Brief pause after entering TOTP
-            
-            # Find and click the 2FA submit button
-            totp_submit_button = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[@type='submit']")))
-            driver.execute_script("arguments[0].click();", totp_submit_button)
 
+            print("Submitting TOTP...", file=sys.stderr)
+            # Use a more specific selector for the submit button.
+            totp_submit_button = wait.until(
+                EC.element_to_be_clickable((By.CSS_SELECTOR, "form.twofa-form button[type='submit']"))
+            )
+            driver.execute_script("arguments[0].click();", totp_submit_button)
         except TimeoutException:
-            # If the TOTP input doesn't appear, the login failed after the first step.
-            print("Login failed: 2FA/TOTP page did not load or the input field was not found.", file=sys.stderr)
-            # Try to find a specific error message on the page.
-            try:
-                error_message_element = WebDriverWait(driver, 2).until(EC.visibility_of_element_located((By.CSS_SELECTOR, "p.error, span.error")))
-                error_text = error_message_element.text
-                raise Exception(f"Login failed. Credentials may be incorrect. Error on page: '{error_text}'")
-            except TimeoutException:
-                # If we can't find a specific error, raise a clear, generic message.
-                raise Exception("Login succeeded, but the script failed to find the 2FA/TOTP input field. The website's structure may have changed.")
+            # This is the second potential failure point.
+            print("Login failed: The TOTP 'Continue' button was not found or not clickable in time.", file=sys.stderr)
+            raise Exception("The script entered the TOTP, but could not find or click the 'Continue' button. The website's structure may have changed.")
 
         # --- Step 3: Capture the Request Token ---
         print("Waiting for redirect to capture request_token...", file=sys.stderr)

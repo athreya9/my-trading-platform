@@ -117,7 +117,7 @@ def main():
             # We'll wait for a reasonable time (e.g., 15 seconds).
             print("Login submitted. Waiting for 2FA/PIN page...", file=sys.stderr)
             pin_input = WebDriverWait(driver, 15).until(
-                EC.visibility_of_element_located((By.ID, "pin"))
+                EC.presence_of_element_located((By.ID, "pin"))
             )
             print("2FA page loaded successfully.", file=sys.stderr)
 
@@ -125,6 +125,7 @@ def main():
             print("Generating and entering TOTP...", file=sys.stderr)
             totp = pyotp.TOTP(totp_secret)
             pin_input.send_keys(totp.now())
+            time.sleep(1) # Brief pause after entering TOTP
             
             # Find and click the 2FA submit button
             totp_submit_button = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[@type='submit']")))

@@ -116,10 +116,10 @@ def main():
             # The primary success condition is the appearance of the 2FA/TOTP input field.
             # We will wait up to 20 seconds for it to be present.
             print("Login submitted. Waiting for 2FA/TOTP page...", file=sys.stderr)
-            # Use a specific CSS selector to avoid conflicts with the previous page's 'userid' field.
-            # The TOTP input is now #userid inside a form with class .twofa-form
+            # The TOTP input field (a 6-digit PIN) is expected to have the ID 'pin'.
+            # We wait for this specific element to appear.
             pin_input = WebDriverWait(driver, 25).until(
-                EC.presence_of_element_located((By.CSS_SELECTOR, "form.twofa-form input#userid"))
+                EC.presence_of_element_located((By.ID, "pin"))
             )
             print("2FA page loaded successfully. Found TOTP input.", file=sys.stderr)
 

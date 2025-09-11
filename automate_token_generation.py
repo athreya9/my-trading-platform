@@ -132,7 +132,9 @@ def main():
         print(access_token)
         
     except Exception as e:
-        print(f"\n❌ An error occurred during automated token generation: {e}", file=sys.stderr)
+        print(f"\n❌ An error occurred during automated token generation.", file=sys.stderr)
+        print(f"Exception Type: {type(e).__name__}", file=sys.stderr)
+        print(f"Exception Details: {e}", file=sys.stderr)
         if driver:
             driver.save_screenshot('error_screenshot.png')
             print("Saved screenshot to 'error_screenshot.png' for debugging.", file=sys.stderr)

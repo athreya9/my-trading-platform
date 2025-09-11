@@ -111,25 +111,32 @@ def main():
         submit_button = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[@type='submit']")))
         driver.execute_script("arguments[0].click();", submit_button)
         
-        # --- Step 2: Check for login failure OR proceed to 2FA ---
+        # --- Step 2: Handle 2FA/TOTP and verify login success ---
         try:
-            # Check for a login error message (wait max 5 seconds)
-            error_message_element = WebDriverWait(driver, 5).until(
-                EC.visibility_of_element_located((By.CSS_SELECTOR, "p.error"))
+            # The primary success condition is the appearance of the 2FA/PIN input field.
+            # We'll wait for a reasonable time (e.g., 15 seconds).
+            print("Login submitted. Waiting for 2FA/PIN page...", file=sys.stderr)
+            pin_input = WebDriverWait(driver, 15).until(
+                EC.visibility_of_element_located((By.ID, "pin"))
             )
-            raise Exception(f"Login failed. Error on page: '{error_message_element.text}'")
-        except TimeoutException:
-            # This is the success case: no error message was found.
-            print("Login successful, proceeding to 2FA...", file=sys.stderr)
+            print("2FA page loaded successfully.", file=sys.stderr)
 
-        print("Generating and entering TOTP...", file=sys.stderr)
-        totp = pyotp.TOTP(totp_secret)
-        # The 2FA input field ID is 'pin'
-        pin_input = wait.until(EC.visibility_of_element_located((By.ID, "pin")))
-        pin_input.send_keys(totp.now())
-        # Find and click the 2FA submit button
-        totp_submit_button = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[@type='submit']")))
-        driver.execute_script("arguments[0].click();", totp_submit_button)
+            # If we're here, login was successful. Now enter the TOTP.
+            print("Generating and entering TOTP...", file=sys.stderr)
+            totp = pyotp.TOTP(totp_secret)
+            pin_input.send_keys(totp.now())
+            
+            # Find and click the 2FA submit button
+            totp_submit_button = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[@type='submit']")))
+            driver.execute_script("arguments[0].click();", totp_submit_button)
+
+        except TimeoutException:
+            # If the PIN input doesn't appear, the login failed.
+            print("Login failed: 2FA/PIN page did not load in time.", file=sys.stderr)
+            # Check for a visible error message on the current page.
+            error_message_element = WebDriverWait(driver, 2).until(EC.visibility_of_element_located((By.CSS_SELECTOR, "p.error")))
+            error_text = error_message_element.text
+            raise Exception(f"Login failed. Credentials may be incorrect. Error on page: '{error_text}'")
 
         # --- Step 3: Capture the Request Token ---
         print("Waiting for redirect to capture request_token...", file=sys.stderr)

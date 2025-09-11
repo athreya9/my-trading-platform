@@ -110,13 +110,13 @@ jobs:
       - name: "🔐 Update Secret in Google Secret Manager"
         if: success()
         run: |
-          set -eo pipefail
+          set -euo pipefail
 
-          echo "Writing service account key to a temporary file..."
-          echo "${{ secrets.GCP_SA_KEY }}" > gcp_sa_key.json
+          echo "Decoding base64-encoded GCP service account key..."
+          echo "${{ secrets.GCP_SA_KEY }}" | base64 -d > gcp_sa_key.json
 
-          echo "Authenticating gcloud CLI with the service account..."
-          gcloud auth activate-service-account --key-file=gcp_sa_key.json
+          echo "Authenticating gcloud CLI with the decoded service account key..."
+          gcloud auth activate-service-account --key-file=gcp_sa_key.json --project=${{ steps.auth.outputs.project_id }}
 
           echo "Updating KITE_ACCESS_TOKEN in Secret Manager..."
           echo -n "${{ env.NEW_TOKEN }}" | gcloud secrets versions add KITE_ACCESS_TOKEN --data-file=- --project=${{ steps.auth.outputs.project_id }}

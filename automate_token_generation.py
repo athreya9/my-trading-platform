@@ -61,70 +61,67 @@ class url_or_iframe_with_token:
 
 def find_pin_input(driver, wait):
     """
-    Robustly finds the PIN input field by trying three methods:
-    1. Direct search in the main document.
-    2. Searching within any iframes (for completeness).
-    3. A recursive search through all Shadow DOMs on the page.
+    Robustly finds the PIN input field by trying multiple selectors and methods.
+    This function is a non-waiting probe of the current DOM state.
     
     Returns the WebElement if found, otherwise None.
     """
-    # Method 1: Direct find
-    try:
-        print("Attempt 1: Searching for PIN input directly...", file=sys.stderr)
-        pin_input = WebDriverWait(driver, 5).until(EC.visibility_of_element_located((By.ID, "pin")))
-        print("✅ Found PIN input directly in the main document.", file=sys.stderr)
-        return pin_input
-    except TimeoutException:
-        print("PIN input not found directly.", file=sys.stderr)
+    selectors = [
+        (By.ID, "pin", "#pin"),
+        (By.CSS_SELECTOR, "input[type='password'][maxlength='6']", "input[type='password'][maxlength='6']"),
+        (By.CSS_SELECTOR, "input[type='number'][maxlength='6']", "input[type='number'][maxlength='6']")
+    ]
+    
+    for by, value, css_selector_str in selectors:
+        # Method 1: Direct find
+        try:
+            element = driver.find_element(by, value)
+            if element.is_displayed():
+                print(f"✅ Found PIN input directly with selector: ('{by}', '{value}')", file=sys.stderr)
+                return element
+        except:
+            pass
 
-    # Method 2: Iframe search (kept for robustness, though logs suggest no iframes)
-    try:
-        print("Attempt 2: Searching for PIN input inside iframes...", file=sys.stderr)
-        WebDriverWait(driver, 3).until(EC.presence_of_all_elements_located((By.TAG_NAME, "iframe")))
-        iframes = driver.find_elements(By.TAG_NAME, "iframe")
-        for index, frame_element in enumerate(iframes):
-            try:
-                driver.switch_to.frame(frame_element)
-                pin_input = WebDriverWait(driver, 3).until(EC.visibility_of_element_located((By.ID, "pin")))
-                print(f"✅ Found PIN input in iframe #{index}.", file=sys.stderr)
-                return pin_input
-            except TimeoutException:
-                driver.switch_to.default_content()
-                continue
-    except TimeoutException:
-        print("No iframes appeared on the page within the wait time.", file=sys.stderr)
-    except Exception as e:
-        print(f"An error occurred during iframe search: {e}", file=sys.stderr)
-    finally:
-        driver.switch_to.default_content()
+        # Method 2: Iframe search
+        try:
+            iframes = driver.find_elements(By.TAG_NAME, "iframe")
+            for frame_element in iframes:
+                try:
+                    driver.switch_to.frame(frame_element)
+                    element = driver.find_element(by, value)
+                    if element.is_displayed():
+                        print(f"✅ Found PIN input in iframe with selector: ('{by}', '{value}')", file=sys.stderr)
+                        return element # Return while still in iframe context
+                except:
+                    driver.switch_to.default_content()
+                    continue
+        finally:
+            driver.switch_to.default_content()
 
-    # Method 3: Recursive Shadow DOM search (the definitive solution)
-    print("Attempt 3: Searching for PIN input inside a Shadow DOM (recursive)...", file=sys.stderr)
-    js_script = """
-        function findElementRecursive(root, selector) {
-            let element = root.querySelector(selector);
-            if (element) return element;
-            const shadowHosts = root.querySelectorAll('*');
-            for (const host of shadowHosts) {
-                if (host.shadowRoot) {
-                    element = findElementRecursive(host.shadowRoot, selector);
-                    if (element) return element;
-                }
-            }
-            return null;
-        }
-        return findElementRecursive(document, '#pin');
-    """
-    try:
-        pin_input = driver.execute_script(js_script)
-        if pin_input:
-            print("✅ Found PIN input in a Shadow DOM.", file=sys.stderr)
-            return pin_input
-        else:
-            print("PIN input not found in any Shadow DOM.", file=sys.stderr)
-    except Exception as e:
-        print(f"An error occurred during recursive Shadow DOM search: {e}", file=sys.stderr)
-
+        # Method 3: Recursive Shadow DOM search
+        js_script = f"""
+            function findElementRecursive(root, selector) {{
+                let element = root.querySelector(selector);
+                if (element) return element;
+                const shadowHosts = root.querySelectorAll('*');
+                for (const host of shadowHosts) {{
+                    if (host.shadowRoot) {{
+                        element = findElementRecursive(host.shadowRoot, selector);
+                        if (element) return element;
+                    }}
+                }}
+                return null;
+            }}
+            return findElementRecursive(document, '{css_selector_str}');
+        """
+        try:
+            element = driver.execute_script(js_script)
+            if element:
+                print(f"✅ Found PIN input in Shadow DOM with selector: '{css_selector_str}'", file=sys.stderr)
+                return element
+        except:
+            pass
+            
     return None
 
 def generate_access_token(api_key, api_secret, request_token):
@@ -210,7 +207,7 @@ def main():
         submit_button = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[@type='submit']")))
         driver.execute_script("arguments[0].click();", submit_button)
         
-        # --- Step 2: Robustly find the PIN input and handle login errors ---
+        # --- Step 2: Robustly find the PIN input using a polling loop ---
         # First, check for an immediate login error to fail fast.
         try:
             error_element = WebDriverWait(driver, 3).until(
@@ -218,14 +215,21 @@ def main():
             )
             raise Exception(f"Login failed. Credentials may be incorrect. Error on page: '{error_element.text}'")
         except TimeoutException:
-            print("No immediate login error found. Proceeding to find PIN input...", file=sys.stderr)
+            print("No immediate login error found. Starting polling loop to find PIN input...", file=sys.stderr)
 
-        # Now, use the robust multi-method search function.
-        pin_input = find_pin_input(driver, wait)
+        pin_input = None
+        start_time = time.time()
+        timeout = 30 # seconds
+
+        while time.time() - start_time < timeout:
+            pin_input = find_pin_input(driver, wait)
+            if pin_input:
+                break
+            time.sleep(0.5) # Poll every 500ms
 
         if not pin_input:
             # This is the final failure point if the element is truly not findable.
-            print("Login failed: Could not find PIN input via direct, iframe, or Shadow DOM search.", file=sys.stderr)
+            print(f"Login failed: Polling for {timeout}s did not find PIN input.", file=sys.stderr)
             with open('error_page_source.html', 'w', encoding='utf-8') as f:
                 f.write(driver.page_source)
             print("Saved page source to 'error_page_source.html' for debugging.", file=sys.stderr)

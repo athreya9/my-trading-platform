@@ -24,6 +24,7 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import TimeoutException
 from webdriver_manager.chrome import ChromeDriverManager
 from urllib.parse import urlparse, parse_qs
 
@@ -117,7 +118,7 @@ def main():
                 EC.visibility_of_element_located((By.CSS_SELECTOR, "p.error"))
             )
             raise Exception(f"Login failed. Error on page: '{error_message_element.text}'")
-        except EC.TimeoutException:
+        except TimeoutException:
             # This is the success case: no error message was found.
             print("Login successful, proceeding to 2FA...", file=sys.stderr)
 

@@ -144,47 +144,42 @@ def main():
         
         # --- Step 2: Handle 2FA/TOTP and verify login success ---
         try:
-            # The primary success condition is the appearance of the 2FA/PIN input field.
-            # We will wait up to 20 seconds for it to be present in the DOM.
+            # First, try to find the PIN input in the main document with a short wait.
             print("Login submitted. Waiting for 2FA/PIN page...", file=sys.stderr)
-            pin_input = WebDriverWait(driver, 20).until(
-                EC.presence_of_element_located((By.ID, "pin"))
+            pin_input = WebDriverWait(driver, 7).until(
+                EC.visibility_of_element_located((By.ID, "pin"))
             )
-            print("2FA page loaded successfully. Found PIN input in main document.", file=sys.stderr)
-
-            # If we're here, login was successful. Now enter the TOTP.
-            print("Generating and entering TOTP...", file=sys.stderr)
-            totp = pyotp.TOTP(totp_secret)
-            pin_input.send_keys(totp.now())
-            time.sleep(1) # Brief pause after entering TOTP
-
-            # Find and click the 2FA submit button
-            totp_submit_button = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[@type='submit']")))
-            driver.execute_script("arguments[0].click();", totp_submit_button)
+            print("Found PIN input in main document.", file=sys.stderr)
 
         except TimeoutException:
-            # If the PIN input wasn't found, it might be inside an iframe.
-            print("PIN input not found in main document. Checking for an iframe...", file=sys.stderr)
+            # If not found, it's likely inside an iframe. Wait for the iframe and switch.
+            print("PIN input not in main document. Waiting for iframe...", file=sys.stderr)
             try:
-                driver.switch_to.frame(0) # Switch to the first available iframe
-                print("Switched to iframe. Retrying to find PIN input...", file=sys.stderr)
-                pin_input = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "pin")))
+                WebDriverWait(driver, 15).until(
+                    EC.frame_to_be_available_and_switch_to_it((By.TAG_NAME, "iframe"))
+                )
+                print("Switched to iframe. Waiting for PIN input inside...", file=sys.stderr)
+                
+                # Now wait for the PIN input inside the iframe.
+                pin_input = WebDriverWait(driver, 10).until(
+                    EC.visibility_of_element_located((By.ID, "pin"))
+                )
                 print("Found PIN input inside iframe.", file=sys.stderr)
-
-                # If found, continue with submission inside the iframe
-                print("Generating and entering TOTP...", file=sys.stderr)
-                totp = pyotp.TOTP(totp_secret)
-                pin_input.send_keys(totp.now())
-                time.sleep(1)
-                totp_submit_button = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[@type='submit']")))
-                driver.execute_script("arguments[0].click();", totp_submit_button)
-            except Exception as inner_e:
-                # If it fails again, we raise a comprehensive error.
-                print(f"Login failed: The 2FA/PIN input field was not found in the main document or inside an iframe. Final error: {inner_e}", file=sys.stderr)
+            except TimeoutException:
+                # If it fails here, we're truly stuck.
+                print("Login failed: Could not find PIN input in main document or inside an iframe.", file=sys.stderr)
                 with open('error_page_source.html', 'w', encoding='utf-8') as f:
                     f.write(driver.page_source)
                 print("Saved page source to 'error_page_source.html' for debugging.", file=sys.stderr)
                 raise Exception("The script timed out waiting for the 2FA/PIN input field. Please inspect the 'error_page_source.html' artifact.")
+
+        # --- Now that pin_input is found (either in main doc or iframe), proceed with submission ---
+        print("Generating and entering TOTP...", file=sys.stderr)
+        totp = pyotp.TOTP(totp_secret)
+        pin_input.send_keys(totp.now())
+        time.sleep(1) # Brief pause
+        totp_submit_button = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[@type='submit']")))
+        driver.execute_script("arguments[0].click();", totp_submit_button)
 
         # --- Step 3: Capture the Request Token ---
         # IMPORTANT: Switch back to the main document before waiting for the redirect.
@@ -202,8 +197,7 @@ def main():
 
         print(f"Redirect successful. Captured URL for parsing: {redirect_url}", file=sys.stderr)
 
-        # --- Step 3: Capture the Request Token ---
-        # Use the captured redirect_url, not driver.current_url which might be cleaned by the SPA.
+        # Parse the captured URL to extract the request token
         parsed_url = urlparse(redirect_url)
         query_params = parse_qs(parsed_url.query)
         

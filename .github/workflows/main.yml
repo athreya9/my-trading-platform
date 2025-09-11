@@ -117,11 +117,15 @@ jobs:
           echo "Secret updated successfully."
 
       - name: "Upload Screenshot Artifact on Failure"
+      - name: "Upload Debug Artifacts on Failure"
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: error-screenshot
-          path: error_screenshot.png
+          name: error-artifacts
+          path: |
+            error_screenshot.png
+            error_page_source.html
+            chromedriver.log
 
   # ========================================================================
   #  JOB 3: Retrain the AI model weekly to keep it updated

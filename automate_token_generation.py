@@ -113,50 +113,41 @@ def main():
         
         # --- Step 2: Handle 2FA/TOTP and verify login success ---
         try:
+            # The primary success condition is the appearance of the 2FA/PIN input field.
+            # We will wait up to 20 seconds for it to be present in the DOM.
             print("Login submitted. Waiting for 2FA/PIN page...", file=sys.stderr)
-
-            # The 2FA form might be in an iframe. Try to switch to it.
-            try:
-                WebDriverWait(driver, 10).until(
-                    EC.frame_to_be_available_and_switch_to_it((By.TAG_NAME, "iframe"))
-                )
-                print("Switched to an iframe for 2FA.", file=sys.stderr)
-            except TimeoutException:
-                # If no iframe, assume the form is in the main document.
-                print("No iframe found, proceeding in main document.", file=sys.stderr)
-                pass
-
-            # Now, look for the PIN input, whether in the iframe or main document.
-            pin_input = WebDriverWait(driver, 15).until(
+            pin_input = WebDriverWait(driver, 20).until(
                 EC.presence_of_element_located((By.ID, "pin"))
             )
-            print("2FA page loaded successfully.", file=sys.stderr)
+            print("2FA page loaded successfully. Found PIN input.", file=sys.stderr)
 
             # If we're here, login was successful. Now enter the TOTP.
             print("Generating and entering TOTP...", file=sys.stderr)
             totp = pyotp.TOTP(totp_secret)
             pin_input.send_keys(totp.now())
             time.sleep(1) # Brief pause after entering TOTP
-            
+
             # Find and click the 2FA submit button
             totp_submit_button = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[@type='submit']")))
             driver.execute_script("arguments[0].click();", totp_submit_button)
 
-            # IMPORTANT: Switch back to the main document before the next step
-            driver.switch_to.default_content()
-            print("Switched back to default content.", file=sys.stderr)
-
         except TimeoutException:
-            # If the PIN input doesn't appear, the login failed.
-            print("Login failed: 2FA/PIN page did not load in time.", file=sys.stderr)
-            # Try to find a specific error message, but don't crash if it's not there.
-            try:
-                error_message_element = WebDriverWait(driver, 2).until(EC.visibility_of_element_located((By.CSS_SELECTOR, "p.error")))
-                error_text = error_message_element.text
-                raise Exception(f"Login failed. Credentials may be incorrect. Error on page: '{error_text}'")
-            except TimeoutException:
-                # If we can't find a specific error, raise a clear, generic message.
-                raise Exception("Login failed and no specific error message was found. Please double-check your KITE_USER_ID and KITE_PASSWORD secrets.")
+            # This is the primary failure path. The PIN input was not found.
+            print("Login failed: 2FA/PIN page did not load or PIN input was not found in time.", file=sys.stderr)
+            
+            # AGGRESSIVE DEBUGGING: Save page source for analysis.
+            print("Saving debug artifacts...", file=sys.stderr)
+            with open('error_page_source.html', 'w', encoding='utf-8') as f:
+                f.write(driver.page_source)
+            print("Saved page source to 'error_page_source.html'.", file=sys.stderr)
+
+            # Now, raise a clear error that explains what to do next.
+            raise Exception(
+                "The script timed out waiting for the 2FA/PIN input field. "
+                "This means the login was successful, but the script could not find the next element to interact with. "
+                "The page source has been saved as 'error_page_source.html' in the artifacts. "
+                "Please inspect this file to see if the PIN input is inside an <iframe> or has a different ID than 'pin'."
+            )
 
         # --- Step 3: Capture the Request Token ---
         print("Waiting for redirect to capture request_token...", file=sys.stderr)

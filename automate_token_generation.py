@@ -133,15 +133,16 @@ def main():
             time.sleep(1) # Brief pause after entering TOTP
 
             print("Submitting TOTP...", file=sys.stderr)
-            # Use a more specific selector for the submit button.
+            # Wait for the button to be present in the DOM, not necessarily "clickable".
+            # This can be more robust if the button is temporarily disabled after typing.
             totp_submit_button = wait.until(
-                EC.element_to_be_clickable((By.CSS_SELECTOR, "form.twofa-form button[type='submit']"))
+                EC.presence_of_element_located((By.CSS_SELECTOR, "form.twofa-form button[type='submit']"))
             )
             driver.execute_script("arguments[0].click();", totp_submit_button)
         except TimeoutException:
             # This is the second potential failure point.
-            print("Login failed: The TOTP 'Continue' button was not found or not clickable in time.", file=sys.stderr)
-            raise Exception("The script entered the TOTP, but could not find or click the 'Continue' button. The website's structure may have changed.")
+            print("Login failed: The TOTP 'Continue' button was not found in the DOM in time.", file=sys.stderr)
+            raise Exception("The script entered the TOTP, but could not find the 'Continue' button. The website's structure may have changed.")
 
         # --- Step 3: Capture the Request Token ---
         print("Waiting for redirect to capture request_token...", file=sys.stderr)

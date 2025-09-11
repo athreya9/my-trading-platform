@@ -58,6 +58,9 @@ jobs:
         with:
           credentials_json: '${{ secrets.GCP_SA_KEY }}'
 
+      - name: 'Set up Cloud SDK'
+        uses: 'google-github-actions/setup-gcloud@v2'
+
       - name: "Checkout Code"
         uses: actions/checkout@v4
 
@@ -109,14 +112,11 @@ jobs:
 
       - name: "🔐 Update Secret in Google Secret Manager"
         if: success()
-        uses: 'google-github-actions/gcloud-cli@v2'
-        with:
-          command: 'secrets versions add KITE_ACCESS_TOKEN --data-file=- --project=${{ steps.auth.outputs.project_id }}'
-          stdin: ${{ env.NEW_TOKEN }}
-
-      - name: "Log Secret Update Success"
-        if: success()
-        run: echo "Secret KITE_ACCESS_TOKEN updated successfully in Google Secret Manager."
+        run: |
+          set -eo pipefail
+          echo "Updating KITE_ACCESS_TOKEN in Secret Manager..."
+          echo -n "${{ env.NEW_TOKEN }}" | gcloud secrets versions add KITE_ACCESS_TOKEN --data-file=- --project=${{ steps.auth.outputs.project_id }}
+          echo "Secret KITE_ACCESS_TOKEN updated successfully."
 
       - name: "Upload Debug Artifacts on Failure"
         if: failure()

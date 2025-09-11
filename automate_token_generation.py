@@ -138,42 +138,43 @@ def main():
             )
             driver.execute_script("arguments[0].click();", totp_submit_button)
 
-            # --- CRITICAL CHANGE: Custom wait for URL ---
+            # --- Robust URL Capture Loop ---
+            # This loop is more reliable than a standard WebDriverWait for SPAs
+            # that might clean the URL parameters very quickly after loading.
             redirect_url = None
             start_time = time.time()
-            timeout = 60 # Use the same timeout as the WebDriverWait
+            timeout = 60 # seconds
             
             while time.time() - start_time < timeout:
                 current_url = driver.current_url
-                print(f"DEBUG: Current URL during redirect wait: {current_url}", file=sys.stderr)
+                # We prioritize finding the request_token.
                 if "request_token" in current_url:
                     redirect_url = current_url
-                    print(f"DEBUG: Found request_token in URL: {redirect_url}", file=sys.stderr)
+                    print(f"DEBUG: Immediately captured URL with request_token: {redirect_url}", file=sys.stderr)
                     break
+                # As a fallback, if we land on the frontend, we grab that URL.
                 if "trading-dashboard-app.vercel.app" in current_url:
-                    # If we land on the frontend, but haven't seen request_token yet,
-                    # it means the frontend cleaned it too fast. We'll still use this URL.
                     redirect_url = current_url
-                    print(f"DEBUG: Landed on frontend URL: {redirect_url}", file=sys.stderr)
+                    print(f"DEBUG: Landed on frontend URL, capturing immediately: {redirect_url}", file=sys.stderr)
                     break
-                time.sleep(0.5) # Check every half second
+                time.sleep(0.2) # Poll every 200ms
 
             if not redirect_url:
-                raise TimeoutException("Timed out waiting for redirect URL to contain 'request_token' or 'trading-dashboard-app.vercel.app'.")
+                raise TimeoutException("Timed out waiting for redirect from Kite. The browser did not navigate to the expected frontend URL.")
 
             print(f"Redirect successful. Final URL for parsing: {redirect_url}", file=sys.stderr)
 
         except TimeoutException as e:
-            print(f"Login failed: {e}", file=sys.stderr)
-            raise Exception("The script submitted the TOTP, but it timed out waiting for the redirect to complete or for the token to appear in the URL.")
+            print(f"Login failed during 2FA submission or redirect: {e}", file=sys.stderr)
+            raise Exception("The script submitted the TOTP, but it timed out waiting for the redirect to complete. This could mean the 'Continue' button was not found, or the redirect to your frontend application failed to happen in time.")
 
         # --- Step 3: Capture the Request Token ---
-        # Use the captured redirect_url, not driver.current_url which might be cleaned.
+        # Use the captured redirect_url, not driver.current_url which might be cleaned by the SPA.
         parsed_url = urlparse(redirect_url)
         query_params = parse_qs(parsed_url.query)
         
         if 'request_token' not in query_params:
-            raise Exception("Login succeeded but could not find 'request_token' in the redirect URL.")
+            raise Exception(f"Login succeeded but could not find 'request_token' in the redirect URL ({redirect_url}). Your frontend might be removing it too quickly.")
             
         request_token = query_params['request_token'][0]
         print(f"Successfully captured request_token.", file=sys.stderr)

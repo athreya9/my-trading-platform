@@ -54,9 +54,10 @@ steps:
     '--set-secrets=KITE_API_SECRET=KITE_API_SECRET:latest',
     '--set-secrets=KITE_USER_ID=KITE_USER_ID:latest',
     '--set-secrets=KITE_PASSWORD=KITE_PASSWORD:latest',
-    '--set-secrets=KITE_TOTP_SECRET=KITE_TOTP_SECRET:latest'
-  ]  
-  env: ['GCP_PROJECT=$PROJECT_ID']
+    '--set-secrets=KITE_TOTP_SECRET=KITE_TOTP_SECRET:latest',
+    # Set environment variables for the deployed container.
+    '--set-env-vars=GCP_PROJECT=$PROJECT_ID'
+  ]
 
 # This section lists the images that were built and pushed.
 images:

@@ -61,8 +61,6 @@ jobs:
         with:
           credentials_json: '${{ secrets.GCP_SA_KEY }}'
 
-      - name: 'Set up Cloud SDK'
-        uses: 'google-github-actions/setup-gcloud@v2'
       - name: "Set up Python"
         uses: actions/setup-python@v5
         with:
@@ -90,59 +88,15 @@ jobs:
           KITE_USER_ID: ${{ secrets.KITE_USER_ID }}
           KITE_PASSWORD: ${{ secrets.KITE_PASSWORD }}
           KITE_TOTP_SECRET: ${{ secrets.KITE_TOTP_SECRET }}
+          # Pass the GCP credentials and project ID directly to the Python script
+          GCP_SA_KEY_JSON: ${{ secrets.GCP_SA_KEY }}
+          GCP_PROJECT_ID: ${{ steps.auth.outputs.project_id }}
         run: |
           # Exit on error and fail if any command in a pipeline fails.
           set -eo pipefail
           
-          echo "::group::Generating new access token"
-          # Run the script and capture its standard output (the token).
-          NEW_TOKEN=$(python automate_token_generation.py)
-          echo "::endgroup::"
-
-          if [ -z "$NEW_TOKEN" ]; then
-            echo "::error::Failed to generate new access token. Script output was empty."
-            exit 1
-          fi
-
-          # Securely mask the token in logs and set it as an output
-          echo "::add-mask::$NEW_TOKEN"
-          echo "NEW_TOKEN=$NEW_TOKEN" >> "$GITHUB_ENV"
-          echo "Successfully generated and masked a new access token."
-
-      - name: "🔎 [DEBUG] Check IAM Permissions for Secret"
-        if: always() # Run this diagnostic step even if previous steps fail
-        env:
-          CLOUDSDK_AUTH_CREDENTIAL_FILE_OVERRIDE: ${{ steps.auth.outputs.credentials_file_path }}
-        run: |
-          echo "--- Checking IAM policy for secret: KITE_ACCESS_TOKEN ---"
-          gcloud secrets get-iam-policy KITE_ACCESS_TOKEN --project=${{ steps.auth.outputs.project_id }} || echo "Could not retrieve IAM policy. This might also indicate a permissions issue."
-          echo "-----------------------------------------------------------"
-          echo "Please review the policy output above. The 'bindings' section MUST contain a role 'roles/secretmanager.secretVersionAdder' for the principal 'serviceAccount:sheets-api-bot@my-trading-platform-471103.iam.gserviceaccount.com'."
-
-      - name: "� Update Secret in Google Secret Manager"
-        if: success()
-        env:
-          # Explicitly point gcloud to the credential file created by the auth action.
-          # This is a robust way to avoid context-passing issues.
-          CLOUDSDK_AUTH_CREDENTIAL_FILE_OVERRIDE: ${{ steps.auth.outputs.credentials_file_path }}
-        run: |
-          set -eo pipefail
-          echo "Updating KITE_ACCESS_TOKEN in Secret Manager..."
-          # The gcloud command will now use the explicit credential file path.
-          echo -n "${{ env.NEW_TOKEN }}" | gcloud secrets versions add KITE_ACCESS_TOKEN --data-file=- --project=${{ steps.auth.outputs.project_id }}
-          echo "Secret KITE_ACCESS_TOKEN updated successfully."
-
-      - name: "✅ Verify Secret Update"
-        if: success()
-        env:
-          CLOUDSDK_AUTH_CREDENTIAL_FILE_OVERRIDE: ${{ steps.auth.outputs.credentials_file_path }}
-        run: |
-          set -eo pipefail
-          echo "Verifying the latest version of the secret..."
-          LATEST_VERSION=$(gcloud secrets versions access latest --secret=KITE_ACCESS_TOKEN --project=${{ steps.auth.outputs.project_id }})
-          echo "::add-mask::$LATEST_VERSION"
-          # This command doesn't check the content, just that it's accessible.
-          echo "Successfully accessed the latest secret version. Verification complete."
+          # The Python script will now handle both token generation and the secret update internally.
+          python automate_token_generation.py
 
       - name: "Upload Debug Artifacts on Failure"
         if: failure()

@@ -18,6 +18,9 @@ import sys
 import hashlib
 import requests
 import pyotp
+import json
+from google.oauth2 import service_account
+from google.cloud import secretmanager
 import time
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
@@ -144,6 +147,33 @@ def generate_access_token(api_key, api_secret, request_token):
     else:
         raise Exception(f"Failed to generate access token: {result.get('message', 'Unknown error')}")
 
+def update_secret_manager(project_id, secret_id, new_value, credentials_json_str):
+    """Updates a secret in Google Cloud Secret Manager using a JSON credentials string."""
+    try:
+        print("--- Updating secret in Google Cloud Secret Manager ---", file=sys.stderr)
+        
+        # Load credentials from the JSON string passed as an environment variable
+        credentials_info = json.loads(credentials_json_str)
+        credentials = service_account.Credentials.from_service_account_info(credentials_info)
+        
+        # Create the Secret Manager client
+        client = secretmanager.SecretManagerServiceClient(credentials=credentials)
+        
+        # Build the resource name of the secret
+        parent = f"projects/{project_id}/secrets/{secret_id}"
+        
+        # Add the new secret version
+        response = client.add_secret_version(
+            request={
+                "parent": parent,
+                "payload": {"data": new_value.encode("UTF-8")},
+            }
+        )
+        print(f"✅ Successfully added new version: {response.name}", file=sys.stderr)
+    except Exception as e:
+        print(f"❌ Failed to update secret '{secret_id}'. This is likely a PERMISSION_DENIED error. Ensure the service account has the 'Secret Manager Secret Version Adder' role.", file=sys.stderr)
+        raise e
+
 def main():
     """
     Automates the Kite login process to fetch a request_token and then
@@ -157,6 +187,10 @@ def main():
         user_id = os.environ['KITE_USER_ID']
         password = os.environ['KITE_PASSWORD']
         totp_secret = os.environ['KITE_TOTP_SECRET']
+
+        # Get GCP credentials for updating the secret (if provided)
+        gcp_sa_key_json = os.environ.get('GCP_SA_KEY_JSON')
+        gcp_project_id = os.environ.get('GCP_PROJECT_ID')
         
         print("--- Starting Automated Token Generation ---", file=sys.stderr)
 
@@ -282,12 +316,21 @@ def main():
         print("Generating access_token...", file=sys.stderr)
         access_token = generate_access_token(api_key, api_secret, request_token)
         
+        # --- Step 5: Update Google Secret Manager (if configured) ---
+        if gcp_sa_key_json and gcp_project_id:
+            update_secret_manager(
+                project_id=gcp_project_id,
+                secret_id="KITE_ACCESS_TOKEN",
+                new_value=access_token,
+                credentials_json_str=gcp_sa_key_json
+            )
+        else:
+            print("\nWARNING: GCP environment variables not set. Skipping Secret Manager update.", file=sys.stderr)
+            print("This is expected for local runs without GCP credentials.", file=sys.stderr)
+
         print("\n" + "="*60, file=sys.stderr)
-        print("✅ SUCCESS! NEW ACCESS TOKEN GENERATED", file=sys.stderr)
+        print("✅ SUCCESS! TOKEN GENERATED AND STORED.", file=sys.stderr)
         print("="*60, file=sys.stderr)
-        
-        # Print the token to stdout so it can be captured by the GitHub Action
-        print(access_token)
         
     except Exception as e:
         print(f"\n❌ An error occurred during automated token generation.", file=sys.stderr)

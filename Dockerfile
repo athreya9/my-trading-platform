@@ -5,6 +5,11 @@ FROM python:3.12-slim
 # Set the working directory in the container to /app
 WORKDIR /app
 
+# Set the Matplotlib backend to a non-interactive one ('Agg').
+# This is crucial to prevent crashes in a headless environment when a library
+# like seaborn or pandas implicitly imports matplotlib.
+ENV MPLBACKEND=Agg
+
 # Install system dependencies that might be needed by Python packages.
 # This helps prevent build failures for packages with C extensions.
 RUN apt-get update && apt-get install -y --no-install-recommends \

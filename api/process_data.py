@@ -37,7 +37,7 @@ import yfinance as yf
 import logging
 import re
 import sys
-from api import config
+from . import config
 import requests
 import feedparser
 

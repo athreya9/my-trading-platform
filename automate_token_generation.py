@@ -293,9 +293,21 @@ def main():
         print(f"\n❌ An error occurred during automated token generation.", file=sys.stderr)
         print(f"Exception Type: {type(e).__name__}", file=sys.stderr)
         print(f"Exception Details: {e}", file=sys.stderr)
+        
+        # Only try to save artifacts if the driver was successfully initialized.
         if driver:
-            driver.save_screenshot('error_screenshot.png')
-            print("Saved screenshot to 'error_screenshot.png' for debugging.", file=sys.stderr)
+            print("Saving debug artifacts...", file=sys.stderr)
+            try:
+                driver.save_screenshot('error_screenshot.png')
+                print("Saved screenshot to 'error_screenshot.png'.", file=sys.stderr)
+                with open('error_page_source.html', 'w', encoding='utf-8') as f:
+                    f.write(driver.page_source)
+                print("Saved page source to 'error_page_source.html'.", file=sys.stderr)
+            except Exception as artifact_error:
+                print(f"Could not save browser artifacts: {artifact_error}", file=sys.stderr)
+        else:
+            print("Driver not initialized, cannot save browser artifacts. This may be due to a missing environment variable.", file=sys.stderr)
+
         sys.exit(1)
     finally:
         if driver:

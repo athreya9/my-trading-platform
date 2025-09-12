@@ -79,16 +79,22 @@ AI_CONFIDENCE_THRESHOLD = 0.80
 # Path to the trained model file
 MODEL_PATH = os.path.join(os.path.dirname(__file__), 'trading_model.pkl')
 
-# Load the AI model once when the script starts.
-try:
-    AI_MODEL = joblib.load(MODEL_PATH)
-    logger.info(f"Successfully loaded AI model from {MODEL_PATH}")
-except FileNotFoundError:
-    logger.warning(f"AI model '{os.path.basename(MODEL_PATH)}' not found. AI-based signals will be disabled.")
-    AI_MODEL = None
-except Exception as e:
-    logger.error(f"Failed to load AI model from {MODEL_PATH} due to an error: {e}. AI-based signals will be disabled.")
-    AI_MODEL = None
+@lru_cache(maxsize=1)
+def get_ai_model():
+    """
+    Lazily loads the AI model from the file system.
+    The result is cached so the model is only loaded once per process.
+    """
+    try:
+        model = joblib.load(MODEL_PATH)
+        logger.info(f"Successfully loaded AI model from {MODEL_PATH}")
+        return model
+    except FileNotFoundError:
+        logger.warning(f"AI model '{os.path.basename(MODEL_PATH)}' not found. AI-based signals will be disabled.")
+        return None
+    except Exception as e:
+        logger.error(f"Failed to load AI model from {MODEL_PATH} due to an error: {e}. AI-based signals will be disabled.")
+        return None
 
 TAKE_PROFIT_MULTIPLIER = 4.0 # e.g., 4 * ATR above entry price (for a 1:2 risk/reward ratio)
 MAX_RISK_PER_TRADE = 0.01  # Golden Rule: 1% of capital
@@ -1095,7 +1101,11 @@ def generate_signals(price_data_dict, manual_controls_df, trade_log_df, market_c
         # --- AI-DRIVEN SIGNAL GENERATION (PRIMARY) ---
         # This is now the main signal generator. Rule-based signals can act as a fallback.
         ai_signal_generated = False
-        if AI_MODEL is not None:
+
+        # Lazily load the model the first time it's needed.
+        ai_model = get_ai_model()
+
+        if ai_model is not None:
             # These features MUST match the ones used in `prepare_training_data.py`
             feature_columns = [
                 'SMA_20', 'SMA_50', 'RSI_14', 'MACD_12_26_9', 'ATRr_14',
@@ -1108,7 +1118,7 @@ def generate_signals(price_data_dict, manual_controls_df, trade_log_df, market_c
                 features = latest_15m[feature_columns].values.reshape(1, -1)
                 
                 # Get prediction probability for the 'BUY' class (1)
-                buy_probability = AI_MODEL.predict_proba(features)[0][1]
+                buy_probability = ai_model.predict_proba(features)[0][1]
 
                 if buy_probability >= AI_CONFIDENCE_THRESHOLD:
                     logger.info(f"AI SIGNAL for {instrument}: BUY with {buy_probability:.2%} confidence.")

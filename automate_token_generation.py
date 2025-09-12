@@ -136,6 +136,9 @@ def main():
         if driver:
             driver.save_screenshot('error_screenshot.png')
             print("Saved screenshot to 'error_screenshot.png' for debugging.", file=sys.stderr)
+            with open('error_page_source.html', 'w', encoding='utf-8') as f:
+                f.write(driver.page_source)
+            print("Saved page source to 'error_page_source.html' for debugging.", file=sys.stderr)
         sys.exit(1)
     finally:
         if driver:

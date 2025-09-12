@@ -45,6 +45,7 @@ steps:
     '--no-allow-unauthenticated', # Make the service private, invokable only by authenticated requests.
     '--memory', '2Gi', # Increase memory for Selenium and data processing
     '--cpu', '1',      # Allocate 1 dedicated vCPU for better performance
+    '--min-instances', '1', # Keep one instance warm to prevent cold start timeouts for scheduled jobs.
     # Force the startup command to override any Procfile or buildpack ambiguity.
     '--command', 'gunicorn',
     '--args', '--bind,:$PORT,app:app',

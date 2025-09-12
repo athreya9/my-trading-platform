@@ -207,6 +207,22 @@ def update_secret_manager(project_id, secret_id, new_value):
         logger.error(f"❌ Failed to update secret '{secret_id}'. Ensure the Cloud Run service account has the 'Secret Manager Secret Version Adder' role.", exc_info=True)
         raise e
 
+def get_project_id():
+    """
+    Gets the GCP Project ID from the environment or metadata server.
+    This is the robust way to get the project ID in a Cloud Run environment.
+    """
+    # First, try the environment variable, which we will set in cloudbuild.yaml
+    project_id = os.getenv('GCP_PROJECT')
+    if project_id:
+        return project_id
+    
+    # If not found, query the metadata server
+    url = "http://metadata.google.internal/computeMetadata/v1/project/project-id"
+    headers = {"Metadata-Flavor": "Google"}
+    response = requests.get(url, headers=headers)
+    return response.text
+
 def _do_generate_token():
     """The core logic for generating a token, adapted for Cloud Run."""
     driver = None
@@ -217,7 +233,7 @@ def _do_generate_token():
         user_id = os.environ['KITE_USER_ID']
         password = os.environ['KITE_PASSWORD']
         totp_secret = os.environ['KITE_TOTP_SECRET']
-        gcp_project_id = os.environ['GCP_PROJECT'] # Automatically available in Cloud Run
+        gcp_project_id = get_project_id()
 
         logger.info("--- Starting Automated Token Generation in Cloud Run ---")
 

@@ -1,7 +1,6 @@
 # process_data.py
 # A single, combined script for GitHub Actions.
 # It fetches data, generates signals, and updates Google Sheets.
-
 from flask import Blueprint, request, jsonify
 import gspread
 from kiteconnect import KiteConnect
@@ -16,6 +15,18 @@ import joblib
 from functools import wraps, lru_cache
 import os
 from dotenv import load_dotenv
+import hashlib
+import pyotp
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import TimeoutException
+from webdriver_manager.chrome import ChromeDriverManager
+from urllib.parse import urlparse, parse_qs
+from google.oauth2 import service_account
+
 
 # Load environment variables from .env file for local development.
 # This will not override environment variables set in the GitHub Actions runner.
@@ -1400,4 +1411,20 @@ def run_bot():
         return jsonify(result), http_status
     except Exception as e:
         logger.error(f"Error executing trading bot: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@process_data_bp.route('/generate-token', methods=['POST'])
+def generate_token_endpoint():
+    """
+    HTTP endpoint to trigger the token generation logic.
+    This should be called by a daily Cloud Scheduler job.
+    It's a POST request to prevent accidental invocation via a browser.
+    """
+    logger.info("Received request to generate access token.")
+    try:
+        _do_generate_token()
+        return jsonify({"status": "success", "message": "Access token generated and stored successfully."}), 200
+    except Exception as e:
+        logger.error(f"Error during token generation: {e}", exc_info=True)
+        # Return a 500 error so Cloud Scheduler knows the job failed.
         return jsonify({"status": "error", "message": str(e)}), 500

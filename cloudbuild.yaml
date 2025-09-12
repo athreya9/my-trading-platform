@@ -43,7 +43,11 @@ steps:
     '--set-secrets=GOOGLE_SHEETS_CREDENTIALS=GOOGLE_SHEETS_CREDENTIALS:latest',
     '--set-secrets=TELEGRAM_BOT_TOKEN=TELEGRAM_BOT_TOKEN:latest',
     '--set-secrets=TELEGRAM_CHAT_ID=TELEGRAM_CHAT_ID:latest',
-    '--set-secrets=KITE_ACCESS_TOKEN=KITE_ACCESS_TOKEN:latest'
+    '--set-secrets=KITE_ACCESS_TOKEN=KITE_ACCESS_TOKEN:latest',
+    '--set-secrets=KITE_API_SECRET=KITE_API_SECRET:latest',
+    '--set-secrets=KITE_USER_ID=KITE_USER_ID:latest',
+    '--set-secrets=KITE_PASSWORD=KITE_PASSWORD:latest',
+    '--set-secrets=KITE_TOTP_SECRET=KITE_TOTP_SECRET:latest'
   ]
 
 # This section lists the images that were built and pushed.

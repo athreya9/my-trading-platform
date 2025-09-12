@@ -109,7 +109,17 @@ jobs:
           echo "NEW_TOKEN=$NEW_TOKEN" >> "$GITHUB_ENV"
           echo "Successfully generated and masked a new access token."
 
-      - name: "🔐 Update Secret in Google Secret Manager"
+      - name: "🔎 [DEBUG] Check IAM Permissions for Secret"
+        if: always() # Run this diagnostic step even if previous steps fail
+        env:
+          CLOUDSDK_AUTH_CREDENTIAL_FILE_OVERRIDE: ${{ steps.auth.outputs.credentials_file_path }}
+        run: |
+          echo "--- Checking IAM policy for secret: KITE_ACCESS_TOKEN ---"
+          gcloud secrets get-iam-policy KITE_ACCESS_TOKEN --project=${{ steps.auth.outputs.project_id }} || echo "Could not retrieve IAM policy. This might also indicate a permissions issue."
+          echo "-----------------------------------------------------------"
+          echo "Please review the policy output above. The 'bindings' section MUST contain a role 'roles/secretmanager.secretVersionAdder' for the principal 'serviceAccount:sheets-api-bot@my-trading-platform-471103.iam.gserviceaccount.com'."
+
+      - name: "� Update Secret in Google Secret Manager"
         if: success()
         env:
           # Explicitly point gcloud to the credential file created by the auth action.

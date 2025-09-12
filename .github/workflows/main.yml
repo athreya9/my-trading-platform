@@ -122,6 +122,18 @@ jobs:
           echo -n "${{ env.NEW_TOKEN }}" | gcloud secrets versions add KITE_ACCESS_TOKEN --data-file=- --project=${{ steps.auth.outputs.project_id }}
           echo "Secret KITE_ACCESS_TOKEN updated successfully."
 
+      - name: "✅ Verify Secret Update"
+        if: success()
+        env:
+          CLOUDSDK_AUTH_CREDENTIAL_FILE_OVERRIDE: ${{ steps.auth.outputs.credentials_file_path }}
+        run: |
+          set -eo pipefail
+          echo "Verifying the latest version of the secret..."
+          LATEST_VERSION=$(gcloud secrets versions access latest --secret=KITE_ACCESS_TOKEN --project=${{ steps.auth.outputs.project_id }})
+          echo "::add-mask::$LATEST_VERSION"
+          # This command doesn't check the content, just that it's accessible.
+          echo "Successfully accessed the latest secret version. Verification complete."
+
       - name: "Upload Debug Artifacts on Failure"
         if: failure()
         uses: actions/upload-artifact@v4

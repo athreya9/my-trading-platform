@@ -15,7 +15,6 @@ seaborn
 flask
 pyotp
 selenium
-webdriver-manager
 
 yfinance
 google-cloud-secret-manager

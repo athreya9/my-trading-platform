@@ -43,7 +43,7 @@ steps:
     '--timeout', '900s', # Increase timeout to 15 minutes for slow Selenium startup
     '--cpu-boost', # Use startup CPU boost to accelerate cold starts
     '--no-allow-unauthenticated', # Make the service private, invokable only by authenticated requests.
-    '--memory', '2Gi', # Increase memory for Selenium and data processing
+    '--memory', '4Gi', # Increase memory for Selenium, which can be memory-intensive.
     '--cpu', '1',      # Allocate 1 dedicated vCPU for better performance
     '--min-instances', '1', # Keep one instance warm to prevent cold start timeouts for scheduled jobs.
     # Force the startup command to override any Procfile or buildpack ambiguity.

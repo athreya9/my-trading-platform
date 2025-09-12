@@ -1,5 +1,14 @@
 # cloudbuild.yaml - place this file in the root of your 'my-trading-platform' directory
 steps:
+# Step 0: Pre-build check to ensure critical files exist.
+# This prevents a successful build of a broken service.
+- name: 'gcr.io/cloud-builders/gcloud'
+  id: 'Check for AI Model'
+  entrypoint: 'bash'
+  args:
+  - '-c'
+  - 'if [ ! -f api/trading_model.pkl ]; then echo "ERROR: AI model file api/trading_model.pkl not found!"; exit 1; fi'
+
 # Step 1: Build the image using Google Cloud Buildpacks.
 # This builder automatically detects the Python environment and uses project.toml
 # to install system packages like chromium-driver.

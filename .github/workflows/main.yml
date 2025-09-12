@@ -52,6 +52,9 @@ jobs:
     timeout-minutes: 5 # Fail fast if token generation gets stuck
 
     steps:
+      - name: "Checkout Code"
+        uses: actions/checkout@v4
+
       - name: 'Authenticate to Google Cloud'
         id: 'auth'
         uses: 'google-github-actions/auth@v2'
@@ -60,10 +63,6 @@ jobs:
 
       - name: 'Set up Cloud SDK'
         uses: 'google-github-actions/setup-gcloud@v2'
-
-      - name: "Checkout Code"
-        uses: actions/checkout@v4
-
       - name: "Set up Python"
         uses: actions/setup-python@v5
         with:

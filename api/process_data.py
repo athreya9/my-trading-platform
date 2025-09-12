@@ -23,7 +23,6 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
-from webdriver_manager.chrome import ChromeDriverManager
 from urllib.parse import urlparse, parse_qs
 from google.oauth2 import service_account
 
@@ -130,6 +129,161 @@ KITE_TO_YF_INTERVAL_MAP = {
     "30minute": "30m",
     "60minute": "1h",
 }
+
+# --- START: Code from automate_token_generation.py ---
+
+class url_or_iframe_with_token:
+    """
+    An expected condition for waiting for a URL to contain a substring,
+    checking both the main URL and the src of any iframes.
+    """
+    def __init__(self, substring):
+        self.substring = substring
+        self.captured_url = None
+
+    def __call__(self, driver):
+        try:
+            if self.substring in driver.current_url:
+                self.captured_url = driver.current_url
+                return True
+            iframes = driver.find_elements(By.TAG_NAME, "iframe")
+            for frame in iframes:
+                iframe_src = frame.get_attribute('src')
+                if iframe_src and self.substring in iframe_src:
+                    self.captured_url = iframe_src
+                    return True
+        except Exception:
+            return False
+        return False
+
+def find_pin_input(driver):
+    """Robustly finds the PIN input field by trying multiple selectors."""
+    selectors = [
+        (By.ID, "pin"),
+        (By.CSS_SELECTOR, "input[type='password'][maxlength='6']"),
+    ]
+    for by, value in selectors:
+        try:
+            element = driver.find_element(by, value)
+            if element.is_displayed():
+                return element
+        except:
+            pass
+    return None
+
+def generate_access_token_from_request(api_key, api_secret, request_token):
+    """Generates an access token using the request token."""
+    data = api_key + request_token + api_secret
+    checksum = hashlib.sha256(data.encode("utf-8")).hexdigest()
+    
+    url = "https://api.kite.trade/session/token"
+    payload = {
+        "api_key": api_key,
+        "request_token": request_token,
+        "checksum": checksum
+    }
+    
+    response = requests.post(url, data=payload)
+    result = response.json()
+    
+    if response.status_code == 200 and "data" in result and "access_token" in result["data"]:
+        return result["data"]["access_token"]
+    else:
+        raise Exception(f"Failed to generate access token: {result.get('message', 'Unknown error')}")
+
+def update_secret_manager(project_id, secret_id, new_value):
+    """Updates a secret in Google Cloud Secret Manager using Application Default Credentials."""
+    try:
+        logger.info("--- Updating secret in Google Cloud Secret Manager ---")
+        client = secretmanager.SecretManagerServiceClient()
+        parent = f"projects/{project_id}/secrets/{secret_id}"
+        
+        response = client.add_secret_version(
+            request={"parent": parent, "payload": {"data": new_value.encode("UTF-8")}},
+        )
+        logger.info(f"✅ Successfully added new version: {response.name}")
+    except Exception as e:
+        logger.error(f"❌ Failed to update secret '{secret_id}'. Ensure the Cloud Run service account has the 'Secret Manager Secret Version Adder' role.", exc_info=True)
+        raise e
+
+def _do_generate_token():
+    """The core logic for generating a token, adapted for Cloud Run."""
+    driver = None
+    try:
+        # --- Get Credentials from Environment Variables (set by Cloud Run) ---
+        api_key = os.environ['KITE_API_KEY']
+        api_secret = os.environ['KITE_API_SECRET']
+        user_id = os.environ['KITE_USER_ID']
+        password = os.environ['KITE_PASSWORD']
+        totp_secret = os.environ['KITE_TOTP_SECRET']
+        gcp_project_id = os.environ['GCP_PROJECT'] # Automatically available in Cloud Run
+
+        logger.info("--- Starting Automated Token Generation in Cloud Run ---")
+
+        # --- Configure Selenium WebDriver ---
+        options = webdriver.ChromeOptions()
+        options.add_argument("--headless=new")
+        options.add_argument("--window-size=1920,1080")
+        options.add_argument("--no-sandbox")
+        options.add_argument("--disable-dev-shm-usage")
+        options.add_argument("--remote-debugging-pipe")
+        options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36")
+        options.add_experimental_option("excludeSwitches", ["enable-automation"])
+        options.add_experimental_option('useAutomationExtension', False)
+        options.add_argument("--disable-blink-features=AutomationControlled")
+        
+        logger.info("Setting up Chrome WebDriver...")
+        
+        # Use the pre-installed chromedriver from the buildpack, not webdriver-manager
+        chromedriver_path = '/usr/bin/chromedriver'
+        if not os.path.exists(chromedriver_path):
+            logger.error(f"Chromedriver not found at {chromedriver_path}. Ensure 'chromium-driver' is in project.toml.")
+            raise FileNotFoundError(f"Chromedriver not found at {chromedriver_path}")
+            
+        service = Service(executable_path=chromedriver_path)
+        driver = webdriver.Chrome(service=service, options=options)
+        driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+        
+        # --- Step 1: Initial Login ---
+        login_url = f"https://kite.zerodha.com/connect/login?v=3&api_key={api_key}"
+        logger.info("Navigating to login URL...")
+        driver.get(login_url)
+        wait = WebDriverWait(driver, 60)
+        
+        logger.info("Entering User ID and Password...")
+        wait.until(EC.visibility_of_element_located((By.ID, "userid"))).send_keys(user_id)
+        wait.until(EC.visibility_of_element_located((By.ID, "password"))).send_keys(password)
+        submit_button = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[@type='submit']")))
+        driver.execute_script("arguments[0].click();", submit_button)
+        
+        # --- Step 2: Handle 2FA/PIN ---
+        logger.info("Waiting for 2FA/PIN input field...")
+        pin_input = WebDriverWait(driver, 30).until(find_pin_input)
+        
+        logger.info("Generating and entering TOTP...")
+        totp = pyotp.TOTP(totp_secret)
+        pin_input.send_keys(totp.now())
+        
+        # --- Step 3: Capture the Request Token ---
+        logger.info("Waiting for redirect with request_token...")
+        token_condition = url_or_iframe_with_token("request_token")
+        WebDriverWait(driver, 25).until(token_condition)
+        
+        parsed_url = urlparse(token_condition.captured_url)
+        request_token = parse_qs(parsed_url.query)['request_token'][0]
+        logger.info("Successfully captured request_token.")
+
+        # --- Step 4: Generate and Store the Access Token ---
+        logger.info("Generating and storing access_token...")
+        access_token = generate_access_token_from_request(api_key, api_secret, request_token)
+        update_secret_manager(gcp_project_id, "KITE_ACCESS_TOKEN", access_token)
+        
+        logger.info("✅ SUCCESS! TOKEN GENERATED AND STORED.")
+    finally:
+        if driver:
+            driver.quit()
+
+# --- END: Code from automate_token_generation.py ---
 
 # --- Main Functions ---
 

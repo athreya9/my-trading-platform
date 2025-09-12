@@ -26,12 +26,6 @@ from selenium.common.exceptions import TimeoutException
 from urllib.parse import urlparse, parse_qs
 from google.oauth2 import service_account
 
-
-# Load environment variables from .env file for local development.
-# This will not override environment variables set in the GitHub Actions runner.
-load_dotenv()
-import yfinance as yf
-
 # --- NEW: Import for Secret Manager ---
 try:
     from google.cloud import secretmanager
@@ -39,6 +33,7 @@ try:
 except ImportError:
     GCP_SECRET_MANAGER_AVAILABLE = False
 
+import yfinance as yf
 import logging
 import re
 import sys

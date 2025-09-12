@@ -42,7 +42,7 @@ except ImportError:
 import logging
 import re
 import sys
-from . import config
+from api import config
 import requests
 import feedparser
 

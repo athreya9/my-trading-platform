@@ -43,7 +43,11 @@ steps:
     '--timeout', '900s', # Increase timeout to 15 minutes for slow Selenium startup
     '--cpu-boost', # Use startup CPU boost to accelerate cold starts
     '--no-allow-unauthenticated', # Make the service private, invokable only by authenticated requests.
-    '--memory', '1Gi', # Allocate sufficient memory for data processing.
+    '--memory', '2Gi', # Increase memory for Selenium and data processing
+    '--cpu', '1',      # Allocate 1 dedicated vCPU for better performance
+    # Force the startup command to override any Procfile or buildpack ambiguity.
+    '--command', 'gunicorn',
+    '--args', '--bind,:$PORT,app:app',
     # Mount secrets from Google Secret Manager as environment variables.
     # The format is 'ENV_VAR_NAME=SECRET_NAME:VERSION'.
     # You must create these secrets in Secret Manager first.

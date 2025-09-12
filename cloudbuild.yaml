@@ -10,16 +10,13 @@ steps:
   - 'if [ ! -f api/trading_model.pkl ]; then echo "ERROR: AI model file api/trading_model.pkl not found!"; exit 1; fi'
 
 # Step 1: Build the image using Google Cloud Buildpacks.
-# This builder automatically detects the Python environment and uses project.toml
-# to install system packages like chromium-driver.
-- name: 'gcr.io/k8s-skaffold/pack'
+# This now uses the Dockerfile directly for a more explicit and reliable build.
+- name: 'gcr.io/cloud-builders/docker'
   id: Build
-  entrypoint: pack
   args: [
     'build',
-    'asia-south1-docker.pkg.dev/$PROJECT_ID/my-trading-repo/my-trading-platform-image:latest',
-    '--builder=gcr.io/buildpacks/builder:latest',
-    '--path=.'
+    '-t', 'asia-south1-docker.pkg.dev/$PROJECT_ID/my-trading-repo/my-trading-platform-image:latest',
+    '.'
   ]
 
 # Step 2: Push the Docker image to Google Artifact Registry.

@@ -9,6 +9,9 @@ WORKDIR /app
 # This helps prevent build failures for packages with C extensions.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
+    # Add chromium and chromedriver for Selenium
+    chromium \
+    chromium-driver \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy the requirements file into the container at /app

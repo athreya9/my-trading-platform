@@ -24,6 +24,7 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import TimeoutException
 from webdriver_manager.chrome import ChromeDriverManager
 from urllib.parse import urlparse, parse_qs
 
@@ -98,13 +99,48 @@ def main():
         # Wait for the submit button to be clickable before clicking
         wait.until(EC.element_to_be_clickable((By.XPATH, "//button[@type='submit']"))).click()
         
-        # --- Step 2: Handle 2FA/TOTP ---
+        # --- Step 2: Handle 2FA/PIN/TOTP (with iframe detection) ---
+        # The 2FA page can be a PIN or TOTP page, and it might be inside an iframe.
+        # This logic attempts to handle these variations robustly.
+        print("Login submitted. Waiting for 2FA/PIN page...", file=sys.stderr)
+        pin_input = None
+        switched_to_iframe = False
+
+        try:
+            # Use a flexible XPath to find the 2FA/PIN input field by common IDs/names.
+            twofa_input_selector = (By.XPATH, "//input[@id='userid' or @id='pin' or @name='totp' or @id='totp']")
+
+            # First, try to find the input field in the main document with a short timeout.
+            pin_input = WebDriverWait(driver, 5).until(
+                EC.visibility_of_element_located(twofa_input_selector)
+            )
+            print("2FA input found in main document.", file=sys.stderr)
+        except TimeoutException:
+            # If not found, assume it's inside an iframe.
+            print("2FA input not in main document. Waiting for iframe...", file=sys.stderr)
+            try:
+                iframe = WebDriverWait(driver, 15).until(
+                    EC.presence_of_element_located((By.TAG_NAME, "iframe"))
+                )
+                driver.switch_to.frame(iframe)
+                switched_to_iframe = True
+                print("Successfully switched to 2FA iframe.", file=sys.stderr)
+                
+                # Now find the input field inside the iframe.
+                pin_input = wait.until(EC.visibility_of_element_located(twofa_input_selector))
+                print("2FA input found in iframe.", file=sys.stderr)
+            except TimeoutException:
+                # If it's still not found, then we have a problem.
+                raise Exception("Login failed: Could not find 2FA/PIN input in main document or inside an iframe.")
+
+        # We found the input field, now enter the TOTP.
         print("Generating and entering TOTP...", file=sys.stderr)
         totp = pyotp.TOTP(totp_secret)
-        time.sleep(2)
-        totp_input = wait.until(EC.visibility_of_element_located((By.NAME, "totp")))
-        totp_input.send_keys(totp.now())
+        pin_input.send_keys(totp.now())
         driver.find_element(By.XPATH, "//button[@type='submit']").click()
+
+        if switched_to_iframe:
+            driver.switch_to.default_content()
 
         # --- Step 3: Capture the Request Token ---
         print("Waiting for redirect to capture request_token...", file=sys.stderr)
@@ -136,6 +172,9 @@ def main():
         if driver:
             driver.save_screenshot('error_screenshot.png')
             print("Saved screenshot to 'error_screenshot.png' for debugging.", file=sys.stderr)
+            with open('error_page_source.html', 'w', encoding='utf-8') as f:
+                f.write(driver.page_source)
+            print("Saved page source to 'error_page_source.html' for debugging.", file=sys.stderr)
         sys.exit(1)
     finally:
         if driver:

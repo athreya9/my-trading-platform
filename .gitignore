@@ -26,3 +26,4 @@ chromedriver.log
 error_screenshot.png
 google_sheets_credentials.json
 chromedriver-mac-arm64/
+*.json

@@ -28,6 +28,16 @@ from selenium.common.exceptions import TimeoutException
 from webdriver_manager.chrome import ChromeDriverManager
 from urllib.parse import urlparse, parse_qs
 
+# --- Centralized Logging Setup ---
+# This is a best practice to manage diagnostic output.
+import logging
+logger = logging.getLogger(__name__)
+handler = logging.StreamHandler(sys.stderr)
+formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+handler.setFormatter(formatter)
+logger.addHandler(handler)
+logger.setLevel(logging.INFO)
+
 def generate_access_token(api_key, api_secret, request_token):
     """Generates an access token using the request token."""
     data = api_key + request_token + api_secret
@@ -62,7 +72,7 @@ def main():
         password = os.environ['KITE_PASSWORD']
         totp_secret = os.environ['KITE_TOTP_SECRET']
         
-        print("--- Starting Automated Token Generation ---", file=sys.stderr)
+        logger.info("--- Starting Automated Token Generation ---")
 
         # --- Configure Selenium WebDriver ---
         options = webdriver.ChromeOptions()
@@ -72,7 +82,7 @@ def main():
         options.add_argument("--disable-dev-shm-usage")
         options.add_argument("--remote-debugging-pipe")
         
-        print("Setting up Chrome WebDriver...", file=sys.stderr)
+        logger.info("Setting up Chrome WebDriver...")
         service = Service(
             ChromeDriverManager().install(),
             log_path="chromedriver.log",
@@ -82,14 +92,13 @@ def main():
         
         # --- Step 1: Initial Login ---
         login_url = f"https://kite.zerodha.com/connect/login?v=3&api_key={api_key}"
-        print(f"DEBUG: Navigating to URL: {login_url}", file=sys.stderr)  # <-- Add this line for debugging
-        print(f"Navigating to login URL...", file=sys.stderr)
+        logger.info(f"Navigating to login URL...")
         driver.get(login_url)
 
         wait = WebDriverWait(driver, 60)
         
         # Enter User ID and Password
-        print("Entering User ID and Password...", file=sys.stderr)
+        logger.info("Entering User ID and Password...")
         wait.until(EC.presence_of_element_located((By.ID, "userid"))).send_keys(user_id)
         time.sleep(1) # Add a small delay
         # Use JavaScript to set the password to bypass potential interactability issues
@@ -102,7 +111,7 @@ def main():
         # --- Step 2: Handle 2FA/PIN/TOTP (with iframe detection) ---
         # The 2FA page can be a PIN or TOTP page, and it might be inside an iframe.
         # This logic attempts to handle these variations robustly.
-        print("Login submitted. Waiting for 2FA/PIN page...", file=sys.stderr)
+        logger.info("Login submitted. Waiting for 2FA/PIN page...")
         pin_input = None
         switched_to_iframe = False
 
@@ -114,27 +123,27 @@ def main():
             pin_input = WebDriverWait(driver, 5).until(
                 EC.visibility_of_element_located(twofa_input_selector)
             )
-            print("2FA input found in main document.", file=sys.stderr)
+            logger.info("2FA input found in main document.")
         except TimeoutException:
             # If not found, assume it's inside an iframe.
-            print("2FA input not in main document. Waiting for iframe...", file=sys.stderr)
+            logger.info("2FA input not in main document. Waiting for iframe...")
             try:
                 iframe = WebDriverWait(driver, 15).until(
                     EC.presence_of_element_located((By.TAG_NAME, "iframe"))
                 )
                 driver.switch_to.frame(iframe)
                 switched_to_iframe = True
-                print("Successfully switched to 2FA iframe.", file=sys.stderr)
+                logger.info("Successfully switched to 2FA iframe.")
                 
                 # Now find the input field inside the iframe.
                 pin_input = wait.until(EC.visibility_of_element_located(twofa_input_selector))
-                print("2FA input found in iframe.", file=sys.stderr)
+                logger.info("2FA input found in iframe.")
             except TimeoutException:
                 # If it's still not found, then we have a problem.
                 raise Exception("Login failed: Could not find 2FA/PIN input in main document or inside an iframe.")
 
         # We found the input field, now enter the TOTP.
-        print("Generating and entering TOTP...", file=sys.stderr)
+        logger.info("Generating and entering TOTP...")
         totp = pyotp.TOTP(totp_secret)
         pin_input.send_keys(totp.now())
         driver.find_element(By.XPATH, "//button[@type='submit']").click()
@@ -143,7 +152,7 @@ def main():
             driver.switch_to.default_content()
 
         # --- Step 3: Capture the Request Token ---
-        print("Waiting for redirect to capture request_token...", file=sys.stderr)
+        logger.info("Waiting for redirect to capture request_token...")
         wait.until(EC.url_contains("request_token"))
         
         redirect_url = driver.current_url
@@ -154,27 +163,27 @@ def main():
             raise Exception("Login succeeded but could not find 'request_token' in the redirect URL.")
             
         request_token = query_params['request_token'][0]
-        print(f"Successfully captured request_token.", file=sys.stderr)
+        logger.info(f"Successfully captured request_token.")
 
         # --- Step 4: Generate the Access Token ---
-        print("Generating access_token...", file=sys.stderr)
+        logger.info("Generating access_token...")
         access_token = generate_access_token(api_key, api_secret, request_token)
         
-        print("\n" + "="*60, file=sys.stderr)
-        print("✅ SUCCESS! NEW ACCESS TOKEN GENERATED", file=sys.stderr)
-        print("="*60, file=sys.stderr)
+        logger.info("\n" + "="*60)
+        logger.info("✅ SUCCESS! NEW ACCESS TOKEN GENERATED")
+        logger.info("="*60)
         
         # Print the token to stdout so it can be captured by the GitHub Action
         print(access_token)
         
     except Exception as e:
-        print(f"\n❌ An error occurred during automated token generation: {e}", file=sys.stderr)
+        logger.error(f"An error occurred during automated token generation: {e}", exc_info=True)
         if driver:
             driver.save_screenshot('error_screenshot.png')
-            print("Saved screenshot to 'error_screenshot.png' for debugging.", file=sys.stderr)
+            logger.info("Saved screenshot to 'error_screenshot.png' for debugging.")
             with open('error_page_source.html', 'w', encoding='utf-8') as f:
                 f.write(driver.page_source)
-            print("Saved page source to 'error_page_source.html' for debugging.", file=sys.stderr)
+            logger.info("Saved page source to 'error_page_source.html' for debugging.")
         sys.exit(1)
     finally:
         if driver:

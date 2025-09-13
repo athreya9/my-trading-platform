@@ -155,9 +155,25 @@ def main():
             driver.switch_to.default_content()
 
         # --- Step 3: Capture the Request Token ---
-        logger.info("Waiting for redirect to capture request_token...")
-        wait.until(EC.url_contains("request_token"))
+        logger.info("Waiting for redirect to capture request_token or for an error message...")
+
+        # Wait for either the successful redirect OR a visible error message on the page.
+        # This prevents the script from timing out silently on a login failure.
+        wait.until(
+            EC.any_of(
+                EC.url_contains("request_token"),
+                EC.visibility_of_element_located((By.CSS_SELECTOR, "p.error, span.error"))
+            )
+        )
+
+        # After the wait, check which condition was met.
+        if "request_token" not in driver.current_url:
+            # If the URL doesn't have the token, it means an error message appeared.
+            error_element = driver.find_element(By.CSS_SELECTOR, "p.error, span.error")
+            error_text = error_element.text.strip()
+            raise Exception(f"Login failed after 2FA. Error on page: '{error_text}'")
         
+        logger.info("Redirect successful. Capturing request_token...")
         redirect_url = driver.current_url
         parsed_url = urlparse(redirect_url)
         query_params = parse_qs(parsed_url.query)

@@ -52,12 +52,6 @@ jobs:
     timeout-minutes: 5 # Fail fast if token generation gets stuck
 
     steps:
-      - name: 'Authenticate to Google Cloud'
-        id: 'auth'
-        uses: 'google-github-actions/auth@v2'
-        with:
-          credentials_json: '${{ secrets.GCP_SA_KEY }}'
-
       - name: "Checkout Code"
         uses: actions/checkout@v4
 
@@ -115,17 +109,19 @@ jobs:
           echo "NEW_TOKEN=$NEW_TOKEN" >> "$GITHUB_ENV"
           echo "Successfully generated and masked a new access token."
 
-      - name: "🔐 Update Secret in Google Secret Manager"
+      - name: "🔐 Authenticate and Set Up Google Cloud SDK"
         if: success()
-        # The 'gcloud-cli' action was having resolution issues.
-        # This is a more fundamental approach: set up the CLI first, then run the command.
         uses: 'google-github-actions/setup-gcloud@v2'
+        with:
+          project_id: 'my-trading-platform-471103'
+          service_account_key: ${{ secrets.GCP_SA_KEY }}
+          export_default_credentials: true
 
       - name: "Execute Secret Update"
         if: success()
         run: |
           echo "Updating KITE_ACCESS_TOKEN in Secret Manager..."
-          echo -n "${{ env.NEW_TOKEN }}" | gcloud secrets versions add KITE_ACCESS_TOKEN --data-file=- --project=${{ steps.auth.outputs.project_id }}
+          echo -n "${{ env.NEW_TOKEN }}" | gcloud secrets versions add KITE_ACCESS_TOKEN --data-file=-
           echo "Secret updated successfully."
       - name: "Upload Debug Artifacts on Failure"
         if: failure()

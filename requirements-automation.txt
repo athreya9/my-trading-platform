@@ -3,3 +3,4 @@ webdriver-manager
 pyotp
 requests
 python-dotenv
+google-cloud-secret-manager

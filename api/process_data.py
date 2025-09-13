@@ -1,7 +1,6 @@
 # process_data.py
 # A single, combined script for GitHub Actions.
 # It fetches data, generates signals, and updates Google Sheets.
-
 from flask import Blueprint, request, jsonify
 import gspread
 from kiteconnect import KiteConnect
@@ -16,17 +15,34 @@ import joblib
 from functools import wraps, lru_cache
 import os
 from dotenv import load_dotenv
+import hashlib
+import pyotp
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import TimeoutException
+from urllib.parse import urlparse, parse_qs
+from google.oauth2 import service_account
 
-# Load environment variables from .env file for local development.
-# This will not override environment variables set in the GitHub Actions runner.
-load_dotenv()
+# --- NEW: Import for Secret Manager ---
+try:
+    from google.cloud import secretmanager
+    GCP_SECRET_MANAGER_AVAILABLE = True
+except ImportError:
+    GCP_SECRET_MANAGER_AVAILABLE = False
 
+import yfinance as yf
 import logging
 import re
 import sys
-from api import config
+from . import config
 import requests
 import feedparser
+
+# --- NEW: Data Source Configuration ---
+DATA_SOURCE = os.getenv('DATA_SOURCE', 'kite').lower()
 
 process_data_bp = Blueprint('process_data', __name__)
 
@@ -63,13 +79,22 @@ AI_CONFIDENCE_THRESHOLD = 0.80
 # Path to the trained model file
 MODEL_PATH = os.path.join(os.path.dirname(__file__), 'trading_model.pkl')
 
-# Load the AI model once when the script starts.
-try:
-    AI_MODEL = joblib.load(MODEL_PATH)
-    logger.info(f"Successfully loaded AI model from {MODEL_PATH}")
-except FileNotFoundError:
-    logger.warning(f"AI model '{os.path.basename(MODEL_PATH)}' not found. AI-based signals will be disabled.")
-    AI_MODEL = None
+@lru_cache(maxsize=1)
+def get_ai_model():
+    """
+    Lazily loads the AI model from the file system.
+    The result is cached so the model is only loaded once per process.
+    """
+    try:
+        model = joblib.load(MODEL_PATH)
+        logger.info(f"Successfully loaded AI model from {MODEL_PATH}")
+        return model
+    except FileNotFoundError:
+        logger.warning(f"AI model '{os.path.basename(MODEL_PATH)}' not found. AI-based signals will be disabled.")
+        return None
+    except Exception as e:
+        logger.error(f"Failed to load AI model from {MODEL_PATH} due to an error: {e}. AI-based signals will be disabled.")
+        return None
 
 TAKE_PROFIT_MULTIPLIER = 4.0 # e.g., 4 * ATR above entry price (for a 1:2 risk/reward ratio)
 MAX_RISK_PER_TRADE = 0.01  # Golden Rule: 1% of capital
@@ -98,6 +123,184 @@ YFINANCE_TO_KITE_MAP = {
     '^NSEBANK': 'NIFTY BANK',
     '^CNXAUTO': 'NIFTY AUTO'
 }
+
+# --- NEW: yfinance Configuration ---
+KITE_TO_YF_INTERVAL_MAP = {
+    "15minute": "15m",
+    "30minute": "30m",
+    "60minute": "1h",
+}
+
+# --- START: Code from automate_token_generation.py ---
+
+class url_or_iframe_with_token:
+    """
+    An expected condition for waiting for a URL to contain a substring,
+    checking both the main URL and the src of any iframes.
+    """
+    def __init__(self, substring):
+        self.substring = substring
+        self.captured_url = None
+
+    def __call__(self, driver):
+        try:
+            if self.substring in driver.current_url:
+                self.captured_url = driver.current_url
+                return True
+            iframes = driver.find_elements(By.TAG_NAME, "iframe")
+            for frame in iframes:
+                iframe_src = frame.get_attribute('src')
+                if iframe_src and self.substring in iframe_src:
+                    self.captured_url = iframe_src
+                    return True
+        except Exception:
+            return False
+        return False
+
+def find_pin_input(driver):
+    """Robustly finds the PIN input field by trying multiple selectors."""
+    selectors = [
+        (By.ID, "pin"),
+        (By.CSS_SELECTOR, "input[type='password'][maxlength='6']"),
+    ]
+    for by, value in selectors:
+        try:
+            element = driver.find_element(by, value)
+            if element.is_displayed():
+                return element
+        except:
+            pass
+    return None
+
+def generate_access_token_from_request(api_key, api_secret, request_token):
+    """Generates an access token using the request token."""
+    data = api_key + request_token + api_secret
+    checksum = hashlib.sha256(data.encode("utf-8")).hexdigest()
+    
+    url = "https://api.kite.trade/session/token"
+    payload = {
+        "api_key": api_key,
+        "request_token": request_token,
+        "checksum": checksum
+    }
+    
+    response = requests.post(url, data=payload)
+    result = response.json()
+    
+    if response.status_code == 200 and "data" in result and "access_token" in result["data"]:
+        return result["data"]["access_token"]
+    else:
+        raise Exception(f"Failed to generate access token: {result.get('message', 'Unknown error')}")
+
+def update_secret_manager(project_id, secret_id, new_value):
+    """Updates a secret in Google Cloud Secret Manager using Application Default Credentials."""
+    try:
+        logger.info("--- Updating secret in Google Cloud Secret Manager ---")
+        client = secretmanager.SecretManagerServiceClient()
+        parent = f"projects/{project_id}/secrets/{secret_id}"
+        
+        response = client.add_secret_version(
+            request={"parent": parent, "payload": {"data": new_value.encode("UTF-8")}},
+        )
+        logger.info(f"✅ Successfully added new version: {response.name}")
+    except Exception as e:
+        logger.error(f"❌ Failed to update secret '{secret_id}'. Ensure the Cloud Run service account has the 'Secret Manager Secret Version Adder' role.", exc_info=True)
+        raise e
+
+def get_project_id():
+    """
+    Gets the GCP Project ID from the environment or metadata server.
+    This is the robust way to get the project ID in a Cloud Run environment.
+    """
+    # First, try the environment variable, which we will set in cloudbuild.yaml
+    project_id = os.getenv('GCP_PROJECT')
+    if project_id:
+        return project_id
+    
+    # If not found, query the metadata server
+    url = "http://metadata.google.internal/computeMetadata/v1/project/project-id"
+    headers = {"Metadata-Flavor": "Google"}
+    response = requests.get(url, headers=headers)
+    return response.text
+
+def _do_generate_token():
+    """The core logic for generating a token, adapted for Cloud Run."""
+    driver = None
+    try:
+        # --- Get Credentials from Environment Variables (set by Cloud Run) ---
+        api_key = os.environ['KITE_API_KEY']
+        api_secret = os.environ['KITE_API_SECRET']
+        user_id = os.environ['KITE_USER_ID']
+        password = os.environ['KITE_PASSWORD']
+        totp_secret = os.environ['KITE_TOTP_SECRET']
+        gcp_project_id = get_project_id()
+
+        logger.info("--- Starting Automated Token Generation in Cloud Run ---")
+
+        # --- Configure Selenium WebDriver ---
+        options = webdriver.ChromeOptions()
+        options.add_argument("--headless=new")
+        options.add_argument("--window-size=1920,1080")
+        options.add_argument("--no-sandbox")
+        options.add_argument("--disable-dev-shm-usage")
+        options.add_argument("--remote-debugging-pipe")
+        options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36")
+        options.add_experimental_option("excludeSwitches", ["enable-automation"])
+        options.add_experimental_option('useAutomationExtension', False)
+        options.add_argument("--disable-blink-features=AutomationControlled")
+        
+        logger.info("Setting up Chrome WebDriver...")
+        
+        # Use the pre-installed chromedriver from the buildpack, not webdriver-manager
+        chromedriver_path = '/usr/bin/chromedriver'
+        if not os.path.exists(chromedriver_path):
+            logger.error(f"Chromedriver not found at {chromedriver_path}. Ensure 'chromium-driver' is in project.toml.")
+            raise FileNotFoundError(f"Chromedriver not found at {chromedriver_path}")
+            
+        service = Service(executable_path=chromedriver_path)
+        driver = webdriver.Chrome(service=service, options=options)
+        driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+        
+        # --- Step 1: Initial Login ---
+        login_url = f"https://kite.zerodha.com/connect/login?v=3&api_key={api_key}"
+        logger.info("Navigating to login URL...")
+        driver.get(login_url)
+        wait = WebDriverWait(driver, 60)
+        
+        logger.info("Entering User ID and Password...")
+        wait.until(EC.visibility_of_element_located((By.ID, "userid"))).send_keys(user_id)
+        wait.until(EC.visibility_of_element_located((By.ID, "password"))).send_keys(password)
+        submit_button = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[@type='submit']")))
+        driver.execute_script("arguments[0].click();", submit_button)
+        
+        # --- Step 2: Handle 2FA/PIN ---
+        logger.info("Waiting for 2FA/PIN input field...")
+        pin_input = WebDriverWait(driver, 30).until(find_pin_input)
+        
+        logger.info("Generating and entering TOTP...")
+        totp = pyotp.TOTP(totp_secret)
+        pin_input.send_keys(totp.now())
+        
+        # --- Step 3: Capture the Request Token ---
+        logger.info("Waiting for redirect with request_token...")
+        token_condition = url_or_iframe_with_token("request_token")
+        WebDriverWait(driver, 25).until(token_condition)
+        
+        parsed_url = urlparse(token_condition.captured_url)
+        request_token = parse_qs(parsed_url.query)['request_token'][0]
+        logger.info("Successfully captured request_token.")
+
+        # --- Step 4: Generate and Store the Access Token ---
+        logger.info("Generating and storing access_token...")
+        access_token = generate_access_token_from_request(api_key, api_secret, request_token)
+        update_secret_manager(gcp_project_id, "KITE_ACCESS_TOKEN", access_token)
+        
+        logger.info("✅ SUCCESS! TOKEN GENERATED AND STORED.")
+    finally:
+        if driver:
+            driver.quit()
+
+# --- END: Code from automate_token_generation.py ---
 
 # --- Main Functions ---
 
@@ -139,7 +342,7 @@ def enhance_sheet_structure(sheet):
             "Advisor_Output": [["Recommendation", "Confidence", "Reasons", "Timestamp"]],
             "Signals": [["Action", "Symbol", "Price", "Confidence", "Reasons", "Timestamp"]],
             "Bot_Control": [["Parameter", "Value"], ["status", "running"], ["mode", "EMERGENCY"], ["last_updated", "never"]],
-            "Price_Data": [["Symbol", "Price", "Volume", "Change", "Timestamp"]],
+            "Price_Data": [["Symbol", "Timestamp", "open", "high", "low", "close", "volume"]],
             "Trade_Log": [["Date", "Instrument", "Action", "Quantity", "Entry", "Exit", "P/L"]]
         }
         
@@ -260,6 +463,26 @@ def calculate_kelly_criterion(trades_df):
     return kelly_pct, win_rate, win_loss_ratio
 
 @retry()
+def get_gcp_secret(secret_id, project_id, version_id="latest"):
+    """Fetches a secret from Google Secret Manager."""
+    if not GCP_SECRET_MANAGER_AVAILABLE:
+        logger.warning("google-cloud-secret-manager library not installed. Cannot fetch secrets from GCP.")
+        return None
+
+    try:
+        client = secretmanager.SecretManagerServiceClient()
+        name = f"projects/{project_id}/secrets/{secret_id}/versions/{version_id}"
+        response = client.access_secret_version(request={"name": name})
+        payload = response.payload.data.decode("UTF-8")
+        logger.info(f"Successfully fetched latest version of secret '{secret_id}'.")
+        return payload
+    except Exception as e:
+        # Log the error but return None to allow fallback to environment variables
+        logger.error(f"Failed to access secret '{secret_id}' in project '{project_id}': {e}")
+        return None
+
+
+@retry()
 def connect_to_google_sheets():
     """Connects to Google Sheets using credentials from an environment variable."""
     logger.info("Attempting to authenticate with Google Sheets...")
@@ -281,17 +504,32 @@ def connect_to_kite():
     """Initializes the Kite Connect client using credentials from environment variables."""
     logger.info("Attempting to authenticate with Kite Connect...")
     api_key = os.getenv('KITE_API_KEY', '').strip().strip('"\'')
-    access_token = os.getenv('KITE_ACCESS_TOKEN', '').strip().strip('"\'')
+    access_token = None
+
+    # --- START: MODIFICATION to fetch token from Secret Manager ---
+    # In a GCP environment (like Cloud Run), fetch the access token from Secret Manager.
+    # This ensures the latest token is always used, even in long-running instances.
+    # The GCP_PROJECT env var is automatically set by Cloud Run.
+    gcp_project_id = os.getenv('GCP_PROJECT')
+    if gcp_project_id:
+        logger.info(f"GCP environment detected (Project: {gcp_project_id}). Fetching KITE_ACCESS_TOKEN from Secret Manager.")
+        access_token = get_gcp_secret("KITE_ACCESS_TOKEN", gcp_project_id)
+
+    # Fallback to environment variable if not in GCP or if Secret Manager fetch fails.
+    if not access_token:
+        logger.info("Falling back to KITE_ACCESS_TOKEN from environment variable for local development or as a backup.")
+        access_token = os.getenv('KITE_ACCESS_TOKEN', '').strip().strip('"\'')
+    # --- END: MODIFICATION ---
 
     # --- START: Added for debugging authentication issues ---
     logger.info(f"DEBUG: API Key (first 4 chars): '{api_key[:4]}...'")
-    logger.info(f"DEBUG: Access Token (first 4 chars): '{access_token[:4]}...'")
+    logger.info(f"DEBUG: Access Token (first 4 chars): '{access_token[:4] if access_token else 'None'}...'")
     logger.info(f"DEBUG: API Key length: {len(api_key)}")
-    logger.info(f"DEBUG: Access Token length: {len(access_token)}")
+    logger.info(f"DEBUG: Access Token length: {len(access_token) if access_token else 0}")
     # --- END: Added for debugging ---
 
     if not api_key or not access_token:
-        raise ValueError("KITE_API_KEY or KITE_ACCESS_TOKEN environment variables not found.")
+        raise ValueError("KITE_API_KEY or KITE_ACCESS_TOKEN could not be obtained.")
     try:
         kite = KiteConnect(api_key=api_key)
         kite.set_access_token(access_token)
@@ -338,6 +576,35 @@ def fetch_historical_data(kite, instrument_token, from_date, to_date, interval, 
         return df[['timestamp', 'instrument', 'open', 'high', 'low', 'close', 'volume']]
     except Exception as e:
         logger.warning(f"Could not fetch Kite data for {original_symbol}: {e}")
+        return pd.DataFrame()
+
+
+@retry()
+def fetch_historical_data_yfinance(symbol, from_date, to_date, interval):
+    """Fetches historical data from Yahoo Finance for a given symbol."""
+    logger.info(f"Fetching {interval} data for {symbol} from yfinance...")
+    try:
+        # yfinance uses 'start' and 'end' parameters
+        df = yf.download(symbol, start=from_date, end=to_date, interval=interval, progress=False)
+        if df.empty:
+            logger.warning(f"No data downloaded for {symbol} from yfinance at {interval} interval.")
+            return pd.DataFrame()
+
+        df.reset_index(inplace=True)
+        # yfinance column names are 'Datetime', 'Open', 'High', 'Low', 'Close', 'Adj Close', 'Volume'
+        # The rest of the script expects lowercase and 'timestamp'
+        df.rename(columns={
+            'Datetime': 'timestamp', 'Date': 'timestamp', # Some intervals return 'Date'
+            'Open': 'open', 'High': 'high', 'Low': 'low', 'Close': 'close', 'Volume': 'volume'
+        }, inplace=True)
+        df['instrument'] = symbol
+        # yfinance might return timezone-aware timestamp, convert to naive UTC to match Kite's output
+        if pd.api.types.is_datetime64_any_dtype(df['timestamp']) and df['timestamp'].dt.tz is not None:
+             df['timestamp'] = df['timestamp'].dt.tz_convert('UTC').dt.tz_localize(None)
+
+        return df[['timestamp', 'instrument', 'open', 'high', 'low', 'close', 'volume']]
+    except Exception as e:
+        logger.warning(f"Could not fetch yfinance data for {symbol}: {e}")
         return pd.DataFrame()
 
 
@@ -417,35 +684,55 @@ def fetch_option_chain(kite, underlying_instrument):
         return None
 
 
-def run_data_collection(kite, instrument_map):
+def run_data_collection(kite=None, instrument_map=None):
     """Fetches data for all symbols and timeframes and returns a dictionary of DataFrames."""
     data_frames = {"15m": [], "30m": [], "1h": []}
     to_date = datetime.now()
     
     for symbol in config.SYMBOLS:
-        # Translate yfinance symbol to Kite tradingsymbol
-        kite_symbol = YFINANCE_TO_KITE_MAP.get(symbol, symbol.replace('.NS', ''))
-        instrument_token = instrument_map.get(kite_symbol)
+        if DATA_SOURCE == 'yfinance':
+            # --- Fetch data for all required timeframes from yfinance ---
+            from_date_15m = to_date - timedelta(days=5)
+            df_15m = fetch_historical_data_yfinance(symbol, from_date_15m, to_date, KITE_TO_YF_INTERVAL_MAP["15minute"])
+            if not df_15m.empty:
+                data_frames["15m"].append(df_15m)
 
-        if not instrument_token:
-            logger.warning(f"Could not find instrument token for symbol '{symbol}' (Kite: '{kite_symbol}'). Skipping.")
-            continue
+            from_date_30m = to_date - timedelta(days=10)
+            df_30m = fetch_historical_data_yfinance(symbol, from_date_30m, to_date, KITE_TO_YF_INTERVAL_MAP["30minute"])
+            if not df_30m.empty:
+                data_frames["30m"].append(df_30m)
 
-        # --- Fetch data for all required timeframes ---
-        from_date_15m = to_date - timedelta(days=5)
-        df_15m = fetch_historical_data(kite, instrument_token, from_date_15m, to_date, "15minute", symbol)
-        if not df_15m.empty:
-            data_frames["15m"].append(df_15m)
+            from_date_1h = to_date - timedelta(days=60)
+            df_1h = fetch_historical_data_yfinance(symbol, from_date_1h, to_date, KITE_TO_YF_INTERVAL_MAP["60minute"])
+            if not df_1h.empty:
+                data_frames["1h"].append(df_1h)
+        else:  # Default to Kite
+            if not kite or not instrument_map:
+                raise ValueError("Kite client and instrument map are required for 'kite' data source.")
+            
+            # Translate yfinance symbol to Kite tradingsymbol
+            kite_symbol = YFINANCE_TO_KITE_MAP.get(symbol, symbol.replace('.NS', ''))
+            instrument_token = instrument_map.get(kite_symbol)
 
-        from_date_30m = to_date - timedelta(days=10)
-        df_30m = fetch_historical_data(kite, instrument_token, from_date_30m, to_date, "30minute", symbol)
-        if not df_30m.empty:
-            data_frames["30m"].append(df_30m)
+            if not instrument_token:
+                logger.warning(f"Could not find instrument token for symbol '{symbol}' (Kite: '{kite_symbol}'). Skipping.")
+                continue
 
-        from_date_1h = to_date - timedelta(days=60)
-        df_1h = fetch_historical_data(kite, instrument_token, from_date_1h, to_date, "60minute", symbol)
-        if not df_1h.empty:
-            data_frames["1h"].append(df_1h)
+            # --- Fetch data for all required timeframes ---
+            from_date_15m = to_date - timedelta(days=5)
+            df_15m = fetch_historical_data(kite, instrument_token, from_date_15m, to_date, "15minute", symbol)
+            if not df_15m.empty:
+                data_frames["15m"].append(df_15m)
+
+            from_date_30m = to_date - timedelta(days=10)
+            df_30m = fetch_historical_data(kite, instrument_token, from_date_30m, to_date, "30minute", symbol)
+            if not df_30m.empty:
+                data_frames["30m"].append(df_30m)
+
+            from_date_1h = to_date - timedelta(days=60)
+            df_1h = fetch_historical_data(kite, instrument_token, from_date_1h, to_date, "60minute", symbol)
+            if not df_1h.empty:
+                data_frames["1h"].append(df_1h)
 
     if not data_frames["15m"]:
         raise Exception("No 15m data was fetched for any symbol. Halting process.")
@@ -455,15 +742,13 @@ def run_data_collection(kite, instrument_map):
     combined_df_30m = pd.concat(data_frames["30m"], ignore_index=True) if data_frames["30m"] else pd.DataFrame()
     combined_df_1h = pd.concat(data_frames["1h"], ignore_index=True) if data_frames["1h"] else pd.DataFrame()
 
-    # --- NEW: Fetch LIVE data and merge it to prevent using stale historical data ---
-    logger.info("Fetching live quote data to merge with historical data...")
-    
-    # Create a list of Kite-formatted instrument names for the quote API
-    kite_symbols_for_quote = [f"NSE:{YFINANCE_TO_KITE_MAP.get(s, s.replace('.NS', ''))}" for s in config.SYMBOLS]
-
-    if not kite_symbols_for_quote:
-        logger.warning("No symbols to fetch live quotes for.")
-    else:
+    # --- NEW: Fetch LIVE data and merge it (Kite only) ---
+    if DATA_SOURCE == 'kite' and kite:
+        logger.info("Fetching live quote data to merge with historical data...")
+        kite_symbols_for_quote = [f"NSE:{YFINANCE_TO_KITE_MAP.get(s, s.replace('.NS', ''))}" for s in config.SYMBOLS]
+        if not kite_symbols_for_quote:
+            logger.warning("No symbols to fetch live quotes for.")
+            return {"15m": combined_df_15m, "30m": combined_df_30m, "1h": combined_df_1h}
         try:
             live_quotes = kite.quote(kite_symbols_for_quote)
 
@@ -490,6 +775,8 @@ def run_data_collection(kite, instrument_map):
             logger.info("Successfully merged live quote data into historical dataframes.")
         except Exception as e:
             logger.error(f"Could not fetch or merge live quotes: {e}")
+    elif DATA_SOURCE == 'yfinance':
+        logger.info("Skipping live data merge for yfinance data source.")
 
     logger.info(f"Processed {len(combined_df_15m)} rows (15m), {len(combined_df_30m)} rows (30m), {len(combined_df_1h)} rows (1h).")
     return {"15m": combined_df_15m, "30m": combined_df_30m, "1h": combined_df_1h}
@@ -830,7 +1117,11 @@ def generate_signals(price_data_dict, manual_controls_df, trade_log_df, market_c
         # --- AI-DRIVEN SIGNAL GENERATION (PRIMARY) ---
         # This is now the main signal generator. Rule-based signals can act as a fallback.
         ai_signal_generated = False
-        if AI_MODEL is not None:
+
+        # Lazily load the model the first time it's needed.
+        ai_model = get_ai_model()
+
+        if ai_model is not None:
             # These features MUST match the ones used in `prepare_training_data.py`
             feature_columns = [
                 'SMA_20', 'SMA_50', 'RSI_14', 'MACD_12_26_9', 'ATRr_14',
@@ -843,7 +1134,7 @@ def generate_signals(price_data_dict, manual_controls_df, trade_log_df, market_c
                 features = latest_15m[feature_columns].values.reshape(1, -1)
                 
                 # Get prediction probability for the 'BUY' class (1)
-                buy_probability = AI_MODEL.predict_proba(features)[0][1]
+                buy_probability = ai_model.predict_proba(features)[0][1]
 
                 if buy_probability >= AI_CONFIDENCE_THRESHOLD:
                     logger.info(f"AI SIGNAL for {instrument}: BUY with {buy_probability:.2%} confidence.")
@@ -1191,25 +1482,32 @@ def fetch_economic_events():
 def main(force_run=False):
     """Main function that runs the entire process."""
     try:
-        logger.info("--- Trading Signal Process Started ---")
+        logger.info(f"--- Trading Signal Process Started (Data Source: {DATA_SOURCE.upper()}) ---")
         
         # --- Market Hours Check ---
         if not force_run and not should_run():
-            logger.info("Market is closed and 'force_run' is false. Exiting process.")
-            # We can still update the sheet with a "Market Closed" message if desired
-            return
+            # If using yfinance, we can ignore market hours check as it's for testing.
+            if DATA_SOURCE == 'kite':
+                logger.info("Market is closed and 'force_run' is false. Exiting process.")
+                return {"status": "success", "message": "Market is closed. Bot did not run."}
+            else:
+                logger.info("Market is closed, but proceeding with yfinance for testing.")
 
         # Step 1: Connect to services and prepare data map
-        kite = connect_to_kite()
-        instrument_map = get_instrument_map(kite)
+        kite = None
+        instrument_map = None
+        if DATA_SOURCE == 'kite':
+            kite = connect_to_kite()
+            instrument_map = get_instrument_map(kite)
 
-        # --- NEW: Fetch Option Chain Data ---
-        option_chain_df = fetch_option_chain(kite, 'NIFTY')
-        if option_chain_df is not None:
-            # For now, just print the first 5 rows of the dataframe to verify
-            logger.info("--- Option Chain Data (first 5 rows) ---")
-            logger.info(option_chain_df.head())
-            logger.info("-----------------------------------------")
+            # --- NEW: Fetch Option Chain Data ---
+            option_chain_df = fetch_option_chain(kite, 'NIFTY')
+            if option_chain_df is not None:
+                logger.info("--- Option Chain Data (first 5 rows) ---")
+                logger.info(option_chain_df.head())
+                logger.info("-----------------------------------------")
+        else:
+            logger.info("Skipping Kite connection and option chain fetch for yfinance data source.")
 
         spreadsheet = connect_to_google_sheets()
         
@@ -1219,7 +1517,8 @@ def main(force_run=False):
         # --- NEW: Bot Control Check ---
         # Check if the bot is enabled in the Google Sheet before proceeding.
         if not check_bot_status(spreadsheet):
-            sys.exit(0) # Exit gracefully if bot is stopped
+            logger.warning("Bot is disabled in the 'Bot_Control' sheet. Halting execution.")
+            return {"status": "stopped", "message": "Bot is disabled in Google Sheet."}
 
         # Step 2: Read supporting data from sheets
         manual_controls_df = read_manual_controls(spreadsheet)
@@ -1231,7 +1530,7 @@ def main(force_run=False):
 
         # Step 4: Collect external data (market data, events)
         economic_events = fetch_economic_events()
-        price_data_dict = run_data_collection(kite, instrument_map)
+        price_data_dict = run_data_collection(kite=kite, instrument_map=instrument_map)
         
         # Step 5: Calculate all indicators for all instruments and timeframes
         if not price_data_dict["15m"].empty:
@@ -1256,10 +1555,12 @@ def main(force_run=False):
         write_to_sheets(spreadsheet, price_data_dict["15m"], signals_df)
 
         logger.info("--- Trading Signal Process Completed Successfully ---")
+        return {"status": "success", "message": "Trading bot executed successfully."}
 
     except Exception as e:
         # This will catch any error and log it, preventing a silent crash.
         logger.error("A critical error occurred in the main process:", exc_info=True)
+        return {"status": "error", "message": str(e)}
 
 # --- Script Execution ---
 @process_data_bp.route('/run', methods=['GET'])
@@ -1273,11 +1574,32 @@ def run_bot():
         logger.warning("'force=true' parameter detected. Bypassing market hours check for this run.")
 
     try:
-        # Call the existing main function
-        main(force_run=force_run)
-        return jsonify({"status": "success", "message": "Trading bot executed successfully."}), 200
+        # The main function now returns a dictionary with status and message
+        result = main(force_run=force_run)
+        
+        # Determine the HTTP status code based on the result
+        if result.get("status") == "error":
+            http_status = 500
+        else:
+            http_status = 200 # Success or Stopped are both "OK" from an HTTP perspective
+            
+        return jsonify(result), http_status
     except Exception as e:
         logger.error(f"Error executing trading bot: {e}", exc_info=True)
         return jsonify({"status": "error", "message": str(e)}), 500
 
-
+@process_data_bp.route('/generate-token', methods=['POST'])
+def generate_token_endpoint():
+    """
+    HTTP endpoint to trigger the token generation logic.
+    This should be called by a daily Cloud Scheduler job.
+    It's a POST request to prevent accidental invocation via a browser.
+    """
+    logger.info("Received request to generate access token.")
+    try:
+        _do_generate_token()
+        return jsonify({"status": "success", "message": "Access token generated and stored successfully."}), 200
+    except Exception as e:
+        logger.error(f"Error during token generation: {e}", exc_info=True)
+        # Return a 500 error so Cloud Scheduler knows the job failed.
+        return jsonify({"status": "error", "message": str(e)}), 500

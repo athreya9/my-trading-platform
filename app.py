@@ -55,43 +55,12 @@ def switch_mode():
                 updated_lines.append(line)
         
         if not found:
-            return jsonify({'status': 'error', 'message': "Could not find 'CURRENT_MODE' variable in config file."}), 500
+            return jsonify({'status': 'error', 'message': "Could not find 'CURRENT_MODE' variable in config file."}) 
 
         with open(CONFIG_PATH, 'w') as f:
             f.writelines(updated_lines)
 
-        return jsonify({'status': 'success', 'mode': new_mode})
+        return jsonify({'status': 'success', 'message': f"Mode switched to {new_mode}."})
 
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 500
-
-@app.route('/api/bot-status', methods=['POST'])
-def bot_status():
-    """
-    Sets the bot's status in the Google Sheet's 'Bot_Control' tab.
-    """
-    try:
-        new_status = request.json.get('status', 'running').lower()
-        if new_status not in ['running', 'stopped']:
-            return jsonify({'status': 'error', 'message': "Invalid status. Must be 'running' or 'stopped'."}), 400
-
-        # Authenticate with Google Sheets using the environment variable
-        creds_json_str = os.getenv('GOOGLE_SHEETS_CREDENTIALS')
-        creds_dict = json.loads(creds_json_str)
-        client = gspread.service_account_from_dict(creds_dict)
-        spreadsheet = client.open("Algo Trading Dashboard")
-        worksheet = spreadsheet.worksheet("Bot_Control")
-
-        # Update the status cell (assuming cell B2 corresponds to 'status')
-        # This overwrites the status to either "running" or "stopped"
-        worksheet.update_acell('B2', new_status)
-
-        return jsonify({'status': 'success', 'message': f"Bot status set to '{new_status}'."})
-
-    except Exception as e:
-        return jsonify({'status': 'error', 'message': str(e)}), 500
-
-if __name__ == '__main__':
-    # This block is for running the app in a container like Cloud Run
-    port = int(os.environ.get("PORT", 8080))
-    app.run(host='0.0.0.0', port=port)

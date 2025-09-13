@@ -80,6 +80,12 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements-automation.txt
 
+      - name: "Install System Dependencies for Headless Chrome"
+        run: |
+          # Headless Chrome on Linux requires these system libraries to run.
+          sudo apt-get update
+          sudo apt-get install -y libnss3 libgconf-2-4 libfontconfig1
+
       - name: "🤖 Run Automated Token Generation"
         id: token_generator
         env:

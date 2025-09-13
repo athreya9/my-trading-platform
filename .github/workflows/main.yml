@@ -84,7 +84,9 @@ jobs:
         run: |
           # Headless Chrome on Linux requires these system libraries to run.
           sudo apt-get update
-          sudo apt-get install -y libnss3 libgconf-2-4 libfontconfig1
+          # The libgconf-2-4 package is obsolete in newer Ubuntu versions.
+          # This updated list provides the necessary modern dependencies for headless Chrome.
+          sudo apt-get install -y libnss3 libnspr4 libgbm1 libfontconfig1
 
       - name: "🤖 Run Automated Token Generation"
         id: token_generator

@@ -111,6 +111,18 @@ def main():
         # Wait for the submit button to be clickable before clicking
         wait.until(EC.element_to_be_clickable((By.XPATH, "//button[@type='submit']"))).click()
         
+        # --- Add a check for immediate login errors on the first page ---
+        try:
+            # Wait for a very short time to see if an error message appears on the same page
+            error_element = WebDriverWait(driver, 3).until(
+                EC.visibility_of_element_located((By.CSS_SELECTOR, "p.error, span.error"))
+            )
+            error_text = error_element.text.strip()
+            raise Exception(f"Login failed immediately on the first page. Error: '{error_text}'")
+        except TimeoutException:
+            # No immediate error found, which is the expected good path. Continue.
+            pass
+        
         # --- Step 2: Handle 2FA/PIN/TOTP (with iframe detection) ---
         # The 2FA page can be a PIN or TOTP page, and it might be inside an iframe.
         # This logic attempts to handle these variations robustly.

@@ -118,7 +118,7 @@ def main():
                 EC.visibility_of_element_located((By.CSS_SELECTOR, "p.error, span.error"))
             )
             error_text = error_element.text.strip()
-            raise Exception(f"Login failed immediately on the first page. Error: '{error_text}'")
+            raise Exception(f"Login failed on the first page. The website returned the error: '{error_text}'. This almost always means your KITE_USER_ID or KITE_PASSWORD secrets are incorrect. Please double-check them in your GitHub repository settings.")
         except TimeoutException:
             # No immediate error found, which is the expected good path. Continue.
             pass
@@ -183,7 +183,7 @@ def main():
             # If the URL doesn't have the token, it means an error message appeared.
             error_element = driver.find_element(By.CSS_SELECTOR, "p.error, span.error")
             error_text = error_element.text.strip()
-            raise Exception(f"Login failed after 2FA. Error on page: '{error_text}'")
+            raise Exception(f"Login failed after 2FA. The website returned the error: '{error_text}'. This often means your KITE_TOTP_SECRET is incorrect or your Zerodha account is set to use a PIN instead of TOTP.")
         
         logger.info("Redirect successful. Capturing request_token...")
         redirect_url = driver.current_url

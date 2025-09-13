@@ -47,7 +47,7 @@ jobs:
     # This job runs on the daily schedule OR if manually triggered
     if: |
       (github.event_name == 'schedule' && github.event.schedule == '0 3 * * 1-5') ||
-      (github.event_name == 'workflow_dispatch' && github.event.inputs.run_token_generation == true)
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.run_token_generation)
     runs-on: ubuntu-latest
     timeout-minutes: 5 # Fail fast if token generation gets stuck
 
@@ -109,12 +109,14 @@ jobs:
 
       - name: "🔐 Update Secret in Google Secret Manager"
         if: success()
-        run: |
-          set -x
-          echo "Updating KITE_ACCESS_TOKEN in Secret Manager..."
-          # Pipe the new token into the gcloud command to update the secret's latest version
-          echo -n "${{ env.NEW_TOKEN }}" | gcloud secrets versions add KITE_ACCESS_TOKEN --data-file=- --project=${{ steps.auth.outputs.project_id }}
-          echo "Secret updated successfully."
+        uses: 'google-github-actions/gcloud-cli@v2'
+        with:
+          command: |
+            set -x
+            echo "Updating KITE_ACCESS_TOKEN in Secret Manager..."
+            # Pipe the new token into the gcloud command to update the secret's latest version
+            echo -n "${{ env.NEW_TOKEN }}" | gcloud secrets versions add KITE_ACCESS_TOKEN --data-file=- --project=${{ steps.auth.outputs.project_id }}
+            echo "Secret updated successfully."
 
       - name: "Upload Debug Artifacts on Failure"
         if: failure()
@@ -133,7 +135,7 @@ jobs:
     # This job runs only on the Sunday schedule OR if manually triggered with the specific input.
     if: |
       (github.event_name == 'schedule' && github.event.schedule == '30 5 * * 0') ||
-      (github.event_name == 'workflow_dispatch' && github.event.inputs.run_retraining == true)
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.run_retraining)
     runs-on: ubuntu-latest
     timeout-minutes: 20
 

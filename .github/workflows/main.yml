@@ -109,15 +109,16 @@ jobs:
 
       - name: "🔐 Update Secret in Google Secret Manager"
         if: success()
-        uses: 'google-github-actions/gcloud-cli@v2'
-        with:
-          command: |
-            set -x
-            echo "Updating KITE_ACCESS_TOKEN in Secret Manager..."
-            # Pipe the new token into the gcloud command to update the secret's latest version
-            echo -n "${{ env.NEW_TOKEN }}" | gcloud secrets versions add KITE_ACCESS_TOKEN --data-file=- --project=${{ steps.auth.outputs.project_id }}
-            echo "Secret updated successfully."
+        # The 'gcloud-cli' action was having resolution issues.
+        # This is a more fundamental approach: set up the CLI first, then run the command.
+        uses: 'google-github-actions/setup-gcloud@v2'
 
+      - name: "Execute Secret Update"
+        if: success()
+        run: |
+          echo "Updating KITE_ACCESS_TOKEN in Secret Manager..."
+          echo -n "${{ env.NEW_TOKEN }}" | gcloud secrets versions add KITE_ACCESS_TOKEN --data-file=- --project=${{ steps.auth.outputs.project_id }}
+          echo "Secret updated successfully."
       - name: "Upload Debug Artifacts on Failure"
         if: failure()
         uses: actions/upload-artifact@v4

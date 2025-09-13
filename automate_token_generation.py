@@ -100,13 +100,16 @@ def main():
         # Enter User ID and Password
         logger.info("Entering User ID and Password...")
         user_id_input = wait.until(EC.visibility_of_element_located((By.ID, "userid")))
+        user_id_input.clear()
         user_id_input.send_keys(user_id)
+
+        time.sleep(0.5) # Small delay to mimic human behavior
 
         # Use a more robust, flexible selector for the password field to handle page changes.
         password_selector = (By.XPATH, "//input[@type='password' or @name='password' or @id='password']")
         password_input = wait.until(EC.visibility_of_element_located(password_selector))
-        # Use JavaScript to set the password to bypass potential interactability issues
-        driver.execute_script("arguments[0].value = arguments[1];", password_input, password)
+        password_input.clear()
+        password_input.send_keys(password) # Use send_keys for a more "human-like" interaction.
 
         # Wait for the submit button to be clickable before clicking
         wait.until(EC.element_to_be_clickable((By.XPATH, "//button[@type='submit']"))).click()

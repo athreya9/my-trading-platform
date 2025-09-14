@@ -123,6 +123,13 @@ def read_price_data(spreadsheet, target_instrument=None):
         print("Data cleaned and prepared for backtesting.")
         return df
 
+    except gspread.exceptions.WorksheetNotFound:
+        # Provide a much more specific and helpful error message.
+        raise Exception(
+            f"The worksheet '{DATA_WORKSHEET_NAME}' was not found in your Google Sheet. "
+            "This sheet is created by the 'Run Data Collection & Signal Generation' job. "
+            "Please ensure that job has run successfully at least once."
+        )
     except Exception as e:
         raise Exception(f"An error occurred while reading or processing data: {e}")
 

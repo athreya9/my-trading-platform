@@ -19,7 +19,7 @@ load_dotenv()
 
 # --- Configuration ---
 SHEET_NAME = "Algo Trading Dashboard"
-DATA_WORKSHEET_NAME = "Price_Data"
+DATA_WORKSHEET_NAME = "Historical_Data" # Changed to use the long-term data store
 TARGET_INSTRUMENT = '^NSEI'
 INITIAL_CAPITAL = 100000.0  # Starting capital for the simulation
 

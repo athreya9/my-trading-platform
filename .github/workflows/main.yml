@@ -24,6 +24,10 @@ on:
         description: 'Manually run AI model retraining?'
         required: false
         type: boolean
+      run_data_collection:
+        description: 'Manually run data collection & signal generation (populates sheets)?'
+        required: false
+        type: boolean
 
 # --------------------------------------------------------------------------
 #  CONCURRENCY CONTROL
@@ -136,6 +140,45 @@ jobs:
             error_page_source.html
 
   # ========================================================================
+  #  JOB 2: Manually trigger the Cloud Run service to collect data
+  # ========================================================================
+  collect-data:
+    name: "📈 Run Data Collection & Signal Generation"
+    # This job should only run when manually triggered with its specific input.
+    if: github.event.inputs.run_data_collection
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: '🔐 Authenticate to Google Cloud'
+        id: 'auth'
+        uses: 'google-github-actions/auth@v2'
+        with:
+          credentials_json: '${{ secrets.GCP_SA_KEY }}'
+
+      - name: 'Setup Google Cloud SDK'
+        uses: 'google-github-actions/setup-gcloud@v2'
+
+      - name: 'Get Cloud Run service URL'
+        id: get_url
+        run: |
+          echo "Fetching URL for Cloud Run service 'datradingplatform'..."
+          SERVICE_URL=$(gcloud run services describe datradingplatform --platform=managed --region=asia-south1 --format='value(status.url)')
+          if [ -z "$SERVICE_URL" ]; then
+            echo "::error::Could not retrieve Cloud Run service URL."
+            exit 1
+          fi
+          echo "SERVICE_URL=$SERVICE_URL" >> "$GITHUB_ENV"
+
+      - name: '🚀 Invoke Cloud Run Service'
+        run: |
+          echo "Invoking Cloud Run service at ${{ env.SERVICE_URL }}..."
+          # Use curl to make a GET request with an identity token for authentication.
+          # The force=true param ensures it runs even if the market is closed, using yfinance.
+          # The --fail flag makes curl exit with an error if the HTTP response code is 4xx or 5xx.
+          curl --fail --show-error -H "Authorization: Bearer $(gcloud auth print-identity-token)" "${{ env.SERVICE_URL }}/run?force=true"
+
+  # ========================================================================
   #  JOB 3: Retrain the AI model weekly to keep it updated
   # ========================================================================
   retrain-model:
@@ -163,7 +206,8 @@ jobs:
 
       - name: "📊 Prepare Training Data"
         env:
-          GOOGLE_SHEETS_CREDENTIALS: ${{ secrets.GOOGLE_SHEETS_CREDENTIALS }}
+          # Standardize on GCP_SA_KEY for consistency with other jobs.
+          GOOGLE_SHEETS_CREDENTIALS: ${{ secrets.GCP_SA_KEY }}
         run: python api/prepare_training_data.py
 
       - name: "🤖 Train New AI Model"

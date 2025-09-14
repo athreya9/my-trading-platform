@@ -213,7 +213,7 @@ jobs:
 
 
   # ========================================================================
-  #  JOB 3: Retrain the AI model weekly to keep it updated
+  #  JOB 4: Retrain the AI model weekly to keep it updated
   # ========================================================================
   retrain-model:
     name: "🧠 Retrain AI Model"

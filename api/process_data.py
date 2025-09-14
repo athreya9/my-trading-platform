@@ -1158,6 +1158,9 @@ def write_to_sheets(spreadsheet, price_df, signals_df):
             logger.info("Historical data appended successfully.")
         except Exception as e:
             logger.error(f"Failed to append data to '{HISTORICAL_DATA_WORKSHEET_NAME}': {e}", exc_info=True)
+            # Re-raise the exception to ensure the Cloud Run service fails loudly.
+            # This prevents a silent failure where the sheet remains empty.
+            raise
     else:
         logger.info("No price data to write or append.")
 

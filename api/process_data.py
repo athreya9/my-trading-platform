@@ -1144,26 +1144,26 @@ def write_to_sheets(spreadsheet, price_df, signals_df):
     price_worksheet.clear() # Clear before writing
     price_worksheet.update(range_name='A1', values=[price_data_to_write.columns.values.tolist()] + price_data_to_write.fillna('').values.tolist(), value_input_option='USER_ENTERED')
     logger.info("Price data written successfully.")
-        # --- NEW: Append to Historical Data sheet for AI training ---
-        try:
-            # Check if the sheet is empty by checking cell A1. This is much faster than get_all_records().
-            is_sheet_empty = historical_worksheet.acell('A1').value is None
-            
-            if is_sheet_empty:
-                 logger.info(f"'{HISTORICAL_DATA_WORKSHEET_NAME}' is empty. Writing headers and data.")
-                 # Add header row to the data
-                 historical_worksheet.update('A1', [price_data_to_write.columns.values.tolist()] + price_data_to_write.fillna('').values.tolist(), value_input_option='USER_ENTERED')
-            else:
-                 logger.info(f"Appending {len(price_data_to_write)} new rows to '{HISTORICAL_DATA_WORKSHEET_NAME}'.")
-                 # Append only the data rows, without the header
-                 historical_worksheet.append_rows(price_data_to_write.fillna('').values.tolist(), value_input_option='USER_ENTERED')
-            
-            logger.info("Historical data appended successfully.")
-        except Exception as e:
-            logger.error(f"Failed to append data to '{HISTORICAL_DATA_WORKSHEET_NAME}': {e}", exc_info=True)
-            # Re-raise the exception to ensure the Cloud Run service fails loudly.
-            # This prevents a silent failure where the sheet remains empty.
-            raise
+    # --- NEW: Append to Historical Data sheet for AI training ---
+    try:
+        # Check if the sheet is empty by checking cell A1. This is much faster than get_all_records().
+        is_sheet_empty = historical_worksheet.acell('A1').value is None
+        
+        if is_sheet_empty:
+             logger.info(f"'{HISTORICAL_DATA_WORKSHEET_NAME}' is empty. Writing headers and data.")
+             # Add header row to the data
+             historical_worksheet.update('A1', [price_data_to_write.columns.values.tolist()] + price_data_to_write.fillna('').values.tolist(), value_input_option='USER_ENTERED')
+        else:
+             logger.info(f"Appending {len(price_data_to_write)} new rows to '{HISTORICAL_DATA_WORKSHEET_NAME}'.")
+             # Append only the data rows, without the header
+             historical_worksheet.append_rows(price_data_to_write.fillna('').values.tolist(), value_input_option='USER_ENTERED')
+        
+        logger.info("Historical data appended successfully.")
+    except Exception as e:
+        logger.error(f"Failed to append data to '{HISTORICAL_DATA_WORKSHEET_NAME}': {e}", exc_info=True)
+        # Re-raise the exception to ensure the Cloud Run service fails loudly.
+        # This prevents a silent failure where the sheet remains empty.
+        raise
 
     # --- Write Signal Data ---
     if not signals_df.empty:

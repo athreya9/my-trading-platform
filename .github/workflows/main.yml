@@ -28,6 +28,9 @@ on:
         description: 'Manually run data collection & signal generation (populates sheets)?'
         required: false
         type: boolean
+      run_sheet_setup:
+        description: 'Manually initialize/fix Google Sheet structure?'
+        type: boolean
 
 # --------------------------------------------------------------------------
 #  CONCURRENCY CONTROL
@@ -177,6 +180,37 @@ jobs:
           # The force=true param ensures it runs even if the market is closed, using yfinance.
           # The --fail flag makes curl exit with an error if the HTTP response code is 4xx or 5xx.
           curl --fail --show-error -H "Authorization: Bearer $(gcloud auth print-identity-token)" "${{ env.SERVICE_URL }}/run?force=true"
+
+  # ========================================================================
+  #  JOB 3: Manually initialize or repair the Google Sheet structure
+  # ========================================================================
+  setup-sheets:
+    name: "🛠️ Initialize Google Sheet Structure"
+    # This job runs only when manually triggered with its specific input.
+    if: github.event.inputs.run_sheet_setup
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: "Checkout Code"
+        uses: actions/checkout@v4
+
+      - name: "Set up Python"
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: "Install Dependencies"
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: "Run Sheet Setup Script"
+        env:
+          # Use the same secret as other jobs for consistency
+          GOOGLE_SHEETS_CREDENTIALS: ${{ secrets.GCP_SA_KEY }}
+        run: python api/setup_sheets.py
+
 
   # ========================================================================
   #  JOB 3: Retrain the AI model weekly to keep it updated

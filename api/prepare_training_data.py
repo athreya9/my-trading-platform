@@ -66,6 +66,11 @@ def main():
         # Read data for ALL instruments to create a richer training set
         price_df = read_price_data(spreadsheet, target_instrument=None)
 
+        # Add a defensive check to ensure the dataframe is not empty after reading.
+        if price_df.empty:
+            print("❌ Error: No data was returned from the 'Historical_Data' sheet. The sheet might be empty or unreadable.", file=sys.stderr)
+            sys.exit(1)
+
         # 2. Calculate all indicators to use as features
         # We reuse the robust functions from the main processing script.
         print("Calculating features (technical indicators)...")

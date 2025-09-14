@@ -1127,20 +1127,23 @@ def write_to_sheets(spreadsheet, price_df, signals_df):
         raise
 
     # --- Write Price Data ---
-    if not price_df.empty:
-        logger.info(f"Preparing to write {len(price_df)} rows to 'Price_Data' sheet...")
-        # Select and format columns for the sheet.
-        price_data_to_write = price_df[['instrument', 'timestamp', 'open', 'high', 'low', 'close', 'volume']].copy()
-        price_data_to_write.rename(columns={'instrument': 'Symbol', 'timestamp': 'Timestamp'}, inplace=True)
-        
-        # Ensure timestamp is a string for writing
-        price_data_to_write['Timestamp'] = price_data_to_write['Timestamp'].dt.strftime('%Y-%m-%d %H:%M:%S')
-        
-        logger.info("Overwriting 'Price_Data' sheet with fresh data...")
-        price_worksheet.clear() # Clear before writing
-        price_worksheet.update(range_name='A1', values=[price_data_to_write.columns.values.tolist()] + price_data_to_write.fillna('').values.tolist(), value_input_option='USER_ENTERED')
-        logger.info("Price data written successfully.")
+    if price_df.empty:
+        # This is a critical failure. If this function is called, data is expected.
+        # A silent success here hides upstream problems where data is lost during processing.
+        raise ValueError("Attempted to write to sheets, but the provided price dataframe was empty.")
 
+    logger.info(f"Preparing to write {len(price_df)} rows to 'Price_Data' sheet...")
+    # Select and format columns for the sheet.
+    price_data_to_write = price_df[['instrument', 'timestamp', 'open', 'high', 'low', 'close', 'volume']].copy()
+    price_data_to_write.rename(columns={'instrument': 'Symbol', 'timestamp': 'Timestamp'}, inplace=True)
+    
+    # Ensure timestamp is a string for writing
+    price_data_to_write['Timestamp'] = price_data_to_write['Timestamp'].dt.strftime('%Y-%m-%d %H:%M:%S')
+    
+    logger.info("Overwriting 'Price_Data' sheet with fresh data...")
+    price_worksheet.clear() # Clear before writing
+    price_worksheet.update(range_name='A1', values=[price_data_to_write.columns.values.tolist()] + price_data_to_write.fillna('').values.tolist(), value_input_option='USER_ENTERED')
+    logger.info("Price data written successfully.")
         # --- NEW: Append to Historical Data sheet for AI training ---
         try:
             # Check if the sheet is empty by checking cell A1. This is much faster than get_all_records().
@@ -1161,8 +1164,6 @@ def write_to_sheets(spreadsheet, price_df, signals_df):
             # Re-raise the exception to ensure the Cloud Run service fails loudly.
             # This prevents a silent failure where the sheet remains empty.
             raise
-    else:
-        logger.info("No price data to write or append.")
 
     # --- Write Signal Data ---
     if not signals_df.empty:

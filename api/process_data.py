@@ -1144,6 +1144,7 @@ def write_to_sheets(spreadsheet, price_df, signals_df):
     price_worksheet.clear() # Clear before writing
     price_worksheet.update(range_name='A1', values=[price_data_to_write.columns.values.tolist()] + price_data_to_write.fillna('').values.tolist(), value_input_option='USER_ENTERED')
     logger.info("Price data written successfully.")
+    
     # --- NEW: Append to Historical Data sheet for AI training ---
     try:
         # Check if the sheet is empty by checking cell A1. This is much faster than get_all_records().

@@ -1344,6 +1344,9 @@ def main(force_run=False):
     except Exception as e:
         # This will catch any error and log it, preventing a silent crash.
         logger.error("A critical error occurred in the main process:", exc_info=True)
+        # Re-raise the exception so it's caught by the Flask endpoint,
+        # which will return a 500 error and cause the GitHub Actions job to fail.
+        raise
 
 # --- Script Execution ---
 @app.route('/run', methods=['GET'])

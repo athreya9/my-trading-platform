@@ -30,6 +30,7 @@ RSI_PERIOD = 14
 ATR_PERIOD = 14
 STOP_LOSS_MULTIPLIER = 2.0
 TAKE_PROFIT_MULTIPLIER = 4.0
+MAX_RISK_PER_TRADE = 0.01  # Golden Rule: 1% of current capital
 
 # --- Helper Functions ---
 def retry(tries=3, delay=5, backoff=2, logger=print):
@@ -97,8 +98,11 @@ def read_price_data(spreadsheet, target_instrument=None):
         worksheet = spreadsheet.worksheet(DATA_WORKSHEET_NAME)
         records = worksheet.get_all_records() # Reads data into a list of dicts
         if not records:
-            raise ValueError(f"No data found in '{DATA_WORKSHEET_NAME}' tab.")
-        
+            raise ValueError(
+                f"The worksheet '{DATA_WORKSHEET_NAME}' was found, but it is empty. "
+                "Please run the 'Run Data Collection & Signal Generation' job to populate it with data."
+            )
+
         df = pd.DataFrame(records)
         print(f"Successfully read {len(df)} rows of historical data.")
         
@@ -153,6 +157,7 @@ def run_backtest(price_df, initial_capital, sma_short, sma_long, rsi_period):
     # as a proxy for the option's performance, since we don't have option premium data.
     capital = initial_capital
     position = 0  # 0 = no position, 1 = long (Call), -1 = short (Put)
+    position_size = 0
     stop_loss = 0
     take_profit = 0
     trades = []
@@ -179,11 +184,11 @@ def run_backtest(price_df, initial_capital, sma_short, sma_long, rsi_period):
 
             # Execute Long Exit
             position = 0
-            profit = exit_price - entry_price
+            profit = (exit_price - entry_price) * position_size
             capital += profit
             trades.append({
                 'entry_date': entry_date, 'exit_date': row['timestamp'], 'type': 'Call',
-                'entry_price': entry_price, 'exit_price': exit_price, 'profit': profit, 
+                'entry_price': entry_price, 'exit_price': exit_price, 'profit': profit, 'size': position_size,
                 'exit_reason': exit_reason
             })
 
@@ -206,11 +211,11 @@ def run_backtest(price_df, initial_capital, sma_short, sma_long, rsi_period):
 
             # Execute Short Exit
             position = 0
-            profit = entry_price - exit_price # Profit is reversed for shorts
+            profit = (entry_price - exit_price) * position_size # Profit is reversed for shorts
             capital += profit
             trades.append({
                 'entry_date': entry_date, 'exit_date': row['timestamp'], 'type': 'Put',
-                'entry_price': entry_price, 'exit_price': exit_price, 'profit': profit, 
+                'entry_price': entry_price, 'exit_price': exit_price, 'profit': profit, 'size': position_size,
                 'exit_reason': exit_reason
             })
 
@@ -219,27 +224,36 @@ def run_backtest(price_df, initial_capital, sma_short, sma_long, rsi_period):
             atr_value = row[f'ATRr_{ATR_PERIOD}']
             # CALL signal: Bullish state change AND RSI is not overbought
             if row['signal'] > 0 and row[f'RSI_{rsi_period}'] < 70:
-                position = 1
-                entry_price = row['close']
-                entry_date = row['timestamp']
                 if pd.notna(atr_value):
-                    stop_loss = entry_price - (atr_value * STOP_LOSS_MULTIPLIER)
-                    take_profit = entry_price + (atr_value * TAKE_PROFIT_MULTIPLIER)
-                else: # Fallback if ATR is not available
-                    stop_loss = entry_price * 0.95
-                    take_profit = entry_price * 1.10
+                    sl_price = row['close'] - (atr_value * STOP_LOSS_MULTIPLIER)
+                    risk_per_share = row['close'] - sl_price
+                    if risk_per_share > 0:
+                        risk_amount = capital * MAX_RISK_PER_TRADE
+                        calculated_size = round(risk_amount / risk_per_share)
+                        # Check if we can afford the trade
+                        if calculated_size > 0 and (row['close'] * calculated_size) <= capital:
+                            position = 1
+                            position_size = calculated_size
+                            entry_price = row['close']
+                            entry_date = row['timestamp']
+                            stop_loss = sl_price
+                            take_profit = entry_price + (atr_value * TAKE_PROFIT_MULTIPLIER)
 
             # PUT signal: Bearish state change
             elif row['signal'] < 0:
-                position = -1
-                entry_price = row['close']
-                entry_date = row['timestamp']
                 if pd.notna(atr_value):
-                    stop_loss = entry_price + (atr_value * STOP_LOSS_MULTIPLIER)
-                    take_profit = entry_price - (atr_value * TAKE_PROFIT_MULTIPLIER)
-                else: # Fallback if ATR is not available
-                    stop_loss = entry_price * 1.05
-                    take_profit = entry_price * 0.90
+                    sl_price = row['close'] + (atr_value * STOP_LOSS_MULTIPLIER)
+                    risk_per_share = sl_price - row['close']
+                    if risk_per_share > 0:
+                        risk_amount = capital * MAX_RISK_PER_TRADE
+                        calculated_size = round(risk_amount / risk_per_share)
+                        if calculated_size > 0 and (row['close'] * calculated_size) <= capital:
+                            position = -1
+                            position_size = calculated_size
+                            entry_price = row['close']
+                            entry_date = row['timestamp']
+                            stop_loss = sl_price
+                            take_profit = entry_price - (atr_value * TAKE_PROFIT_MULTIPLIER)
 
         portfolio_history.append({'timestamp': row['timestamp'], 'capital': capital})
 
@@ -341,29 +355,43 @@ def plot_equity_curve(portfolio_df, price_df, initial_capital, sma_short, sma_lo
     print(f"Equity curve plot saved as '{plot_filename}'")
 
 @retry()
-def write_trade_log_to_sheets(spreadsheet, trades_df):
-    """Writes the completed trades to a 'Trade Log' sheet for persistence."""
+def write_trade_log_to_sheets(spreadsheet, trades_df, instrument_name):
+    """Appends the completed backtest trades to the main 'Trade_Log' sheet."""
     if trades_df.empty:
         print("No trades to log.")
         return
-    print("Writing trades to 'Trade Log' sheet...")
+    print("Appending backtest trades to the main 'Trade_Log' sheet...")
     try:
         worksheet = spreadsheet.worksheet("Trade Log")
     except gspread.exceptions.WorksheetNotFound:
-        print("Creating 'Trade Log' worksheet.")
+        # This sheet should have been created by process_data.py, but we can be safe.
+        print("Creating 'Trade Log' worksheet as it was not found.")
         worksheet = spreadsheet.add_worksheet(title="Trade Log", rows="1000", cols="20")
+        worksheet.append_row(["Date", "Instrument", "Action", "Quantity", "Entry", "Exit", "P/L"])
 
-    # Convert datetime objects to strings for JSON compatibility
+    # --- Map columns to match the main Trade_Log format ---
     log_df = trades_df.copy()
-    log_df['entry_date'] = log_df['entry_date'].dt.strftime('%Y-%m-%d %H:%M:%S')
-    log_df['exit_date'] = log_df['exit_date'].dt.strftime('%Y-%m-%d %H:%M:%S')
+    log_df['Instrument'] = instrument_name
+    log_df.rename(columns={
+        'entry_date': 'Date',
+        'type': 'Action',
+        'size': 'Quantity',
+        'entry_price': 'Entry',
+        'exit_price': 'Exit',
+        'profit': 'P/L'
+    }, inplace=True)
+
+    # Ensure all required columns are present in the correct order
+    final_columns = ["Date", "Instrument", "Action", "Quantity", "Entry", "Exit", "P/L"]
+    log_df = log_df[final_columns]
     
-    headers = log_df.columns.tolist()
-    data_to_write = [headers] + log_df.values.tolist()
+    # Convert datetime objects to strings for JSON compatibility
+    log_df['Date'] = log_df['Date'].dt.strftime('%Y-%m-%d %H:%M:%S')
     
-    worksheet.clear()
-    worksheet.update('A1', data_to_write, value_input_option='USER_ENTERED')
-    print("Trade log written successfully to Google Sheets.")
+    # --- Append rows instead of clearing and updating ---
+    data_to_append = log_df.values.tolist()
+    worksheet.append_rows(data_to_append, value_input_option='USER_ENTERED')
+    print(f"Successfully appended {len(data_to_append)} trades to the log.")
 
 def main(sma_short, sma_long, rsi_period):
     """Main function that runs the entire backtesting process."""
@@ -374,8 +402,8 @@ def main(sma_short, sma_long, rsi_period):
         calculate_and_print_performance(portfolio_history, trades, INITIAL_CAPITAL)
         # Generate and save the equity curve plot
         plot_equity_curve(portfolio_history, price_df, INITIAL_CAPITAL, sma_short, sma_long, rsi_period)
-        # Write the results to Google Sheets to be used by the main script
-        write_trade_log_to_sheets(spreadsheet, trades)
+        # Append the results to the main Trade Log in Google Sheets
+        write_trade_log_to_sheets(spreadsheet, trades, TARGET_INSTRUMENT)
     except Exception as e:
         print(f"\n❌ An error occurred during the backtest: {e}", file=sys.stderr)
         sys.exit(1)

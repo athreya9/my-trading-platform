@@ -1219,28 +1219,29 @@ def main(force_run=False):
         # Use yfinance ONLY if we are forcing a run AND the market is actually closed.
         # Otherwise, always prefer Kite for live accuracy.
         use_yfinance = force_run and not is_market_open
-
-        # Step 1: Connect to services and prepare data map
-        kite = connect_to_kite()
-        instrument_map = get_instrument_map(kite)
-
-        # --- NEW: Fetch Option Chain Data ---
-        option_chain_df = fetch_option_chain(kite, 'NIFTY')
-        if option_chain_df is not None:
-            # For now, just print the first 5 rows of the dataframe to verify
-            logger.info("--- Option Chain Data (first 5 rows) ---")
-            logger.info(option_chain_df.head())
-            logger.info("-----------------------------------------")
-
-        spreadsheet = connect_to_google_sheets(SHEET_NAME)
         
-        # Step 1.5: Ensure Google Sheet structure is correct
+        # Step 1: Connect to Google Sheets (always required)
+        spreadsheet = connect_to_google_sheets(SHEET_NAME)
         enhance_sheet_structure(spreadsheet)
         
-        # --- NEW: Bot Control Check ---
         # Check if the bot is enabled in the Google Sheet before proceeding.
         if not check_bot_status(spreadsheet):
             sys.exit(0) # Exit gracefully if bot is stopped
+
+        # Step 2: Conditionally connect to Kite and fetch instrument data
+        # This is the critical fix: Do not attempt to connect to Kite if we are using yfinance.
+        kite = None
+        instrument_map = {}
+        if not use_yfinance:
+            kite = connect_to_kite() # This can raise an exception, which is fine for a live run.
+            instrument_map = get_instrument_map(kite)
+
+            # Fetch option chain only if kite connection was made
+            option_chain_df = fetch_option_chain(kite, 'NIFTY')
+            if option_chain_df is not None:
+                logger.info("--- Option Chain Data (first 5 rows) ---")
+                logger.info(option_chain_df.head())
+                logger.info("-----------------------------------------")
 
         # Step 2: Read supporting data from sheets
         manual_controls_df = read_manual_controls(spreadsheet)

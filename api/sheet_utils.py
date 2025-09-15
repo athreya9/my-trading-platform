@@ -35,20 +35,52 @@ def retry(tries=3, delay=5, backoff=2, logger=logger):
 
 @retry()
 def connect_to_google_sheets(sheet_name):
-    """Connects to Google Sheets using credentials from an environment variable."""
-    logger.info("Attempting to authenticate with Google Sheets...")
-    creds_json_str = os.getenv('GOOGLE_SHEETS_CREDENTIALS')
-    if not creds_json_str:
-        raise ValueError("GOOGLE_SHEETS_CREDENTIALS environment variable not found. Ensure it's set in GitHub Actions secrets.")
+    """
+    Connects to Google Sheets using a robust authentication strategy and opens the specified sheet.
 
+    Authentication Strategy:
+    1. Tries to use the GOOGLE_SHEETS_CREDENTIALS environment variable (for production/CI).
+    2. Falls back to loading 'credentials.json' from the same directory (for local development).
+    """
+    logger.info("Attempting to authenticate with Google Sheets...")
+    client = None
+
+    # --- Strategy 1: Use Environment Variable ---
+    creds_json_str = os.getenv('GOOGLE_SHEETS_CREDENTIALS')
+    if creds_json_str:
+        try:
+            creds_dict = json.loads(creds_json_str)
+            logger.info("Authenticating with Google Sheets via environment variable.")
+            client = gspread.service_account_from_dict(creds_dict)
+        except json.JSONDecodeError:
+            logger.error("Error: GOOGLE_SHEETS_CREDENTIALS environment variable is not valid JSON.")
+        except Exception as e:
+            logger.error(f"An error occurred during authentication with environment variable: {e}")
+
+    # --- Strategy 2: Fallback to local credentials.json file ---
+    if not client:
+        try:
+            credentials_path = os.path.join(os.path.dirname(__file__), 'credentials.json')
+            logger.info(f"Authenticating with Google Sheets via file: {credentials_path}")
+            client = gspread.service_account(filename=credentials_path)
+        except FileNotFoundError:
+            logger.error(f"CRITICAL: 'credentials.json' not found at {credentials_path} and GOOGLE_SHEETS_CREDENTIALS env var was not set or failed.")
+            raise
+        except Exception as e:
+            logger.error(f"An error occurred during authentication with file: {e}")
+            raise
+
+    if not client:
+        raise Exception("Could not authenticate with Google Sheets using any method.")
+
+    # --- Open Spreadsheet ---
     try:
-        creds_dict = json.loads(creds_json_str)
-        client = gspread.service_account_from_dict(creds_dict)
+        logger.info(f"Opening Google Sheet: '{sheet_name}'")
         spreadsheet = client.open(sheet_name)
-        logger.info(f"Successfully connected to Google Sheet: '{sheet_name}'")
+        logger.info(f"Successfully connected to Google Sheet: '{spreadsheet.title}'")
         return spreadsheet
     except Exception as e:
-        raise Exception(f"Error connecting to Google Sheet: {e}")
+        raise Exception(f"Error opening Google Sheet '{sheet_name}'. Ensure the name is correct and the service account has access. Original error: {e}")
 
 
 @retry()
@@ -102,3 +134,22 @@ def read_historical_data(spreadsheet):
     except Exception as e:
         logger.error(f"Could not read historical data: {e}", exc_info=True)
         raise
+
+@retry()
+def read_worksheet_data(spreadsheet, worksheet_name):
+    """
+    Reads all data from a given worksheet and returns it as a list of dicts.
+    Returns an empty list if the sheet is not found or an error occurs.
+    """
+    logger.info(f"Reading all data from '{worksheet_name}' sheet...")
+    try:
+        worksheet = spreadsheet.worksheet(worksheet_name)
+        records = worksheet.get_all_records()
+        logger.info(f"Successfully read {len(records)} records from '{worksheet_name}'.")
+        return records
+    except gspread.exceptions.WorksheetNotFound:
+        logger.warning(f"'{worksheet_name}' worksheet not found. Returning empty list.")
+        return []
+    except Exception as e:
+        logger.error(f"Could not read data from '{worksheet_name}': {e}", exc_info=True)
+        return []

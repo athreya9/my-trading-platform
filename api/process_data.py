@@ -24,10 +24,10 @@ load_dotenv()
 import logging
 import re
 import sys
-from . import config
+from api import config
 import requests
 import feedparser
-from .sheet_utils import connect_to_google_sheets, enhance_sheet_structure, retry
+from api.sheet_utils import connect_to_google_sheets, enhance_sheet_structure, retry, read_worksheet_data
 
 # --- NEW: Custom Exception for Graceful Halting ---
 class BotHaltedException(Exception):
@@ -837,6 +837,8 @@ def generate_signals(price_data_dict, manual_controls_df, trade_log_df, market_c
 
         # Skip signal generation for the market internal instruments themselves
         if instrument in config.MARKET_BREADTH_SYMBOLS.values():
+            continue
+
         latest_15m = group_15m.iloc[-1]
 
         # --- AI-DRIVEN SIGNAL GENERATION (PRIMARY) ---
@@ -1174,6 +1176,7 @@ def write_to_sheets(spreadsheet, price_df, signals_df, is_test_run=False):
 
         # --- NEW: Send Telegram Notification for the top signal ---
         # advisor_row is a list: [recommendation, confidence_str, reasons, timestamp_str]
+        # advisor_row is a list: [recommendation, confidence_str, entry, sl, tp, reasons, timestamp_str]
         notification_message = (
             f"📈 *New Trading Signal*\n\n"
             f"*Action:* {advisor_row[0]}\n"
@@ -1183,12 +1186,18 @@ def write_to_sheets(spreadsheet, price_df, signals_df, is_test_run=False):
             f"Take Profit: `{advisor_row[4]}`\n\n"
             f"*Reason:* {advisor_row[2]}\n\n"
             f"_{advisor_row[3]} UTC_"
+            f"*Reason:* {advisor_row[5]}\n\n"
+            f"_{advisor_row[6]} UTC_"
         )
         send_telegram_notification(notification_message)
     else:
         logger.info("No signals to generate advice. Clearing and updating Advisor_Output sheet with status.")
         # Append a "no signal" status row
         no_signal_row = ["No high-confidence signals found.", "0%", "Market conditions not met.", datetime.now().strftime("%Y-%m-%d %H:%M:%S")]
+        no_signal_row = [
+            "No high-confidence signals found.", "0%", "N/A", "N/A", "N/A",
+            "Market conditions not met.", datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        ]
         advisor_worksheet.update('A1', advisor_header + [no_signal_row], value_input_option='USER_ENTERED')
 
         # --- NEW: Send a status update to Telegram if no signal is found ---
@@ -1396,3 +1405,31 @@ def run_bot():
     except Exception as e:
         logger.error(f"Error executing trading bot: {e}", exc_info=True)
         return jsonify({"status": "error", "message": str(e)}), 500
+
+
+# --- NEW: API Endpoint for Frontend Dashboard ---
+@process_data_bp.route('/dashboard', methods=['GET'])
+def get_dashboard_data():
+    """
+    Provides a single endpoint for the frontend to fetch all necessary
+    dashboard data from Google Sheets. This is the first step to building
+    a custom frontend application.
+    """
+    logger.info("Received request for dashboard data.")
+    try:
+        spreadsheet = connect_to_google_sheets(SHEET_NAME)
+
+        # Read data from all relevant sheets
+        dashboard_data = {
+            "advisorOutput": read_worksheet_data(spreadsheet, "Advisor_Output"),
+            "signals": read_worksheet_data(spreadsheet, "Signals"),
+            "botControl": read_worksheet_data(spreadsheet, "Bot_Control"),
+            "priceData": read_worksheet_data(spreadsheet, "Price_Data"),
+            "tradeLog": read_worksheet_data(spreadsheet, "Trade_Log"),
+            "lastRefreshed": datetime.now(pytz.utc).isoformat(),
+        }
+        return jsonify(dashboard_data), 200
+
+    except Exception as e:
+        logger.error(f"Error fetching dashboard data: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": "Failed to fetch dashboard data from Google Sheets."}), 500

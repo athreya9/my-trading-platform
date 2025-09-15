@@ -1,29 +1,19 @@
-# Environment variables - DO NOT COMMIT
-.env
-
-# Service account keys - DO NOT COMMIT
-service_account.json
+# Service account credentials
+api/credentials.json
 
 # Python cache
 __pycache__/
 *.pyc
 
-# IDE-specific files
-.vscode/
-.idea/
+# Node.js dependencies
+node_modules/
+
+# Log files
+*.log
 
 # Build artifacts
-dist/
 build/
-*.egg-info/
+dist/
 
-# Generated plots
-equity_curve.png
-
-# Generated files and temporary directories
-access_token.txt
-chromedriver.log
-error_screenshot.png
-google_sheets_credentials.json
-chromedriver-mac-arm64/
-*.json
+# Environment variables
+.env

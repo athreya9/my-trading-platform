@@ -64,6 +64,7 @@ SIGNAL_HEADERS = ['timestamp', 'instrument', 'option_type', 'strike_price', 'und
 ATR_PERIOD = 14
 STOP_LOSS_MULTIPLIER = 2.0  # e.g., 2 * ATR below entry price
 
+
 # --- AI Model Configuration ---
 # The confidence level the AI must have to generate a signal.
 # Based on your training script, 0.80 (80%) is a good starting point for high precision.
@@ -836,8 +837,6 @@ def generate_signals(price_data_dict, manual_controls_df, trade_log_df, market_c
 
         # Skip signal generation for the market internal instruments themselves
         if instrument in config.MARKET_BREADTH_SYMBOLS.values():
-            continue
-
         latest_15m = group_15m.iloc[-1]
 
         # --- AI-DRIVEN SIGNAL GENERATION (PRIMARY) ---
@@ -1241,7 +1240,7 @@ def fetch_economic_events():
     logger.info("Fetching economic calendar events...")
     # In a real implementation, you would call an API here.
     # Example: return requests.get("https://api.economiccalendar.com/events").json()
-    # For now, we return a hardcoded example for demonstration.
+
     today_str = datetime.now(pytz.timezone('Asia/Kolkata')).strftime('%Y-%m-%d')
     
     # Example: High-impact US inflation data release at 6 PM IST.

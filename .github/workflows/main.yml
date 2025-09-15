@@ -253,6 +253,9 @@ jobs:
     needs: prepare-training-data # This job depends on the one above
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      # Grant write permissions to the contents of the repository for this job
+      contents: write
 
     steps:
       - name: "Checkout Code"

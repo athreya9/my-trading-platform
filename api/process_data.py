@@ -475,7 +475,9 @@ def run_data_collection(kite, instrument_map, use_yfinance=False):
                 logger.error(f"Could not fetch or merge live quotes: {e}")
 
     if combined_df_15m is None or combined_df_15m.empty:
-        raise Exception("No 15m data was fetched for any symbol. Halting process.")
+        logger.warning("No 15m data was fetched for any symbol. The process will continue, but no data will be written to the sheets.")
+        # Return a dictionary of empty dataframes to prevent downstream errors
+        return {"15m": pd.DataFrame(), "30m": pd.DataFrame(), "1h": pd.DataFrame()}
 
     logger.info(f"Processed {len(combined_df_15m)} rows (15m), {len(combined_df_30m)} rows (30m), {len(combined_df_1h)} rows (1h).")
     return {"15m": combined_df_15m, "30m": combined_df_30m, "1h": combined_df_1h}
@@ -1252,6 +1254,21 @@ def main(force_run=False):
         economic_events = fetch_economic_events()
         price_data_dict = run_data_collection(kite, instrument_map, use_yfinance=use_yfinance)
         
+        # CRITICAL FIX: Check if data collection was successful. If not, exit gracefully.
+        # This prevents a crash when no data is fetched, which causes the 500 error.
+        if price_data_dict.get("15m") is None or price_data_dict["15m"].empty:
+            logger.warning("No data was collected from the source. Skipping indicator calculation, signal generation, and sheet writing.")
+            # Even if no data, we should update the 'last_updated' timestamp to show the bot ran.
+            try:
+                bot_control_worksheet = spreadsheet.worksheet("Bot_Control")
+                timestamp_str = datetime.now(pytz.timezone('Asia/Kolkata')).strftime('%Y-%m-%d %H:%M:%S IST')
+                bot_control_worksheet.update_acell('B4', timestamp_str)
+                logger.info("Successfully updated 'last_updated' timestamp in Bot_Control sheet.")
+            except Exception as e:
+                logger.warning(f"Could not update Bot_Control timestamp: {e}")
+            logger.info("--- Trading Signal Process Completed (No Data) ---")
+            return # Exit the main function gracefully.
+
         # Step 5: Calculate all indicators for all instruments and timeframes
         if not price_data_dict["15m"].empty:
             price_data_dict["15m"] = calculate_indicators(price_data_dict["15m"])

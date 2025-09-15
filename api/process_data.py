@@ -442,9 +442,9 @@ def run_data_collection(kite, instrument_map, use_yfinance=False):
             instrument_token = instrument_map.get(kite_symbol)
 
             if not instrument_token:
-            logger.warning(
-                f"Could not find instrument token for symbol '{symbol}' (Kite: '{kite_symbol}'). Skipping."
-            )
+                logger.warning(
+                    f"Could not find instrument token for symbol '{symbol}' (Kite: '{kite_symbol}'). Skipping."
+                )
                 continue
 
 

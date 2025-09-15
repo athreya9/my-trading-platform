@@ -73,6 +73,13 @@ def main():
             print("Cannot prepare training data. Please ensure a scheduled data collection job has run successfully first.", file=sys.stderr)
             sys.exit(1)
 
+        # --- CRITICAL FIX: Standardize column names ---
+        # The sheet has 'Symbol' and 'Timestamp', but the processing functions expect 'instrument' and 'timestamp'.
+        price_df.rename(columns={
+            'Symbol': 'instrument',
+            'Timestamp': 'timestamp'
+        }, inplace=True)
+
         # 2. Calculate all indicators to use as features
         # We reuse the robust functions from the main processing script.
         print("Calculating features (technical indicators)...")

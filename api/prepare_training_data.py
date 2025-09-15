@@ -99,8 +99,17 @@ def main():
         ]
         final_columns = feature_columns + ['target']
 
-        # Drop rows with any NaN values in the selected feature columns
-        training_df = labeled_df[final_columns].dropna()
+        # Select the final columns and handle missing values robustly.
+        training_df = labeled_df[final_columns].copy()
+
+        # The `create_target_variable` function already drops rows where 'target' is NaN.
+        # Now, we fill any remaining NaNs in the *feature* columns. This is crucial
+        # for features like order blocks that might not appear in the initial data,
+        # preventing the entire row from being dropped. A value of 0 is a neutral default.
+        training_df[feature_columns] = training_df[feature_columns].fillna(0)
+
+        # Final safety check to ensure no NaNs are passed to the model.
+        training_df.dropna(inplace=True)
 
         # 5. Save the final dataset
         output_path = os.path.join(os.path.dirname(__file__), 'training_data.csv')

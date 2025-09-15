@@ -31,6 +31,11 @@ from api.sheet_utils import connect_to_google_sheets, enhance_sheet_structure, r
 
 app = Flask(__name__)
 
+# --- NEW: Custom Exception for Graceful Halting ---
+class BotHaltedException(Exception):
+    """Custom exception to indicate the bot was halted by user control."""
+    pass
+
 # --- Logging Configuration ---
 # Use a custom formatter to ensure all log times are in UTC for consistency
 formatter = logging.Formatter('%(asctime)s UTC - %(levelname)s - %(message)s')
@@ -1226,7 +1231,9 @@ def main(force_run=False):
         
         # Check if the bot is enabled in the Google Sheet before proceeding.
         if not check_bot_status(spreadsheet):
-            sys.exit(0) # Exit gracefully if bot is stopped
+            # This is the critical fix: Do not use sys.exit() in a web server. Instead,
+            # raise a custom exception to be handled gracefully by the web endpoint.
+            raise BotHaltedException("Bot execution halted by user control in 'Bot_Control' sheet.")
 
         # Step 2: Conditionally connect to Kite and fetch instrument data
         # This is the critical fix: Do not attempt to connect to Kite if we are using yfinance.
@@ -1316,6 +1323,10 @@ def run_bot():
         # Call the existing main function
         main(force_run=force_run)
         return jsonify({"status": "success", "message": "Trading bot executed successfully."}), 200
+    except BotHaltedException as e: # This is a controlled, graceful exit, not an error.
+        # Return 200 OK to prevent the GitHub Actions job from failing.
+        logger.info(str(e))
+        return jsonify({"status": "halted", "message": str(e)}), 200
     except Exception as e:
         logger.error(f"Error executing trading bot: {e}", exc_info=True)
         return jsonify({"status": "error", "message": str(e)}), 500

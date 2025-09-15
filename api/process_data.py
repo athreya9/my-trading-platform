@@ -1218,16 +1218,18 @@ def main(force_run=False):
         
         is_market_open = should_run()
 
-        # --- Market Hours Check ---
-        if not force_run and not is_market_open:
-            logger.info("Market is closed and 'force_run' is false. Exiting process.")
-            # We can still update the sheet with a "Market Closed" message if desired
-            return
-
         # Determine which data source to use.
-        # Use yfinance ONLY if we are forcing a run AND the market is actually closed.
-        # Otherwise, always prefer Kite for live accuracy.
-        use_yfinance = force_run and not is_market_open
+        # If force_run is true, we ALWAYS use yfinance for testing purposes.
+        # If force_run is false (a scheduled run), we only proceed if the market is open, and we use Kite.
+        use_yfinance = force_run
+
+        if not use_yfinance: # This is a normal, scheduled run
+            if not is_market_open:
+                logger.info("Market is closed. Normal run skipped.")
+                return # Exit gracefully
+            logger.info("Market is open. Proceeding with Kite data source.")
+        else: # This is a forced run
+            logger.warning("Forced run detected. Using yfinance data source for this run.")
         
         # Step 1: Connect to Google Sheets (always required)
         spreadsheet = connect_to_google_sheets(SHEET_NAME)

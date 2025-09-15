@@ -1098,28 +1098,25 @@ def write_to_sheets(spreadsheet, price_df, signals_df, is_test_run=False):
     price_worksheet.update(range_name='A1', values=[price_data_to_write.columns.values.tolist()] + price_data_to_write.fillna('').values.tolist(), value_input_option='USER_ENTERED')
     logger.info("Price data written successfully.")
     
-    # --- Append to Historical Data sheet ONLY if it's a real run (not a test) ---
-    if not is_test_run:
-        try:
-            # Check if the sheet is empty by checking cell A1. This is much faster than get_all_records().
-            is_sheet_empty = historical_worksheet.acell('A1').value is None
-            
-            if is_sheet_empty:
-                 logger.info(f"'{HISTORICAL_DATA_WORKSHEET_NAME}' is empty. Writing headers and data.")
-                 # Add header row to the data
-                 historical_worksheet.update('A1', [price_data_to_write.columns.values.tolist()] + price_data_to_write.fillna('').values.tolist(), value_input_option='USER_ENTERED')
-            else:
-                 logger.info(f"Appending {len(price_data_to_write)} new rows to '{HISTORICAL_DATA_WORKSHEET_NAME}'.")
-                 # Append only the data rows, without the header
-                 historical_worksheet.append_rows(price_data_to_write.fillna('').values.tolist(), value_input_option='USER_ENTERED')
-            
-            logger.info("Historical data appended successfully.")
-        except Exception as e:
-            logger.error(f"Failed to append data to '{HISTORICAL_DATA_WORKSHEET_NAME}': {e}", exc_info=True)
-            # Re-raise the exception to ensure the service fails loudly.
-            raise
-    else:
-        logger.info("Test run detected. Skipping write to 'Historical_Data' sheet.")
+    # --- Append to Historical Data sheet for AI training ---
+    # This logic now runs for ALL data collection runs, manual or scheduled.
+    try:
+        # Check if the sheet is empty by checking cell A1. This is much faster than get_all_records().
+        is_sheet_empty = historical_worksheet.acell('A1').value is None
+        
+        if is_sheet_empty:
+             logger.info(f"'{HISTORICAL_DATA_WORKSHEET_NAME}' is empty. Writing headers and data.")
+             # Add header row to the data
+             historical_worksheet.update('A1', [price_data_to_write.columns.values.tolist()] + price_data_to_write.fillna('').values.tolist(), value_input_option='USER_ENTERED')
+        else:
+             logger.info(f"Appending {len(price_data_to_write)} new rows to '{HISTORICAL_DATA_WORKSHEET_NAME}'.")
+             # Append only the data rows, without the header
+             historical_worksheet.append_rows(price_data_to_write.fillna('').values.tolist(), value_input_option='USER_ENTERED')
+        
+        logger.info("Historical data appended successfully.")
+    except Exception as e:
+        logger.error(f"Failed to append data to '{HISTORICAL_DATA_WORKSHEET_NAME}': {e}", exc_info=True)
+        raise
 
     # --- Write Signal Data ---
     if not signals_df.empty:
@@ -1314,7 +1311,7 @@ def main(force_run=False):
         signals_df = generate_signals(price_data_dict, manual_controls_df, trade_log_df, market_context, economic_events)
         
         # Step 7: Write both data and signals to the sheets
-        write_to_sheets(spreadsheet, price_data_dict["15m"], signals_df, is_test_run=use_yfinance)
+        write_to_sheets(spreadsheet, price_data_dict["15m"], signals_df)
 
         logger.info("--- Trading Signal Process Completed Successfully ---")
         return {"status": "success", "message": "Trading bot executed successfully."}

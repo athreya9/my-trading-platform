@@ -77,3 +77,27 @@ def enhance_sheet_structure(sheet):
     except Exception as e:
         logger.error(f"An error occurred during sheet structure verification: {e}", exc_info=True)
         raise
+
+@retry()
+def read_historical_data(spreadsheet):
+    """
+    Reads the 'Historical_Data' worksheet, which is the source for ML training.
+    Raises a ValueError if the sheet is empty.
+    """
+    logger.info("Reading historical data from 'Historical_Data' tab...")
+    try:
+        worksheet = spreadsheet.worksheet("Historical_Data")
+        # Use get_all_records for structured data.
+        records = worksheet.get_all_records()
+        if not records:
+            raise ValueError("The worksheet 'Historical_Data' was found, but it is empty. It must be populated by a scheduled run before training can occur.")
+        
+        df = pd.DataFrame(records)
+        logger.info(f"Successfully read {len(df)} rows from 'Historical_Data'.")
+        return df
+    except gspread.exceptions.WorksheetNotFound:
+        logger.error("❌ Critical Error: 'Historical_Data' worksheet not found. Please run the 'setup-sheets' job to create it.")
+        raise
+    except Exception as e:
+        logger.error(f"Could not read historical data: {e}", exc_info=True)
+        raise

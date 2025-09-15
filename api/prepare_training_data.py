@@ -14,9 +14,8 @@ import numpy as np
 # Add the parent directory to the path to allow imports from 'api'
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from backtest import read_price_data
 from api.process_data import calculate_indicators, apply_price_action_indicators
-from api.sheet_utils import connect_to_google_sheets
+from api.sheet_utils import connect_to_google_sheets, read_historical_data
 
 
 # --- Configuration for the Target Variable ---
@@ -66,13 +65,12 @@ def main():
         try:
             # 1. Read historical data from Google Sheets
             spreadsheet = connect_to_google_sheets(SHEET_NAME)
-            # Read data for ALL instruments to create a richer training set
-            price_df = read_price_data(spreadsheet, target_instrument=None)
+            # Use the new, dedicated function to read from the correct sheet.
+            price_df = read_historical_data(spreadsheet)
         except ValueError as e:
-            # This handles the specific case from read_price_data where the sheet is empty.
-            # This is now treated as a failure condition.
+            # This catches the specific error from read_historical_data if the sheet is empty.
             print(f"❌ Error: {e}", file=sys.stderr)
-            print("Cannot prepare training data because the source sheet is empty. Please run the 'collect-data' job first.", file=sys.stderr)
+            print("Cannot prepare training data. Please ensure a scheduled data collection job has run successfully first.", file=sys.stderr)
             sys.exit(1)
 
         # 2. Calculate all indicators to use as features

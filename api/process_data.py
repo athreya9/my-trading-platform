@@ -1,7 +1,7 @@
 # process_data.py
 # A single, combined script for GitHub Actions.
 # It fetches data, generates signals, and updates Google Sheets.
-from flask import Flask, request, jsonify
+from flask import request, jsonify, Blueprint
 import gspread
 from kiteconnect import KiteConnect
 import pandas as pd
@@ -29,7 +29,7 @@ import requests
 import feedparser
 from api.sheet_utils import connect_to_google_sheets, enhance_sheet_structure, retry
 
-app = Flask(__name__)
+process_data_bp = Blueprint('process_data', __name__)
 
 # --- NEW: Custom Exception for Graceful Halting ---
 class BotHaltedException(Exception):
@@ -1310,7 +1310,7 @@ def main(force_run=False):
         raise
 
 # --- Script Execution ---
-@app.route('/run', methods=['GET'])
+@process_data_bp.route('/run', methods=['GET'])
 def run_bot():
     """
     HTTP endpoint to trigger the trading bot's main logic.
@@ -1333,8 +1333,4 @@ def run_bot():
         logger.error(f"Error executing trading bot: {e}", exc_info=True)
         return jsonify({"status": "error", "message": str(e)}), 500
 
-# Modify the __main__ block to run the Flask app
-if __name__ == "__main__":
-    # This block is for running the app in a container like Cloud Run
-    port = int(os.environ.get("PORT", 8080))
-    app.run(host="0.0.0.0", port=port)
+

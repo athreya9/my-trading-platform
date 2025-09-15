@@ -213,14 +213,59 @@ jobs:
 
 
   # ========================================================================
-  #  JOB 4: Retrain the AI model weekly to keep it updated
+  #  JOB 4: Prepare training data from Google Sheets
   # ========================================================================
-  retrain-model:
-    name: "🧠 Retrain AI Model"
+  prepare-training-data:
+    name: "📊 Prepare Training Data"
     # This job runs only on the Sunday schedule OR if manually triggered with the specific input.
     if: |
       (github.event_name == 'schedule' && github.event.schedule == '30 5 * * 0') ||
       (github.event_name == 'workflow_dispatch' && github.event.inputs.run_retraining)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: "Checkout Code"
+        uses: actions/checkout@v4
+
+      - name: "Set up Python"
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: "Install Dependencies"
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: "📊 Prepare Training Data"
+        id: prepare_data
+        env:
+          # Standardize on GCP_SA_KEY for consistency with other jobs.
+          GOOGLE_SHEETS_CREDENTIALS: ${{ secrets.GCP_SA_KEY }}
+        run: python api/prepare_training_data.py
+
+      - name: "Check if Data Was Prepared"
+        # If 'data_prepared' is not 'true', it fails the job, preventing subsequent steps from running.
+        if: steps.prepare_data.outputs.data_prepared != 'true'
+        run: |
+          echo "::error::No training data was prepared. The 'Historical_Data' sheet may be empty. Halting workflow."
+          exit 1
+
+      - name: "Upload training data as an artifact"
+        # Only upload the artifact if the data preparation step was successful.
+        if: steps.prepare_data.outputs.data_prepared == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: training-data-file
+          path: api/training_data.csv # Path to the file to save
+
+  # ========================================================================
+  #  JOB 5: Retrain the AI model weekly to keep it updated
+  # ========================================================================
+  retrain-ai-model:
+    name: "🧠 Retrain AI Model"
+    needs: prepare-training-data # Ensures this job waits for the one above
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -238,14 +283,14 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: "📊 Prepare Training Data"
-        env:
-          # Standardize on GCP_SA_KEY for consistency with other jobs.
-          GOOGLE_SHEETS_CREDENTIALS: ${{ secrets.GCP_SA_KEY }}
-        run: python api/prepare_training_data.py
+      - name: "Download training data artifact"
+        uses: actions/download-artifact@v4
+        with:
+          name: training-data-file
+          path: api/ # Download the file into the 'api' directory
 
       - name: "🤖 Train New AI Model"
-        run: python api/train_model.py
+        run: python api/train_model.py # This will now find api/training_data.csv
 
       - name: "Commit and Push Updated Model"
         uses: stefanzweifel/git-auto-commit-action@v5

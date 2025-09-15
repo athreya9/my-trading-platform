@@ -16,7 +16,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from backtest import read_price_data
 from api.process_data import calculate_indicators, apply_price_action_indicators
-from api.sheet_utils import connect_to_google_sheets
+from api.sheet_utils import get_gspread_client
 
 
 # --- Configuration for the Target Variable ---
@@ -61,18 +61,35 @@ def main():
     """
     Main function to run the data preparation pipeline.
     """
+    # Get the GITHUB_OUTPUT path from environment variables for GitHub Actions
+    output_path_env = os.getenv('GITHUB_OUTPUT')
+
+    def set_github_output(name, value):
+        """Sets an output variable for subsequent steps in a GitHub Actions job."""
+        if output_path_env:
+            with open(output_path_env, 'a') as f:
+                f.write(f'{name}={value}\n')
+        else:
+            # Fallback for local execution where the env var is not set
+            print(f"INFO: Would set GitHub Action output '{name}' to '{value}'")
+
     try:
         print("--- Starting ML Data Preparation ---")
         try:
             # 1. Read historical data from Google Sheets
-            spreadsheet = connect_to_google_sheets(SHEET_NAME)
+            gc = get_gspread_client()
+            if not gc:
+                print("Could not get Google Sheets client. Exiting.", file=sys.stderr)
+                sys.exit(1)
+            spreadsheet = gc.open(SHEET_NAME)
             # Read data for ALL instruments to create a richer training set
             price_df = read_price_data(spreadsheet, target_instrument=None)
         except ValueError as e:
             # This handles the specific case from read_price_data where the sheet is empty.
             # It's not an error, just a state. We can't train, so we exit gracefully.
             print(f"⚠️  {e}")
-            print("This is expected if the 'collect-data' job hasn't run yet. Exiting as there is no data to train on.")
+            print("This is expected if the 'collect-data' job hasn't run yet. No data to train on.")
+            set_github_output('data_prepared', 'false')
             sys.exit(0)
 
         # 2. Calculate all indicators to use as features
@@ -105,9 +122,12 @@ def main():
         print(f"✅ Success! Training data prepared and saved to:\n{output_path}")
         print(f"Total samples: {len(training_df)}")
         print("="*50)
+        # Set output for GitHub Actions to indicate success
+        set_github_output('data_prepared', 'true')
 
     except Exception as e:
         print(f"\n❌ An error occurred during data preparation: {e}", file=sys.stderr)
+        set_github_output('data_prepared', 'false')
         sys.exit(1)
 
 

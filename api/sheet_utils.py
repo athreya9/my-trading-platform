@@ -21,7 +21,7 @@ def retry(tries=3, delay=5, backoff=2, logger=logger):
             mtries, mdelay = tries, delay
             while mtries > 1:
                 try:
-                    return f(*args, **kwargs)
+                    return f(*args, **kwargs)                
                 except (gspread.exceptions.APIError, ConnectionError) as e:
                     msg = f"'{f.__name__}' failed with {e}. Retrying in {mdelay} seconds..."
                     if logger:

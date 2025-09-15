@@ -75,16 +75,19 @@ def main():
         # The target is the last column, all others are features.
         X = df.iloc[:, :-1]
         y = df.iloc[:, -1]
+        feature_names = X.columns.tolist()
 
         # Scale data
         scaler = MinMaxScaler()
         X = scaler.fit_transform(X)
+        X_scaled = scaler.fit_transform(X)
 
         # 3. Split Data into Training and Testing Sets
         # 80% for training, 20% for testing. `stratify=y` ensures the class
         # distribution is the same in both sets, which is crucial for imbalanced data.
         X_train, X_test, y_train, y_test = train_test_split(
             X, y, test_size=0.2, random_state=42, stratify=y)
+            X_scaled, y, test_size=0.2, random_state=42, stratify=y)
         print(f"Data split into {len(X_train)} training samples and {len(X_test)} testing samples.")
 
         # 4. Train the XGBoost Model
@@ -153,6 +156,7 @@ def main():
         # 7. Visualize the results
         plot_confusion_matrix(y_test, y_pred, "XGBoost (Threshold 0.5)")
         plot_feature_importance(model, X_train.columns)
+        plot_feature_importance(model, feature_names)
 
     except Exception as e:
         print(f"\n❌ An error occurred during model training: {e}", file=sys.stderr)

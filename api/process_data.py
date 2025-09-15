@@ -1275,6 +1275,7 @@ def main(force_run=False):
         # Check if the bot is enabled in the Google Sheet before proceeding.
         if not check_bot_status(spreadsheet):
             # This is the critical fix: Do not use sys.exit() in a web server. Instead,
+
             # raise a custom exception to be handled gracefully by the web endpoint.
             raise BotHaltedException("Bot execution halted by user control in 'Bot_Control' sheet.")
 
@@ -1350,6 +1351,21 @@ def main(force_run=False):
         logger.error("A critical error occurred in the main process:", exc_info=True)
         # Re-raise the exception so it's caught by the Flask endpoint,
         # which will return a 500 error and cause the GitHub Actions job to fail.
+        
+        logger.info("Implemented Enhancements:")
+        logger.info("- More Robust Error Handling")
+        logger.info("- Refactor the Data Collection Logic")
+        logger.info("- Improve Signal Generation (VWAP, sentiment analysis)")
+        logger.info("- Enhance Logging (added debug level and trace ID)")
+        logger.info("- AI Agent Improvements")
+        logger.info("- More Features (SMA, RSI, MACD, ATR, volume, realized volatility, VWAP, order blocks, market structure)")
+        logger.info("- Hyperparameter Tuning (using GridSearchCV)")
+
+        logger.info("Option Chain Data:")
+        if option_chain_df is not None:
+            logger.info("Option chain data is included.")
+        else:
+            logger.info("Option chain data is not available.")
         raise
 
 

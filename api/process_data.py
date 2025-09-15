@@ -800,7 +800,7 @@ def analyze_market_internals(price_data_dict):
 def generate_signals(price_data_dict, manual_controls_df, trade_log_df, market_context, economic_events):
     """Generates trading signals for all instruments, applying a suite of validation and risk rules."""
 
-    if not price_data_dict or not any(price_data_dict.values()):
+    if not price_data_dict or all(df.empty for df in price_data_dict.values()):
         logger.warning("No price data available, skipping signal generation.")
         return pd.DataFrame()
 
@@ -1291,6 +1291,7 @@ def main(force_run=False):
         # This is the critical fix: Do not attempt to connect to Kite if we are using yfinance.
         kite = None
         instrument_map = {}
+        option_chain_df = None
         if not use_yfinance:
             kite = connect_to_kite() # This can raise an exception, which is fine for a live run.
             instrument_map = get_instrument_map(kite)

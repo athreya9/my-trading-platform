@@ -59,8 +59,8 @@ def enhance_sheet_structure(sheet):
     try:
         existing_titles = [ws.title for ws in sheet.worksheets()]
         essential_tabs = {
-            "Advisor_Output": [["Recommendation", "Confidence", "Reasons", "Timestamp"]],
-            "Signals": [["Action", "Symbol", "Price", "Confidence", "Reasons", "Timestamp"]],
+            "Advisor_Output": [["Recommendation", "Confidence", "Entry Price", "Stop Loss", "Take Profit", "Reasons", "Timestamp"]],
+            "Signals": [["Action", "Symbol", "Entry Price", "Stop Loss", "Take Profit", "Confidence", "Reasons", "Timestamp"]],
             "Bot_Control": [["Parameter", "Value"], ["status", "running"], ["mode", "EMERGENCY"], ["last_updated", "never"]],
             "Price_Data": [["Symbol", "Timestamp", "open", "high", "low", "close", "volume"]],
             "Historical_Data": [["Symbol", "Timestamp", "open", "high", "low", "close", "volume"]],

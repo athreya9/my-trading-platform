@@ -1022,14 +1022,17 @@ def generate_advisor_output(signal):
     stock_name = signal['instrument'].replace('.NS', '')
     confidence = signal.get('confidence_score', 0)
     reasons = signal.get('reason', 'N/A') # Get the full reason string
+    entry_price = signal.get('underlying_price', 0)
+    stop_loss = signal.get('stop_loss', 0)
+    take_profit = signal.get('take_profit', 0)
     
     recommendation = f"BUY {stock_name} ({signal['option_type']})"
     confidence_str = f"{confidence:.0f}%"
     timestamp_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
-    # This list directly matches the new "Advisor_Output" tab structure
-    # ["Recommendation", "Confidence", "Reasons", "Timestamp"]
-    advisor_data = [recommendation, confidence_str, reasons, timestamp_str]
+    # This list directly matches the new "Advisor_Output" tab structure.
+    # Using f-strings to format numbers to 2 decimal places for clarity.
+    advisor_data = [recommendation, confidence_str, f"{entry_price:.2f}", f"{stop_loss:.2f}", f"{take_profit:.2f}", reasons, timestamp_str]
     return advisor_data
 
 @retry(logger=logger)
@@ -1122,8 +1125,15 @@ def write_to_sheets(spreadsheet, price_df, signals_df, is_test_run=False):
     if not signals_df.empty:
         logger.info(f"Preparing to write {len(signals_df)} rows to 'Signals'...")
         # Select and rename columns to match the new sheet structure
-        signals_to_write = signals_df[['option_type', 'instrument', 'underlying_price', 'confidence_score', 'reason', 'timestamp']].copy()
-        signals_to_write.rename(columns={'option_type': 'Action', 'instrument': 'Symbol', 'underlying_price': 'Price', 'confidence_score': 'Confidence', 'reason': 'Reasons', 'timestamp': 'Timestamp'}, inplace=True)
+        signals_to_write = signals_df[[
+            'option_type', 'instrument', 'underlying_price', 'stop_loss', 'take_profit',
+            'confidence_score', 'reason', 'timestamp'
+        ]].copy()
+        signals_to_write.rename(columns={
+            'option_type': 'Action', 'instrument': 'Symbol', 'underlying_price': 'Entry Price',
+            'stop_loss': 'Stop Loss', 'take_profit': 'Take Profit',
+            'confidence_score': 'Confidence', 'reason': 'Reasons', 'timestamp': 'Timestamp'
+        }, inplace=True)
         signals_to_write['Timestamp'] = signals_to_write['Timestamp'].dt.strftime('%Y-%m-%d %H:%M:%S')
         
         logger.info("Writing to 'Signals' sheet...")
@@ -1134,7 +1144,7 @@ def write_to_sheets(spreadsheet, price_df, signals_df, is_test_run=False):
 
     # --- Write Final Advisor Output ---
     logger.info("Preparing to write to 'Advisor_Output' sheet...")
-    advisor_header = [["Recommendation", "Confidence", "Reasons", "Timestamp"]]
+    advisor_header = [["Recommendation", "Confidence", "Entry Price", "Stop Loss", "Take Profit", "Reasons", "Timestamp"]]
     if not signals_df.empty:
         # Rank signals to find the best opportunity
         signals_df_sorted = signals_df.sort_values(by=['confidence_score', 'sentiment_score'], ascending=[False, False])
@@ -1152,7 +1162,10 @@ def write_to_sheets(spreadsheet, price_df, signals_df, is_test_run=False):
         notification_message = (
             f"📈 *New Trading Signal*\n\n"
             f"*Action:* {advisor_row[0]}\n"
-            f"*Confidence:* {advisor_row[1]}\n"
+            f"*Confidence:* {advisor_row[1]}\n\n"
+            f"Entry: `{advisor_row[2]}`\n"
+            f"Stop Loss: `{advisor_row[3]}`\n"
+            f"Take Profit: `{advisor_row[4]}`\n\n"
             f"*Reason:* {advisor_row[2]}\n\n"
             f"_{advisor_row[3]} UTC_"
         )

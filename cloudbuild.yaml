@@ -1,13 +1,11 @@
 # cloudbuild.yaml - place this file in the root of your 'my-trading-platform' directory
 steps:
-# Step 0: Pre-build check to ensure critical files exist.
-# This prevents a successful build of a broken service.
-- name: 'gcr.io/cloud-builders/gcloud'
-  id: 'Check for AI Model'
-  entrypoint: 'bash'
-  args:
-  - '-c'
-  - 'if [ ! -f api/trading_model.pkl ]; then echo "ERROR: AI model file api/trading_model.pkl not found!"; exit 1; fi'
+# Step 0: (REMOVED) Pre-build check for AI model.
+# This check was removed because it created a circular dependency. The application
+# must be deployable *before* the model exists. The Python code is already
+# designed to handle a missing model file gracefully at runtime.
+# - name: 'gcr.io/cloud-builders/gcloud'
+#   ...
 
 # Step 1: Build the image using Google Cloud Buildpacks.
 # This now uses the Dockerfile directly for a more explicit and reliable build.

@@ -281,6 +281,7 @@ def fetch_historical_data(kite, instrument_token, from_date, to_date, interval, 
         return pd.DataFrame()
 
 @retry()
+@retry()
 def fetch_historical_data_yfinance(symbols, interval, period):
     """Fetches historical data from Yahoo Finance for testing outside market hours."""
     logger.info(f"Fetching {interval} data for {len(symbols)} symbols from yfinance (period: {period})...")
@@ -1323,7 +1324,8 @@ def run_bot():
         # Call the existing main function
         main(force_run=force_run)
         return jsonify({"status": "success", "message": "Trading bot executed successfully."}), 200
-    except BotHaltedException as e: # This is a controlled, graceful exit, not an error.
+    except BotHaltedException as e:
+        # This is a controlled, graceful exit, not an error.
         # Return 200 OK to prevent the GitHub Actions job from failing.
         logger.info(str(e))
         return jsonify({"status": "halted", "message": str(e)}), 200

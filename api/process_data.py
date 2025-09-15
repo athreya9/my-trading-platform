@@ -142,8 +142,13 @@ def read_trade_log(spreadsheet):
             return pd.DataFrame()
         
         df = pd.DataFrame(records)
+        # The column name in the sheet is 'P/L'. We need to handle this.
+        if 'P/L' not in df.columns:
+            logger.warning("'P/L' column not found in 'Trade Log'. Cannot calculate performance.")
+            return pd.DataFrame()
+
         # Convert profit to numeric, coercing errors to NaN and then dropping them
-        df['profit'] = pd.to_numeric(df['profit'], errors='coerce')
+        df['profit'] = pd.to_numeric(df['P/L'], errors='coerce')
         df.dropna(subset=['profit'], inplace=True)
         
         logger.info(f"Successfully read {len(df)} trades from the log.")

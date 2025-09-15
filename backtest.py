@@ -90,6 +90,9 @@ def read_price_data(spreadsheet, target_instrument=None):
             "This sheet is created by the 'Run Data Collection & Signal Generation' job. "
             "Please ensure that job has run successfully at least once."
         )
+    except ValueError:
+        # Re-raise the specific ValueError so it can be caught by the training script
+        raise
     except Exception as e:
         raise Exception(f"An error occurred while reading or processing data: {e}")
 

@@ -7,12 +7,12 @@ import pandas as pd
 import numpy as np
 import os
 import json
-import time
-from functools import wraps
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 import sys
 from dotenv import load_dotenv
+
+from api.sheet_utils import connect_to_google_sheets, retry
 
 # Load environment variables from .env file for local development.
 load_dotenv()
@@ -32,31 +32,6 @@ STOP_LOSS_MULTIPLIER = 2.0
 TAKE_PROFIT_MULTIPLIER = 4.0
 MAX_RISK_PER_TRADE = 0.01  # Golden Rule: 1% of current capital
 
-# --- Helper Functions ---
-def retry(tries=3, delay=5, backoff=2, logger=print):
-    """
-    A retry decorator with exponential backoff.
-    Catches common network-related exceptions for gspread.
-    """
-    def deco_retry(f):
-        @wraps(f)
-        def f_retry(*args, **kwargs):
-            mtries, mdelay = tries, delay
-            while mtries > 1:
-                try:
-                    return f(*args, **kwargs)
-                # Catches API errors from gspread and general connection errors
-                except (gspread.exceptions.APIError, ConnectionError) as e:
-                    msg = f"'{f.__name__}' failed with {e}. Retrying in {mdelay} seconds..."
-                    if logger:
-                        logger(msg)
-                    time.sleep(mdelay)
-                    mtries -= 1
-                    mdelay *= backoff
-            return f(*args, **kwargs) # Last attempt, if it fails, it fails
-        return f_retry
-    return deco_retry
-
 def get_atm_strike(price, instrument):
     """
     Calculates a theoretical at-the-money (ATM) strike price by rounding.
@@ -70,25 +45,6 @@ def get_atm_strike(price, instrument):
         return round(price)
 
 # --- Main Functions ---
-
-@retry()
-def connect_to_google_sheets():
-    """Connects to Google Sheets using credentials from an environment variable."""
-    print("Attempting to authenticate with Google Sheets...")
-    creds_json_str = os.getenv('GOOGLE_SHEETS_CREDENTIALS')
-    if not creds_json_str:
-        raise ValueError(
-            "GOOGLE_SHEETS_CREDENTIALS environment variable not found. "
-            "Please ensure it's set in your .env file or GitHub secrets."
-        )
-    try:
-        creds_dict = json.loads(creds_json_str)
-        client = gspread.service_account_from_dict(creds_dict)
-        spreadsheet = client.open(SHEET_NAME)
-        print(f"Successfully connected to Google Sheet: '{spreadsheet.title}'")
-        return spreadsheet
-    except Exception as e:
-        raise Exception(f"Error connecting to Google Sheet: {e}")
 
 @retry()
 def read_price_data(spreadsheet, target_instrument=None):
@@ -396,7 +352,7 @@ def write_trade_log_to_sheets(spreadsheet, trades_df, instrument_name):
 def main(sma_short, sma_long, rsi_period):
     """Main function that runs the entire backtesting process."""
     try:
-        spreadsheet = connect_to_google_sheets()
+        spreadsheet = connect_to_google_sheets(SHEET_NAME)
         price_df = read_price_data(spreadsheet, target_instrument=TARGET_INSTRUMENT)
         portfolio_history, trades = run_backtest(price_df, INITIAL_CAPITAL, sma_short, sma_long, rsi_period)
         calculate_and_print_performance(portfolio_history, trades, INITIAL_CAPITAL)

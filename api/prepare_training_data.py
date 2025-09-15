@@ -14,8 +14,9 @@ import numpy as np
 # Add the parent directory to the path to allow imports from 'api'
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from backtest import read_price_data, connect_to_google_sheets
+from backtest import read_price_data
 from api.process_data import calculate_indicators, apply_price_action_indicators
+from api.sheet_utils import connect_to_google_sheets
 
 
 # --- Configuration for the Target Variable ---
@@ -23,6 +24,7 @@ from api.process_data import calculate_indicators, apply_price_action_indicators
 PREDICTION_HORIZON = 5
 # The minimum percentage move required to be considered a "win".
 TARGET_RETURN_THRESHOLD = 0.005 # 0.5%
+SHEET_NAME = "Algo Trading Dashboard"
 
 
 def create_target_variable(df):
@@ -61,15 +63,17 @@ def main():
     """
     try:
         print("--- Starting ML Data Preparation ---")
-        # 1. Read historical data from Google Sheets
-        spreadsheet = connect_to_google_sheets()
-        # Read data for ALL instruments to create a richer training set
-        price_df = read_price_data(spreadsheet, target_instrument=None)
-
-        # Add a defensive check to ensure the dataframe is not empty after reading.
-        if price_df.empty:
-            print("❌ Error: No data was returned from the 'Historical_Data' sheet. The sheet might be empty or unreadable.", file=sys.stderr)
-            sys.exit(1)
+        try:
+            # 1. Read historical data from Google Sheets
+            spreadsheet = connect_to_google_sheets(SHEET_NAME)
+            # Read data for ALL instruments to create a richer training set
+            price_df = read_price_data(spreadsheet, target_instrument=None)
+        except ValueError as e:
+            # This handles the specific case from read_price_data where the sheet is empty.
+            # It's not an error, just a state. We can't train, so we exit gracefully.
+            print(f"⚠️  {e}")
+            print("This is expected if the 'collect-data' job hasn't run yet. Exiting as there is no data to train on.")
+            sys.exit(0)
 
         # 2. Calculate all indicators to use as features
         # We reuse the robust functions from the main processing script.

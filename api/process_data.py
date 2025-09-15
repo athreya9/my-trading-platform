@@ -27,6 +27,7 @@ import sys
 from api import config
 import requests
 import feedparser
+from api.sheet_utils import connect_to_google_sheets, enhance_sheet_structure, retry
 
 app = Flask(__name__)
 
@@ -101,63 +102,6 @@ YFINANCE_TO_KITE_MAP = {
 }
 
 # --- Main Functions ---
-
-def retry(tries=3, delay=5, backoff=2, logger=logger):
-    """
-    A retry decorator with exponential backoff.
-    Catches common network-related exceptions for gspread and yfinance.
-    """
-    def deco_retry(f):
-        @wraps(f)
-        def f_retry(*args, **kwargs):
-            mtries, mdelay = tries, delay
-            while mtries > 1:
-                try:
-                    return f(*args, **kwargs)
-                # Catches API errors from gspread and general connection errors
-                except (gspread.exceptions.APIError, ConnectionError) as e:
-                    msg = f"'{f.__name__}' failed with {e}. Retrying in {mdelay} seconds..."
-                    if logger:
-                        logger.warning(msg)
-                    time.sleep(mdelay)
-                    mtries -= 1
-                    mdelay *= backoff
-            return f(*args, **kwargs) # Last attempt, if it fails, it fails
-        return f_retry
-    return deco_retry
-
-@retry()
-def enhance_sheet_structure(sheet):
-    """Ensures all essential tabs exist in the Google Sheet with the correct headers."""
-    logger.info("Verifying and enhancing Google Sheet structure...")
-    
-    try:
-        existing_titles = [ws.title for ws in sheet.worksheets()]
-        logger.info(f"Found existing tabs: {existing_titles}")
-        
-        # --- Define ALL essential tabs and their required headers ---
-        essential_tabs = {
-            "Advisor_Output": [["Recommendation", "Confidence", "Reasons", "Timestamp"]],
-            "Signals": [["Action", "Symbol", "Price", "Confidence", "Reasons", "Timestamp"]],
-            "Bot_Control": [["Parameter", "Value"], ["status", "running"], ["mode", "EMERGENCY"], ["last_updated", "never"]],
-            "Price_Data": [["Symbol", "Timestamp", "open", "high", "low", "close", "volume"]],
-            "Historical_Data": [["Symbol", "Timestamp", "open", "high", "low", "close", "volume"]],
-            "Trade_Log": [["Date", "Instrument", "Action", "Quantity", "Entry", "Exit", "P/L"]]
-        }
-        
-        for tab_name, headers in essential_tabs.items():
-            if tab_name not in existing_titles:
-                logger.info(f"Tab '{tab_name}' not found. Creating it...")
-                worksheet = sheet.add_worksheet(title=tab_name, rows="1000", cols="20")
-                worksheet.update(range_name='A1', values=headers, value_input_option='USER_ENTERED')
-                logger.info(f"Created and structured '{tab_name}'.")
-            else:
-                logger.info(f"Tab '{tab_name}' already exists.")
-        
-        logger.info("Google Sheet structure is verified and up-to-date.")
-    except Exception as e:
-        logger.error(f"An error occurred during sheet structure verification: {e}", exc_info=True)
-        raise # Re-raise the exception to stop the main process
 
 @retry()
 def read_manual_controls(spreadsheet):
@@ -240,12 +184,14 @@ def calculate_kelly_criterion(trades_df):
 
     win_rate = len(winning_trades) / len(trades_df)
 
-    if len(losing_trades) == 0:
-        win_loss_ratio = np.inf
-    else:
+    # If there are no losing trades, the ratio is technically infinite.
+    # If there are no winning trades, the ratio is 0.
+    if len(losing_trades) > 0 and len(winning_trades) > 0:
         average_win = winning_trades['profit'].mean()
         average_loss = abs(losing_trades['profit'].mean())
         win_loss_ratio = average_win / average_loss
+    else:
+        win_loss_ratio = 0
 
     # Kelly Criterion: K% = W – [(1 – W) / R]
     if win_loss_ratio > 0:
@@ -260,24 +206,6 @@ def calculate_kelly_criterion(trades_df):
     
     logger.info(f"Win Rate: {win_rate:.2%}, Win/Loss Ratio: {win_loss_ratio:.2f}, Calculated Kelly Criterion: {kelly_pct:.2%}")
     return kelly_pct, win_rate, win_loss_ratio
-
-@retry()
-def connect_to_google_sheets():
-    """Connects to Google Sheets using credentials from an environment variable."""
-    logger.info("Attempting to authenticate with Google Sheets...")
-    creds_json_str = os.getenv('GOOGLE_SHEETS_CREDENTIALS')
-    if not creds_json_str:
-        raise ValueError("GOOGLE_SHEETS_CREDENTIALS environment variable not found. Ensure it's set in GitHub Actions secrets.")
-
-    try:
-        logger.info("Authenticating with Google Sheets via environment variable.")
-        creds_dict = json.loads(creds_json_str)
-        client = gspread.service_account_from_dict(creds_dict)
-        spreadsheet = client.open(SHEET_NAME)
-        logger.info(f"Successfully connected to Google Sheet: '{SHEET_NAME}'")
-        return spreadsheet
-    except Exception as e:
-        raise Exception(f"Error connecting to Google Sheet: {e}")
 
 def connect_to_kite():
     """Initializes the Kite Connect client using credentials from environment variables."""
@@ -1297,7 +1225,7 @@ def main(force_run=False):
             logger.info(option_chain_df.head())
             logger.info("-----------------------------------------")
 
-        spreadsheet = connect_to_google_sheets()
+        spreadsheet = connect_to_google_sheets(SHEET_NAME)
         
         # Step 1.5: Ensure Google Sheet structure is correct
         enhance_sheet_structure(spreadsheet)

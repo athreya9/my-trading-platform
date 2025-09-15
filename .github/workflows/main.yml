@@ -215,14 +215,13 @@ jobs:
   # ========================================================================
   #  JOB 4: Retrain the AI model weekly to keep it updated
   # ========================================================================
-  retrain-model:
-    name: "🧠 Retrain AI Model"
-    # This job runs only on the Sunday schedule OR if manually triggered with the specific input.
+  prepare-training-data:
+    name: "🧠 (1/2) Prepare Training Data"
     if: |
       (github.event_name == 'schedule' && github.event.schedule == '30 5 * * 0') ||
       (github.event_name == 'workflow_dispatch' && github.event.inputs.run_retraining)
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 15
 
     steps:
       - name: "Checkout Code"
@@ -238,11 +237,46 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: "📊 Prepare Training Data"
+      - name: "📊 Run Data Preparation Script"
         env:
-          # Standardize on GCP_SA_KEY for consistency with other jobs.
           GOOGLE_SHEETS_CREDENTIALS: ${{ secrets.GCP_SA_KEY }}
         run: python api/prepare_training_data.py
+
+      - name: "📦 Upload Training Data as Artifact"
+        uses: actions/upload-artifact@v4
+        with:
+          name: training-data-csv
+          path: api/training_data.csv
+          if-no-files-found: error # Fail the job if the file wasn't created
+
+  # ========================================================================
+  #  JOB 5: Retrain the AI model using the prepared data
+  # ========================================================================
+  retrain-ai-model:
+    name: "🧠 (2/2) Retrain AI Model"
+    needs: prepare-training-data # This job depends on the one above
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: "Checkout Code"
+        uses: actions/checkout@v4
+
+      - name: "Set up Python"
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: "Install Dependencies"
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: "📥 Download Training Data Artifact"
+        uses: actions/download-artifact@v4
+        with:
+          name: training-data-csv
+          path: api/ # Download into the 'api' directory
 
       - name: "🤖 Train New AI Model"
         run: python api/train_model.py

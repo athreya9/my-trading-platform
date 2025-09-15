@@ -24,7 +24,7 @@ load_dotenv()
 import logging
 import re
 import sys
-from api import config
+from . import config
 import requests
 import feedparser
 from api.sheet_utils import connect_to_google_sheets, enhance_sheet_structure, retry
@@ -824,7 +824,10 @@ def generate_signals(price_data_dict, manual_controls_df, trade_log_df, market_c
         # --- AI-DRIVEN SIGNAL GENERATION (PRIMARY) ---
         # This is now the main signal generator. Rule-based signals can act as a fallback.
         ai_signal_generated = False
-        if AI_MODEL is not None:
+        # Lazily load the model the first time it's needed.
+        ai_model = get_ai_model()
+
+        if ai_model is not None:
             # These features MUST match the ones used in `prepare_training_data.py`
             feature_columns = [
                 'SMA_20', 'SMA_50', 'RSI_14', 'MACD_12_26_9', 'ATRr_14',
@@ -837,7 +840,7 @@ def generate_signals(price_data_dict, manual_controls_df, trade_log_df, market_c
                 features = latest_15m[feature_columns].values.reshape(1, -1)
                 
                 # Get prediction probability for the 'BUY' class (1)
-                buy_probability = AI_MODEL.predict_proba(features)[0][1]
+                buy_probability = ai_model.predict_proba(features)[0][1]
 
                 if buy_probability >= AI_CONFIDENCE_THRESHOLD:
                     logger.info(f"AI SIGNAL for {instrument}: BUY with {buy_probability:.2%} confidence.")

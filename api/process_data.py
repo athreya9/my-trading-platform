@@ -50,6 +50,7 @@ logger.setLevel(logging.INFO)
 # --- Sheet & Symbol Configuration ---
 SHEET_NAME = "Algo Trading Dashboard" # The name of your Google Sheet
 DATA_WORKSHEET_NAME = "Price_Data"
+
 HISTORICAL_DATA_WORKSHEET_NAME = "Historical_Data" # New sheet for long-term storage
 SIGNALS_WORKSHEET_NAME = "Signals"
 
@@ -58,6 +59,7 @@ SIGNALS_WORKSHEET_NAME = "Signals"
 # Signal generation settings
 SIGNAL_HEADERS = ['timestamp', 'instrument', 'option_type', 'strike_price', 'underlying_price', 'stop_loss', 'take_profit', 'position_size', 'reason', 'sentiment_score', 'kelly_pct', 'win_rate_p', 'win_loss_ratio_b', 'quality_score']
 
+
 # Risk Management settings
 ATR_PERIOD = 14
 STOP_LOSS_MULTIPLIER = 2.0  # e.g., 2 * ATR below entry price
@@ -65,6 +67,7 @@ STOP_LOSS_MULTIPLIER = 2.0  # e.g., 2 * ATR below entry price
 # --- AI Model Configuration ---
 # The confidence level the AI must have to generate a signal.
 # Based on your training script, 0.80 (80%) is a good starting point for high precision.
+
 AI_CONFIDENCE_THRESHOLD = 0.80
 
 # Path to the trained model file
@@ -439,8 +442,11 @@ def run_data_collection(kite, instrument_map, use_yfinance=False):
             instrument_token = instrument_map.get(kite_symbol)
 
             if not instrument_token:
-                logger.warning(f"Could not find instrument token for symbol '{symbol}' (Kite: '{kite_symbol}'). Skipping.")
+            logger.warning(
+                f"Could not find instrument token for symbol '{symbol}' (Kite: '{kite_symbol}'). Skipping."
+            )
                 continue
+
 
             # --- Fetch data for all required timeframes ---
             from_date_15m = to_date - timedelta(days=5)
@@ -792,7 +798,11 @@ def analyze_market_internals(price_data_dict):
 
 def generate_signals(price_data_dict, manual_controls_df, trade_log_df, market_context, economic_events):
     """Generates trading signals for all instruments, applying a suite of validation and risk rules."""
-    logger.info("Generating signals with advanced rule validation...")
+
+    if not price_data_dict or not any(price_data_dict.values()):
+        logger.warning("No price data available, skipping signal generation.")
+        return pd.DataFrame()
+
     
     # --- Setup & Market Context Filter ---
     kelly_pct, win_rate, win_loss_ratio = calculate_kelly_criterion(trade_log_df)
@@ -858,6 +868,7 @@ def generate_signals(price_data_dict, manual_controls_df, trade_log_df, market_c
                         'instrument': instrument,
                         'reason': f'AI Prediction ({buy_probability:.0%})',
                         'quality_score': 4, # Highest quality score for AI signals
+
                         'rsi': latest_15m['RSI_14'],
                         'volume_confirmed': True, # AI model implicitly learns volume patterns
                         'sentiment_score': analyze_sentiment(instrument),
@@ -870,6 +881,7 @@ def generate_signals(price_data_dict, manual_controls_df, trade_log_df, market_c
                         atr_val = latest_15m[f'ATRr_{ATR_PERIOD}']
                         stop_loss = entry_price - (atr_val * STOP_LOSS_MULTIPLIER)
                         take_profit = entry_price + (atr_val * TAKE_PROFIT_MULTIPLIER)
+
                         
                         instrument_signals.append({
                             'option_type': 'CALL', 'strike_price': get_atm_strike(entry_price, instrument),
@@ -879,6 +891,7 @@ def generate_signals(price_data_dict, manual_controls_df, trade_log_df, market_c
                             'win_rate_p': win_rate, 'win_loss_ratio_b': win_loss_ratio, 'kelly_pct': kelly_pct
                         })
                         ai_signal_generated = True
+
 
         # --- Manual Override Logic ---
         manual_override_triggered = False
@@ -1065,7 +1078,8 @@ def send_telegram_notification(message):
 @retry()
 def write_to_sheets(spreadsheet, price_df, signals_df, is_test_run=False):
     """Writes price data, signals, and the final advice to their respective sheets."""
-    logger.info("--- Starting Google Sheet Update Process ---")
+
+    logger.debug("--- Starting Google Sheet Update Process ---")
     try:
         # Get all required worksheets, assuming they exist after running the fix script.
         price_worksheet = spreadsheet.worksheet("Price_Data")
@@ -1106,6 +1120,7 @@ def write_to_sheets(spreadsheet, price_df, signals_df, is_test_run=False):
     try:
         # Check if the sheet is empty by checking cell A1. This is much faster than get_all_records().
         is_sheet_empty = historical_worksheet.acell('A1').value is None
+
         
         if is_sheet_empty:
              logger.info(f"'{HISTORICAL_DATA_WORKSHEET_NAME}' is empty. Writing headers and data.")
@@ -1128,6 +1143,7 @@ def write_to_sheets(spreadsheet, price_df, signals_df, is_test_run=False):
         signals_to_write = signals_df[[
             'option_type', 'instrument', 'underlying_price', 'stop_loss', 'take_profit',
             'confidence_score', 'reason', 'timestamp'
+
         ]].copy()
         signals_to_write.rename(columns={
             'option_type': 'Action', 'instrument': 'Symbol', 'underlying_price': 'Entry Price',
@@ -1335,6 +1351,10 @@ def main(force_run=False):
         # Re-raise the exception so it's caught by the Flask endpoint,
         # which will return a 500 error and cause the GitHub Actions job to fail.
         raise
+
+
+
+
 
 # --- Script Execution ---
 @process_data_bp.route('/run', methods=['GET'])

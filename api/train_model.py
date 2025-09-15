@@ -15,6 +15,7 @@ import pandas as pd
 import joblib
 import matplotlib.pyplot as plt
 import seaborn as sns
+from sklearn.preprocessing import MinMaxScaler
 from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
 from xgboost import XGBClassifier
@@ -34,7 +35,7 @@ def plot_confusion_matrix(y_true, y_pred, model_name):
     plt.ylabel('Actual Class')
     plt.xlabel('Predicted Class')
     
-    plot_filename = os.path.join(os.path.dirname(__file__), 'confusion_matrix.png')
+    plot_filename = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'confusion_matrix.png')
     plt.savefig(plot_filename)
     print(f"Confusion matrix plot saved to '{plot_filename}'")
 
@@ -75,12 +76,15 @@ def main():
         X = df.iloc[:, :-1]
         y = df.iloc[:, -1]
 
+        # Scale data
+        scaler = MinMaxScaler()
+        X = scaler.fit_transform(X)
+
         # 3. Split Data into Training and Testing Sets
         # 80% for training, 20% for testing. `stratify=y` ensures the class
         # distribution is the same in both sets, which is crucial for imbalanced data.
         X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=0.2, random_state=42, stratify=y
-        )
+            X, y, test_size=0.2, random_state=42, stratify=y)
         print(f"Data split into {len(X_train)} training samples and {len(X_test)} testing samples.")
 
         # 4. Train the XGBoost Model
@@ -89,6 +93,7 @@ def main():
         # It's the ratio of negative class samples to positive class samples.
         scale_pos_weight = (y_train == 0).sum() / (y_train == 1).sum()
         
+
         # --- NEW: Hyperparameter Tuning with GridSearchCV ---
         # Define the grid of parameters to search.
         param_grid = {
@@ -144,7 +149,7 @@ def main():
         # 6. Save the Trained Model
         joblib.dump(model, MODEL_PATH)
         print(f"\n✅ Trained model saved successfully to: '{MODEL_PATH}'")
-
+        feature_names = list(X.columns) if isinstance(X, pd.DataFrame) else [f'feature_{i}' for i in range(X.shape[1])]
         # 7. Visualize the results
         plot_confusion_matrix(y_test, y_pred, "XGBoost (Threshold 0.5)")
         plot_feature_importance(model, X_train.columns)

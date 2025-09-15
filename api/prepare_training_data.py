@@ -22,7 +22,7 @@ from api.sheet_utils import connect_to_google_sheets, read_historical_data
 # How many periods in the future to look for a result.
 PREDICTION_HORIZON = 5
 # The minimum percentage move required to be considered a "win".
-TARGET_RETURN_THRESHOLD = 0.005 # 0.5%
+TARGET_RETURN_THRESHOLD = 0.002 # 0.2%
 SHEET_NAME = "Algo Trading Dashboard"
 
 

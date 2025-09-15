@@ -70,10 +70,10 @@ def main():
             price_df = read_price_data(spreadsheet, target_instrument=None)
         except ValueError as e:
             # This handles the specific case from read_price_data where the sheet is empty.
-            # It's not an error, just a state. We can't train, so we exit gracefully.
-            print(f"⚠️  {e}")
-            print("This is expected if the 'collect-data' job hasn't run yet. Exiting as there is no data to train on.")
-            sys.exit(0)
+            # This is now treated as a failure condition.
+            print(f"❌ Error: {e}", file=sys.stderr)
+            print("Cannot prepare training data because the source sheet is empty. Please run the 'collect-data' job first.", file=sys.stderr)
+            sys.exit(1)
 
         # 2. Calculate all indicators to use as features
         # We reuse the robust functions from the main processing script.

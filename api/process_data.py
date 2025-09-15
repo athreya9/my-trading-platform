@@ -1,7 +1,7 @@
 # process_data.py
 # A single, combined script for GitHub Actions.
 # It fetches data, generates signals, and updates Google Sheets.
-from flask import Flask, request, jsonify
+from flask import Blueprint, request, jsonify
 import gspread
 from kiteconnect import KiteConnect
 import pandas as pd
@@ -29,12 +29,12 @@ import requests
 import feedparser
 from api.sheet_utils import connect_to_google_sheets, enhance_sheet_structure, retry
 
-app = Flask(__name__)
-
 # --- NEW: Custom Exception for Graceful Halting ---
 class BotHaltedException(Exception):
     """Custom exception to indicate the bot was halted by user control."""
     pass
+
+process_data_bp = Blueprint('process_data', __name__)
 
 # --- Logging Configuration ---
 # Use a custom formatter to ensure all log times are in UTC for consistency
@@ -1226,7 +1226,7 @@ def main(force_run=False):
         if not use_yfinance: # This is a normal, scheduled run
             if not is_market_open:
                 logger.info("Market is closed. Normal run skipped.")
-                return # Exit gracefully
+                return {"status": "success", "message": "Market is closed. Bot did not run."}
             logger.info("Market is open. Proceeding with Kite data source.")
         else: # This is a forced run
             logger.warning("Forced run detected. Using yfinance data source for this run.")
@@ -1281,7 +1281,7 @@ def main(force_run=False):
             except Exception as e:
                 logger.warning(f"Could not update Bot_Control timestamp: {e}")
             logger.info("--- Trading Signal Process Completed (No Data) ---")
-            return # Exit the main function gracefully.
+            return {"status": "success", "message": "No data collected from source."}
 
         # Step 5: Calculate all indicators for all instruments and timeframes
         if not price_data_dict["15m"].empty:
@@ -1306,6 +1306,7 @@ def main(force_run=False):
         write_to_sheets(spreadsheet, price_data_dict["15m"], signals_df)
 
         logger.info("--- Trading Signal Process Completed Successfully ---")
+        return {"status": "success", "message": "Trading bot executed successfully."}
 
     except Exception as e:
         # This will catch any error and log it, preventing a silent crash.
@@ -1315,7 +1316,7 @@ def main(force_run=False):
         raise
 
 # --- Script Execution ---
-@app.route('/run', methods=['GET'])
+@process_data_bp.route('/run', methods=['GET'])
 def run_bot():
     """
     HTTP endpoint to trigger the trading bot's main logic.
@@ -1326,9 +1327,11 @@ def run_bot():
         logger.warning("'force=true' parameter detected. Bypassing market hours check for this run.")
 
     try:
-        # Call the existing main function
-        main(force_run=force_run)
-        return jsonify({"status": "success", "message": "Trading bot executed successfully."}), 200
+        result = main(force_run=force_run)
+        http_status = 200
+        if result.get("status") == "error":
+            http_status = 500
+        return jsonify(result), http_status
     except BotHaltedException as e:
         # This is a controlled, graceful exit, not an error.
         # Return 200 OK to prevent the GitHub Actions job from failing.
@@ -1337,9 +1340,3 @@ def run_bot():
     except Exception as e:
         logger.error(f"Error executing trading bot: {e}", exc_info=True)
         return jsonify({"status": "error", "message": str(e)}), 500
-
-# Modify the __main__ block to run the Flask app
-if __name__ == "__main__":
-    # This block is for running the app in a container like Cloud Run
-    port = int(os.environ.get("PORT", 8080))
-    app.run(host="0.0.0.0", port=port)

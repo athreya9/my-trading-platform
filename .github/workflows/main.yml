@@ -146,40 +146,36 @@ jobs:
   #  JOB 2: Manually trigger the Cloud Run service to collect data
   # ========================================================================
   collect-data:
-    name: "📈 Run Data Collection & Signal Generation"
-    # This job should only run when manually triggered with its specific input.
+    name: "📈 Run Data Collection (Manual)"
     if: github.event.inputs.run_data_collection
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
     steps:
-      - name: '🔐 Authenticate to Google Cloud'
-        id: 'auth'
-        uses: 'google-github-actions/auth@v2'
+      - name: "Checkout Code"
+        uses: actions/checkout@v4
+
+      - name: "Set up Python"
+        uses: actions/setup-python@v5
         with:
-          credentials_json: '${{ secrets.GCP_SA_KEY }}'
+          python-version: '3.12'
 
-      - name: 'Setup Google Cloud SDK'
-        uses: 'google-github-actions/setup-gcloud@v2'
-
-      - name: 'Get Cloud Run service URL'
-        id: get_url
+      - name: "Install Dependencies"
         run: |
-          echo "Fetching URL for Cloud Run service 'datradingplatform'..."
-          SERVICE_URL=$(gcloud run services describe datradingplatform --platform=managed --region=asia-south1 --format='value(status.url)')
-          if [ -z "$SERVICE_URL" ]; then
-            echo "::error::Could not retrieve Cloud Run service URL."
-            exit 1
-          fi
-          echo "SERVICE_URL=$SERVICE_URL" >> "$GITHUB_ENV"
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
 
-      - name: '🚀 Invoke Cloud Run Service'
-        run: |
-          echo "Invoking Cloud Run service at ${{ env.SERVICE_URL }}..."
-          # Use curl to make a GET request with an identity token for authentication.
-          # The force=true param ensures it runs even if the market is closed, using yfinance.
-          # The --fail flag makes curl exit with an error if the HTTP response code is 4xx or 5xx.
-          curl --fail --show-error -H "Authorization: Bearer $(gcloud auth print-identity-token)" "${{ env.SERVICE_URL }}/run?force=true"
+      - name: "📊 Run Data Collection Script"
+        env:
+          # Pass all secrets needed by the script
+          GOOGLE_SHEETS_CREDENTIALS: ${{ secrets.GCP_SA_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          # The script uses yfinance for forced runs, so Kite keys are not strictly needed,
+          # but we pass them for completeness in case the logic changes.
+          KITE_API_KEY: ${{ secrets.KITE_API_KEY }}
+          KITE_ACCESS_TOKEN: ${{ secrets.KITE_ACCESS_TOKEN }}
+        run: python run_manual_collection.py
 
   # ========================================================================
   #  JOB 3: Manually initialize or repair the Google Sheet structure

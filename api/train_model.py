@@ -26,7 +26,8 @@ MODEL_PATH = os.path.join(os.path.dirname(__file__), 'trading_model.pkl')
 
 def plot_confusion_matrix(y_true, y_pred, model_name):
     """Plots and saves a confusion matrix heatmap."""
-    cm = confusion_matrix(y_true, y_pred)
+    # Add labels=[0, 1] to ensure the matrix is always 2x2, even if one class is not predicted.
+    cm = confusion_matrix(y_true, y_pred, labels=[0, 1])
     plt.figure(figsize=(8, 6))
     sns.heatmap(cm, annot=True, fmt='d', cmap='Blues',
                 xticklabels=['Predicted No Signal', 'Predicted Signal'],
@@ -92,9 +93,16 @@ def main():
         print("\nTraining XGBoost classifier...")
         # `scale_pos_weight` helps the model handle imbalanced classes.
         # It's the ratio of negative class samples to positive class samples.
-        scale_pos_weight = (y_train == 0).sum() / (y_train == 1).sum()
-        
+        num_positive_samples = (y_train == 1).sum()
+        num_negative_samples = (y_train == 0).sum()
 
+        if num_positive_samples == 0:
+            print("❌ Error: Training data contains no positive samples (target=1). Cannot train the model.", file=sys.stderr)
+            print("This is likely due to the `TARGET_RETURN_THRESHOLD` in `prepare_training_data.py` being too high for the historical data.", file=sys.stderr)
+            sys.exit(1)
+
+        scale_pos_weight = num_negative_samples / num_positive_samples
+        
         # --- NEW: Hyperparameter Tuning with GridSearchCV ---
         # Define the grid of parameters to search.
         param_grid = {
@@ -140,7 +148,12 @@ def main():
             
             # Note: A high precision for class 1 means fewer false alarms.
             # A high recall for class 1 means catching more potential signals.
-            print(classification_report(y_test, y_pred_tuned, target_names=['No Signal (0)', 'Signal (1)']))
+            # Add `labels=[0, 1]` to prevent errors if a class is missing in predictions.
+            print(classification_report(
+                y_test, y_pred_tuned,
+                target_names=['No Signal (0)', 'Signal (1)'],
+                labels=[0, 1]
+            ))
 
         # Use a default threshold for the main report and confusion matrix
         y_pred = (y_pred_proba >= 0.5).astype(int)

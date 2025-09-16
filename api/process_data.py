@@ -299,7 +299,6 @@ def fetch_historical_data(kite, instrument_token, from_date, to_date, interval, 
         return pd.DataFrame()
 
 @retry()
-@retry()
 def fetch_historical_data_yfinance(symbols, interval, period):
     """Fetches historical data from Yahoo Finance for testing outside market hours."""
     logger.info(f"Fetching {interval} data for {len(symbols)} symbols from yfinance (period: {period})...")

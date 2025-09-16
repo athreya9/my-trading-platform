@@ -8,7 +8,7 @@ from flask import Flask
 from flask_cors import CORS
 
 # Import the blueprint
-# from api.process_data import process_data_bp
+from api.process_data import process_data_bp
 
 import logging
 
@@ -26,7 +26,7 @@ try:
     logging.info("CORS enabled.")
 
     # Register the API endpoints from process_data.py under the /api prefix
-    # app.register_blueprint(process_data_bp, url_prefix='/api')
+    app.register_blueprint(process_data_bp, url_prefix='/api')
     logging.info("Blueprint registered.")
 except Exception as e:
     logging.error(f"Error initializing Flask app: {e}", exc_info=True)
@@ -45,5 +45,3 @@ if __name__ == '__main__':
     logging.info("Starting app.run...")
     app.run(host='0.0.0.0', port=port, debug=False) # Set debug=False for production-like testing
     logging.info("app.run completed.")
-
-# Trigger new build

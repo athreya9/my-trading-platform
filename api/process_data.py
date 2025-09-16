@@ -1181,19 +1181,6 @@ def write_to_sheets(spreadsheet, price_df, signals_df, is_test_run=False):
         advisor_worksheet.update('A1', advisor_header + [advisor_row], value_input_option='USER_ENTERED')
         logger.info("Advisor output written successfully.")
 
-        # # --- Send Telegram Notification for the top signal ---
-        # # advisor_row: [recommendation, confidence, entry, sl, tp, reasons, timestamp]
-        # notification_message = (
-        #     f"📈 *New Trading Signal*\n\n"
-        #     f"*Action:* {advisor_row[0]}\n"
-        #     f"*Confidence:* {advisor_row[1]}\n\n"
-        #     f"Entry: `{advisor_row[2]}`\n"
-        #     f"Stop Loss: `{advisor_row[3]}`\n"
-        #     f"Take Profit: `{advisor_row[4]}`\n\n"
-        #     f"*Reason:* {advisor_row[5]}\n"
-        #     f"_{advisor_row[6]} UTC_"
-        # )
-        # send_telegram_notification(notification_message)
     else:
         logger.info("No signals to generate advice. Clearing and updating Advisor_Output sheet with status.")
         no_signal_row = [
@@ -1202,15 +1189,6 @@ def write_to_sheets(spreadsheet, price_df, signals_df, is_test_run=False):
         ]
         advisor_worksheet.update('A1', advisor_header + [no_signal_row], value_input_option='USER_ENTERED')
 
-        # # --- NEW: Send a status update to Telegram if no signal is found ---
-        # # This only runs on the first 15 minutes of the hour to avoid spam.
-        # if datetime.now().minute < 15:
-        #     notification_message = (
-        #         f"✅ *Bot Status Update*\n\nNo new high-confidence signals were found that met all criteria."
-        #     )
-        #     send_telegram_notification(notification_message)
-
-    # --- NEW: Update Bot Control Timestamp ---
     try:
         timestamp_str = datetime.now(pytz.timezone('Asia/Kolkata')).strftime('%Y-%m-%d %H:%M:%S IST')
         bot_control_worksheet.update_acell('B4', timestamp_str) # Update the correct cell for the timestamp
@@ -1369,14 +1347,7 @@ def main(force_run=False):
 
 
 # --- Script Execution ---
-@process_data_bp.route('/', methods=['GET'])
-def index():
-    """A simple health-check endpoint to confirm the server is running."""
-    logger.info("Root health check endpoint was hit.")
-    return "Python backend is running."
-
-
-@process_data_bp.route('/api/run', methods=['GET'])
+@process_data_bp.route('/run', methods=['GET'])
 def run_bot():
     """
     HTTP endpoint to trigger the trading bot's main logic.
@@ -1403,7 +1374,7 @@ def run_bot():
 
 
 # --- NEW: API Endpoint for Frontend Dashboard ---
-@process_data_bp.route('/api/dashboard', methods=['GET'])
+@process_data_bp.route('/dashboard', methods=['GET'])
 def get_dashboard_data():
     """
     Provides a single endpoint for the frontend to fetch all necessary

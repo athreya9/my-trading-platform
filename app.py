@@ -25,12 +25,17 @@ try:
     CORS(app)
     logging.info("CORS enabled.")
 
-    # Register the blueprint at the root. All route paths are now defined in process_data.py.
-    app.register_blueprint(process_data_bp)
+    # Register the API endpoints from process_data.py under the /api prefix
+    app.register_blueprint(process_data_bp, url_prefix='/api')
     logging.info("Blueprint registered.")
 except Exception as e:
     logging.error(f"Error initializing Flask app: {e}", exc_info=True)
     raise
+
+@app.route('/')
+def index():
+    """A simple health-check endpoint to confirm the server is running."""
+    return "Python backend is running."
 
 if __name__ == '__main__':
     logging.info("Running Flask app in main block (local development).")
@@ -38,5 +43,5 @@ if __name__ == '__main__':
     port = int(os.environ.get("PORT", 8080))
     logging.info(f"Setting port to: {port}")
     logging.info("Starting app.run...")
-    app.run(host='0.0.0.0', port=port, debug=True)
+    app.run(host='0.0.0.0', port=port, debug=False) # Set debug=False for production-like testing
     logging.info("app.run completed.")

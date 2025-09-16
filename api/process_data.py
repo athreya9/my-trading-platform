@@ -21,6 +21,12 @@ from dotenv import load_dotenv
 # This will not override environment variables set in the GitHub Actions runner.
 load_dotenv()
 
+# Print the contents of the requirements.txt file
+with open('/home/kvnkelly9/my-trading-platform/requirements.txt', 'r') as f:
+    print(f.read())
+# This will not override environment variables set in the GitHub Actions runner.
+load_dotenv()
+
 import logging
 import re
 import sys

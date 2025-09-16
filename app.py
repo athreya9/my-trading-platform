@@ -21,6 +21,7 @@ app.register_blueprint(process_data_bp, url_prefix='/api')
 @app.route('/')
 def index():
     """A simple health-check endpoint to confirm the server is running."""
+    # Triggering a new deployment
     return "Python backend is running."
 
 if __name__ == '__main__':

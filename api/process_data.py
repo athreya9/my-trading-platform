@@ -18,12 +18,6 @@ import yfinance as yf
 from dotenv import load_dotenv
 
 # Load environment variables from .env file for local development.
-# Print the contents of the requirements.txt file
-try:
-    with open('/home/kvnkelly9/my-trading-platform/requirements.txt', 'r') as f:
-        print(f.read())
-except Exception as e:
-    print(f"Error reading requirements.txt: {e}")
 # This will not override environment variables set in the GitHub Actions runner.
 load_dotenv()
 
@@ -31,10 +25,10 @@ load_dotenv()
 import logging
 import re
 import sys
-from api import config
+from . import config
 import requests
 import feedparser
-from api.sheet_utils import connect_to_google_sheets, enhance_sheet_structure, retry, read_worksheet_data
+from .sheet_utils import connect_to_google_sheets, enhance_sheet_structure, retry, read_worksheet_data
 
 # --- NEW: Custom Exception for Graceful Halting ---
 class BotHaltedException(Exception):

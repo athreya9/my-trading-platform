@@ -1333,4 +1333,94 @@ def run_bot():
         logger.error(f"Error executing trading bot: {e}", exc_info=True)
         return jsonify({"status": "error", "message": str(e)}), 500
 
+def fetch_latest_nifty_data():
+    """Fetches and processes the latest Nifty 50 data."""
+    try:
+        spreadsheet = connect_to_google_sheets(SHEET_NAME)
+        # No need to enhance_sheet_structure here, it should be done by setup_sheets.py
 
+        # Check bot status - if bot is halted, we should not proceed
+        if not check_bot_status(spreadsheet):
+            logger.warning("Bot is halted as per Bot_Control sheet. Cannot fetch live Nifty data.")
+            return None # Or raise an exception
+
+        kite = connect_to_kite()
+        instrument_map = get_instrument_map(kite)
+
+        # Fetch only Nifty 50 data
+        nifty_symbol = '^NSEI'
+        kite_nifty_symbol = YFINANCE_TO_KITE_MAP.get(nifty_symbol, nifty_symbol.replace('.NS', ''))
+        nifty_token = instrument_map.get(kite_nifty_symbol)
+
+        if not nifty_token:
+            logger.error(f"Could not find instrument token for Nifty 50 ({kite_nifty_symbol}).")
+            return None
+
+        to_date = datetime.now()
+        from_date_15m = to_date - timedelta(days=5) # Get enough data for previous close
+
+        nifty_df = fetch_historical_data(kite, nifty_token, from_date_15m, to_date, "15minute", nifty_symbol)
+
+        if nifty_df.empty:
+            logger.warning("No historical data fetched for Nifty 50.")
+            return None
+
+        # Ensure data is sorted by timestamp
+        nifty_df.sort_values('timestamp', inplace=True)
+        latest_nifty = nifty_df.iloc[-1]
+
+        # Calculate previous close
+        previous_close = latest_nifty['close'] # Default to current close if not enough data
+        if len(nifty_df) >= 2:
+            previous_close = nifty_df.iloc[-2]['close']
+
+        return {
+            "currentPrice": latest_nifty['close'],
+            "todaysHigh": latest_nifty['high'],
+            "todaysLow": latest_nifty['low'],
+            "openingPrice": latest_nifty['open'],
+            "previousClose": previous_close
+        }
+    except Exception as e:
+        logger.error(f"Error in fetch_latest_nifty_data: {e}", exc_info=True)
+        return None
+
+@process_data_bp.route('/nifty-data', methods=['GET'])
+def nifty_data_endpoint():
+    logger.info("Received request for Nifty data.")
+    nifty_data = fetch_latest_nifty_data()
+    if nifty_data:
+        return jsonify({"success": True, "data": nifty_data}), 200
+    else:
+        return jsonify({"success": False, "error": "Failed to retrieve Nifty data. Check backend logs."}), 500
+
+def fetch_advisor_output():
+    """Fetches data from the 'Advisor_Output' Google Sheet."""
+    try:
+        spreadsheet = connect_to_google_sheets(SHEET_NAME)
+        # No need to enhance_sheet_structure here, it should be done by setup_sheets.py
+
+        # Check bot status - if bot is halted, we should not proceed
+        if not check_bot_status(spreadsheet):
+            logger.warning("Bot is halted as per Bot_Control sheet. Cannot fetch advisor output.")
+            return [] # Return empty list if bot is halted
+
+        worksheet = spreadsheet.worksheet("Advisor_Output")
+        records = worksheet.get_all_records()
+        logger.info(f"Successfully fetched {len(records)} records from Advisor_Output sheet.")
+        return records
+    except gspread.exceptions.WorksheetNotFound:
+        logger.warning("Advisor_Output worksheet not found. Returning empty data.")
+        return []
+    except Exception as e:
+        logger.error(f"Error in fetch_advisor_output: {e}", exc_info=True)
+        return []
+
+@process_data_bp.route('/advisor-output', methods=['GET'])
+def advisor_output_endpoint():
+    logger.info("Received request for Advisor Output data.")
+    advisor_data = fetch_advisor_output()
+    if advisor_data:
+        return jsonify(advisor_data), 200
+    else:
+        return jsonify([]), 200 # Return empty array if no data or error

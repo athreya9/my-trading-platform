@@ -300,3 +300,35 @@ jobs:
           commit_user_name: "GitHub Actions Bot"
           commit_user_email: "github-actions[bot]@users.noreply.github.com"
           commit_author: "github-actions[bot] <github-actions[bot]@users.noreply.github.com>"
+
+  # ========================================================================
+  #  JOB 6: Validate the newly trained model with a backtest
+  # ========================================================================
+  validate-model:
+    name: "⚙️ Validate New Model with Backtest"
+    needs: retrain-ai-model # Runs after the model is retrained and committed
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: "Checkout Code (latest commit)"
+        # The new model was just committed, so we need to check out the latest version of the repo.
+        uses: actions/checkout@v4
+
+      - name: "Set up Python"
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: "Install Dependencies"
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: "Run Backtest with New Model"
+        env:
+          GOOGLE_SHEETS_CREDENTIALS: ${{ secrets.GCP_SA_KEY }}
+        run: |
+          # Run the backtest script. It will use the newly checked-out model.
+          # The backtest script prints performance metrics to the log.
+          python backtest.py

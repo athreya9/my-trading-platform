@@ -1,4 +1,5 @@
 from flask import Flask
+import os
 from flask_cors import CORS
 from process_data import process_data_bp
 
@@ -17,4 +18,5 @@ def index():
     return "Python backend is running."
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8080, debug=True)
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host="0.0.0.0", port=port, debug=True)

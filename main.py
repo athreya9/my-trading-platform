@@ -45,3 +45,5 @@ if __name__ == '__main__':
     logging.info("Starting app.run...")
     app.run(host='0.0.0.0', port=port, debug=False) # Set debug=False for production-like testing
     logging.info("app.run completed.")
+
+# Trigger new build

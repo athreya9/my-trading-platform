@@ -1369,7 +1369,14 @@ def main(force_run=False):
 
 
 # --- Script Execution ---
-@process_data_bp.route('/run', methods=['GET'])
+@process_data_bp.route('/', methods=['GET'])
+def index():
+    """A simple health-check endpoint to confirm the server is running."""
+    logger.info("Root health check endpoint was hit.")
+    return "Python backend is running."
+
+
+@process_data_bp.route('/api/run', methods=['GET'])
 def run_bot():
     """
     HTTP endpoint to trigger the trading bot's main logic.
@@ -1396,7 +1403,7 @@ def run_bot():
 
 
 # --- NEW: API Endpoint for Frontend Dashboard ---
-@process_data_bp.route('/dashboard', methods=['GET'])
+@process_data_bp.route('/api/dashboard', methods=['GET'])
 def get_dashboard_data():
     """
     Provides a single endpoint for the frontend to fetch all necessary

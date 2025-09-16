@@ -25,23 +25,12 @@ try:
     CORS(app)
     logging.info("CORS enabled.")
 
-    # Register the API endpoints from process_data.py under the /api prefix
-    app.register_blueprint(process_data_bp, url_prefix='/api')
+    # Register the blueprint at the root. All route paths are now defined in process_data.py.
+    app.register_blueprint(process_data_bp)
     logging.info("Blueprint registered.")
 except Exception as e:
     logging.error(f"Error initializing Flask app: {e}", exc_info=True)
     raise
-
-@app.route('/')
-def index():
-    logging.info("Health check endpoint was hit")
-    """A simple health-check endpoint to confirm the server is running."""
-    try:
-        logging.info("Returning health check message")
-    except Exception as e:
-        logging.error(f"Error in index function: {e}", exc_info=True)
-
-    return "Python backend is running."
 
 if __name__ == '__main__':
     logging.info("Running Flask app in main block (local development).")

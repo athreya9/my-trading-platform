@@ -516,51 +516,48 @@ def calculate_indicators(price_df):
     logger.info("Calculating indicators for all instruments...")
     # --- Data Cleaning and Preparation ---
     price_df['timestamp'] = pd.to_datetime(price_df['timestamp'])
+    # Ensure all key columns are numeric, coercing errors to NaN
     for col in ['open', 'high', 'low', 'close', 'volume']:
         price_df[col] = pd.to_numeric(price_df[col], errors='coerce')
     
+    # Drop any rows where the close price is missing, as it's essential for all indicators
     price_df.dropna(subset=['close'], inplace=True)
     price_df.sort_values(['instrument', 'timestamp'], inplace=True)
 
-    # --- OPTIMIZATION: Use pandas-ta's Strategy for efficient, grouped calculations ---
-    # This is much more memory-efficient than using groupby().apply().
-    MyStrategy = ta.Strategy(
-        name="all_indicators",
-        ta=[
-            {"kind": "sma", "length": 20},
-            {"kind": "sma", "length": 50},
-            {"kind": "rsi", "length": 14},
-            {"kind": "macd", "fast": 12, "slow": 26, "signal": 9},
-            {"kind": "atr", "length": ATR_PERIOD},
-            # Calculate volume SMA using the 'close' parameter to specify the column
-            {"kind": "sma", "close": "volume", "length": 20, "prefix": "volume_avg"},
-        ]
-    )
-    price_df.groupby('instrument', group_keys=False).ta.strategy(MyStrategy, append=True)
+    # Define a function to apply all indicators to a group (a single instrument's data)
+    def apply_indicators(group):
+        group = group.copy()
+        # Simple Moving Averages
+        group['SMA_20'] = group['close'].rolling(window=20).mean()
+        group['SMA_50'] = group['close'].rolling(window=50).mean()
+        # pandas-ta indicators
+        group.ta.rsi(length=14, append=True)
+        group.ta.macd(fast=12, slow=26, signal=9, append=True)
+        group.ta.atr(length=ATR_PERIOD, append=True)
 
-    # Rename the generated volume SMA to match the old column name for compatibility
-    if 'volume_avg_SMA_20' in price_df.columns:
-        price_df.rename(columns={'volume_avg_SMA_20': 'volume_avg_20'}, inplace=True)
+        group['volume_avg_20'] = group['volume'].rolling(window=20).mean()
 
-    # --- Microstructure Indicators (calculated separately) ---
-    # These are more complex and still benefit from a targeted apply(), but the bulk of the
-    # work is now done, significantly reducing memory pressure.
-    def apply_microstructure(group):
-        # 1. Realized Volatility
-        log_return = np.log(group['close'] / group['close'].shift(1))
-        group['realized_vol'] = log_return.rolling(window=REALIZED_VOL_WINDOW).std()
+        # --- New Microstructure Indicators ---
+        # 1. Realized Volatility (rolling standard deviation of log returns)
+        group['log_return'] = np.log(group['close'] / group['close'].shift(1))
+        group['realized_vol'] = group['log_return'].rolling(window=REALIZED_VOL_WINDOW).std()
 
         # 2. VWAP (Volume-Weighted Average Price) - calculated per day
+        # This requires a nested groupby to reset the calculation for each new day.
         def calculate_daily_vwap(daily_group):
+            # Fill NaN volumes with 0 to prevent issues in cumulative sum
             daily_group['volume'] = daily_group['volume'].fillna(0)
             cum_vol = daily_group['volume'].cumsum()
+            # Avoid division by zero; use close price as VWAP if volume is zero.
             vwap_calc = (daily_group['close'] * daily_group['volume']).cumsum() / cum_vol.replace(0, np.nan)
+            # If VWAP is still NaN (e.g., at the start), fill with the current close price
             daily_group['vwap'] = vwap_calc.fillna(daily_group['close'])
             return daily_group
         group = group.groupby(group['timestamp'].dt.date, group_keys=False).apply(calculate_daily_vwap)
         return group
 
-    price_df = price_df.groupby('instrument', group_keys=False).apply(apply_microstructure)
+    # Use groupby().apply() to run the indicator calculations for each instrument
+    price_df = price_df.groupby('instrument', group_keys=False).apply(apply_indicators)
     
     logger.info("Indicators calculated successfully for all instruments.")
     return price_df

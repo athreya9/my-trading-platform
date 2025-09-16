@@ -132,11 +132,14 @@ YFINANCE_TO_KITE_MAP = {
 def read_manual_controls(spreadsheet):
     """Reads manual override settings from the 'Manual Control' sheet."""
     logger.info("Reading data from 'Manual Control' sheet...")
+
     try:
         worksheet = spreadsheet.worksheet("Manual Control")
         records = worksheet.get_all_records()
         if not records:
             logger.info("No manual controls found or sheet is empty.")
+
+
             return pd.DataFrame()
         
         df = pd.DataFrame(records)
@@ -153,6 +156,7 @@ def read_manual_controls(spreadsheet):
         return pd.DataFrame()
     except Exception as e:
         logger.warning(f"Could not read manual controls: {e}")
+
         return pd.DataFrame()
 
 @retry()

@@ -36,8 +36,11 @@ except Exception as e:
 def index():
     logging.info("Health check endpoint was hit")
     """A simple health-check endpoint to confirm the server is running."""
-    # Triggering a new deployment
-    logging.info("Returning health check message")
+    try:
+        logging.info("Returning health check message")
+    except Exception as e:
+        logging.error(f"Error in index function: {e}", exc_info=True)
+
     return "Python backend is running."
 
 if __name__ == '__main__':

@@ -3,8 +3,7 @@ steps:
   args:
   - 'build'
   - '--builder=gcr.io/buildpacks/builder:latest'
-  - '--env=GOOGLE_RUNTIME_VERSION=python312' # Specify Python version if not in .python-version
-  - '--env=GOOGLE_ENTRYPOINT=gunicorn --bind 0.0.0.0:$PORT --workers 1 --threads 8 --timeout 0 app:app' # <-- THIS IS THE KEY CHANGE
+  - '--env=GOOGLE_ENTRYPOINT=gunicorn --bind 0.0.0.0:$PORT --workers 1 --threads 8 --timeout 0 app:app'
   - '${_LOCATION}-docker.pkg.dev/${PROJECT_ID}/cloud-run-source-deploy/my-trading-platform/datradingplatform:${_REVISION_ID}'
 images:
 - '${_LOCATION}-docker.pkg.dev/${PROJECT_ID}/cloud-run-source-deploy/my-trading-platform/datradingplatform:${_REVISION_ID}'

@@ -1,11 +1,7 @@
 # process_data.py
 # A single, combined script for GitHub Actions.
 # It fetches data, generates signals, and updates Google Sheets.
-<<<<<<< HEAD
 from flask import Blueprint, request, jsonify
-=======
-from flask import request, jsonify, Blueprint
->>>>>>> feature/frontend-backend-setup
 import gspread
 from kiteconnect import KiteConnect
 import pandas as pd
@@ -32,20 +28,14 @@ import sys
 from . import config
 import requests
 import feedparser
-<<<<<<< HEAD
 from .sheet_utils import connect_to_google_sheets, enhance_sheet_structure, retry, read_worksheet_data
-=======
-from api.sheet_utils import connect_to_google_sheets, enhance_sheet_structure, retry
 
 process_data_bp = Blueprint('process_data', __name__)
->>>>>>> feature/frontend-backend-setup
 
 # --- NEW: Custom Exception for Graceful Halting ---
 class BotHaltedException(Exception):
     """Custom exception to indicate the bot was halted by user control."""
     pass
-
-process_data_bp = Blueprint('process_data', __name__)
 
 # --- Logging Configuration ---
 # Use a custom formatter to ensure all log times are in UTC for consistency
@@ -1404,7 +1394,6 @@ def run_bot():
         logger.error(f"Error executing trading bot: {e}", exc_info=True)
         return jsonify({"status": "error", "message": str(e)}), 500
 
-<<<<<<< HEAD
 
 # --- NEW: API Endpoint for Frontend Dashboard ---
 @process_data_bp.route('/dashboard', methods=['GET'])
@@ -1432,7 +1421,7 @@ def get_dashboard_data():
     except Exception as e:
         logger.error(f"Error fetching dashboard data: {e}", exc_info=True)
         return jsonify({"status": "error", "message": "Failed to fetch dashboard data from Google Sheets."}), 500
-=======
+
 def fetch_latest_nifty_data():
     """Fetches and processes the latest Nifty 50 data."""
     try:
@@ -1524,4 +1513,3 @@ def advisor_output_endpoint():
         return jsonify(advisor_data), 200
     else:
         return jsonify([]), 200 # Return empty array if no data or error
->>>>>>> feature/frontend-backend-setup

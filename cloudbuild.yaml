@@ -1,14 +1,10 @@
 steps:
-- name: 'gcr.io/cloud-builders/gcloud'
+- name: 'gcr.io/k8s-skaffold/pack'
   args:
-  - 'run'
-  - 'deploy'
-  - 'datradingplatform'
-  - '--image'
-  - 'gcr.io/$PROJECT_ID/cloud-run-source-deploy/my-trading-platform/datradingplatform:$COMMIT_SHA'
-  - '--region'
-  - 'asia-south1'
-  - '--port'
-  - '8080'
-  - '--entrypoint'
-  - 'gunicorn --bind 0.0.0.0:$PORT --workers 1 --threads 8 --timeout 0 app:app'
+  - 'build'
+  - '--builder=gcr.io/buildpacks/builder:latest'
+  - '--env=GOOGLE_RUNTIME_VERSION=python312' # Specify Python version if not in .python-version
+  - '--env=GOOGLE_ENTRYPOINT=gunicorn --bind 0.0.0.0:$PORT --workers 1 --threads 8 --timeout 0 app:app' # <-- THIS IS THE KEY CHANGE
+  - '${_LOCATION}-docker.pkg.dev/${PROJECT_ID}/cloud-run-source-deploy/my-trading-platform/datradingplatform:${_REVISION_ID}'
+images:
+- '${_LOCATION}-docker.pkg.dev/${PROJECT_ID}/cloud-run-source-deploy/my-trading-platform/datradingplatform:${_REVISION_ID}'

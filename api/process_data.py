@@ -510,8 +510,8 @@ def run_data_collection(kite, instrument_map, use_yfinance=False):
 
 def calculate_indicators(price_df):
     """
-    Calculates all technical indicators (SMA, RSI, MACD, ATR) for all instruments
-    using efficient, vectorized operations.
+    Calculates all technical indicators for all instruments using a compatible,
+    robust method that avoids the outdated `ta.Strategy`.
     """
     logger.info("Calculating indicators for all instruments...")
     # --- Data Cleaning and Preparation ---
@@ -524,17 +524,17 @@ def calculate_indicators(price_df):
     price_df.dropna(subset=['close'], inplace=True)
     price_df.sort_values(['instrument', 'timestamp'], inplace=True)
 
-    # Define a function to apply all indicators to a group (a single instrument's data)
-    def apply_indicators(group):
+    # Define a single function to apply all indicators to a group (a single instrument's data)
+    def apply_all_indicators(group):
         group = group.copy()
-        # Simple Moving Averages
-        group['SMA_20'] = group['close'].rolling(window=20).mean()
-        group['SMA_50'] = group['close'].rolling(window=50).mean()
-        # pandas-ta indicators
+
+        # --- Standard TA-Lib Indicators ---
+        # Note: Using pandas_ta's direct methods is clean and efficient.
+        group.ta.sma(length=20, append=True)
+        group.ta.sma(length=50, append=True)
         group.ta.rsi(length=14, append=True)
         group.ta.macd(fast=12, slow=26, signal=9, append=True)
         group.ta.atr(length=ATR_PERIOD, append=True)
-
         group['volume_avg_20'] = group['volume'].rolling(window=20).mean()
 
         # --- New Microstructure Indicators ---
@@ -543,21 +543,24 @@ def calculate_indicators(price_df):
         group['realized_vol'] = group['log_return'].rolling(window=REALIZED_VOL_WINDOW).std()
 
         # 2. VWAP (Volume-Weighted Average Price) - calculated per day
-        # This requires a nested groupby to reset the calculation for each new day.
         def calculate_daily_vwap(daily_group):
             # Fill NaN volumes with 0 to prevent issues in cumulative sum
             daily_group['volume'] = daily_group['volume'].fillna(0)
             cum_vol = daily_group['volume'].cumsum()
             # Avoid division by zero; use close price as VWAP if volume is zero.
             vwap_calc = (daily_group['close'] * daily_group['volume']).cumsum() / cum_vol.replace(0, np.nan)
-            # If VWAP is still NaN (e.g., at the start), fill with the current close price
+            # If VWAP is NaN (e.g., at the start), fill with the current close price
             daily_group['vwap'] = vwap_calc.fillna(daily_group['close'])
             return daily_group
-        group = group.groupby(group['timestamp'].dt.date, group_keys=False).apply(calculate_daily_vwap)
+
+        # Apply VWAP calculation daily. Using group_keys=False to avoid extra index level.
+        if not group.empty:
+            group = group.groupby(group['timestamp'].dt.date, group_keys=False).apply(calculate_daily_vwap)
+
         return group
 
     # Use groupby().apply() to run the indicator calculations for each instrument
-    price_df = price_df.groupby('instrument', group_keys=False).apply(apply_indicators)
+    price_df = price_df.groupby('instrument', group_keys=False).apply(apply_all_indicators)
     
     logger.info("Indicators calculated successfully for all instruments.")
     return price_df
@@ -1178,6 +1181,19 @@ def write_to_sheets(spreadsheet, price_df, signals_df, is_test_run=False):
         advisor_worksheet.update('A1', advisor_header + [advisor_row], value_input_option='USER_ENTERED')
         logger.info("Advisor output written successfully.")
 
+        # # --- Send Telegram Notification for the top signal ---
+        # # advisor_row: [recommendation, confidence, entry, sl, tp, reasons, timestamp]
+        # notification_message = (
+        #     f"📈 *New Trading Signal*\n\n"
+        #     f"*Action:* {advisor_row[0]}\n"
+        #     f"*Confidence:* {advisor_row[1]}\n\n"
+        #     f"Entry: `{advisor_row[2]}`\n"
+        #     f"Stop Loss: `{advisor_row[3]}`\n"
+        #     f"Take Profit: `{advisor_row[4]}`\n\n"
+        #     f"*Reason:* {advisor_row[5]}\n"
+        #     f"_{advisor_row[6]} UTC_"
+        # )
+        # send_telegram_notification(notification_message)
     else:
         logger.info("No signals to generate advice. Clearing and updating Advisor_Output sheet with status.")
         no_signal_row = [
@@ -1186,6 +1202,15 @@ def write_to_sheets(spreadsheet, price_df, signals_df, is_test_run=False):
         ]
         advisor_worksheet.update('A1', advisor_header + [no_signal_row], value_input_option='USER_ENTERED')
 
+        # # --- NEW: Send a status update to Telegram if no signal is found ---
+        # # This only runs on the first 15 minutes of the hour to avoid spam.
+        # if datetime.now().minute < 15:
+        #     notification_message = (
+        #         f"✅ *Bot Status Update*\n\nNo new high-confidence signals were found that met all criteria."
+        #     )
+        #     send_telegram_notification(notification_message)
+
+    # --- NEW: Update Bot Control Timestamp ---
     try:
         timestamp_str = datetime.now(pytz.timezone('Asia/Kolkata')).strftime('%Y-%m-%d %H:%M:%S IST')
         bot_control_worksheet.update_acell('B4', timestamp_str) # Update the correct cell for the timestamp

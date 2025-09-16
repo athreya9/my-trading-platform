@@ -18,14 +18,15 @@ import yfinance as yf
 from dotenv import load_dotenv
 
 # Load environment variables from .env file for local development.
+# Print the contents of the requirements.txt file
+try:
+    with open('/home/kvnkelly9/my-trading-platform/requirements.txt', 'r') as f:
+        print(f.read())
+except Exception as e:
+    print(f"Error reading requirements.txt: {e}")
 # This will not override environment variables set in the GitHub Actions runner.
 load_dotenv()
 
-# Print the contents of the requirements.txt file
-with open('/home/kvnkelly9/my-trading-platform/requirements.txt', 'r') as f:
-    print(f.read())
-# This will not override environment variables set in the GitHub Actions runner.
-load_dotenv()
 
 import logging
 import re

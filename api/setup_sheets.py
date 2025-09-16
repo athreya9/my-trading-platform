@@ -15,7 +15,7 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Import the shared utility function
-from api.sheet_utils import connect_to_google_sheets, enhance_sheet_structure
+from api.sheet_utils import get_gspread_client, enhance_sheet_structure
 
 # --- Configuration ---
 SHEET_NAME = "Algo Trading Dashboard"
@@ -32,7 +32,15 @@ def main():
     """Connects to the sheet and runs the structure enhancement."""
     try:
         logger.info(f"--- Starting Google Sheet Setup for '{SHEET_NAME}' ---")
-        spreadsheet = connect_to_google_sheets(SHEET_NAME)
+        # Get the authenticated gspread client
+        gc = get_gspread_client()
+
+        # It's good practice to check if authentication was successful
+        if not gc:
+            logger.error("Could not get Google Sheets client. Exiting.")
+            sys.exit(1)
+
+        spreadsheet = gc.open(SHEET_NAME)
         enhance_sheet_structure(spreadsheet)
         logger.info("✅ --- Google Sheet setup completed successfully! ---")
     except Exception as e:

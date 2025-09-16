@@ -3,7 +3,7 @@ steps:
   args:
   - 'build'
   - '--builder=gcr.io/buildpacks/builder:latest'
-  - '--env=GOOGLE_ENTRYPOINT=gunicorn --bind 0.0.0.0:$PORT --workers 1 --threads 8 --timeout 0 app:app'
-  - '${_LOCATION}-docker.pkg.dev/${PROJECT_ID}/cloud-run-source-deploy/my-trading-platform/datradingplatform:${_REVISION_ID}'
+  - '--env=GOOGLE_ENTRYPOINT=gunicorn --bind 0.0.0.0:$PORT app:app'
+  - 'asia-south1-docker.pkg.dev/${PROJECT_ID}/cloud-run-source-deploy/my-trading-platform/datradingplatform:${_REVISION_ID}'
 images:
-- '${_LOCATION}-docker.pkg.dev/${PROJECT_ID}/cloud-run-source-deploy/my-trading-platform/datradingplatform:${_REVISION_ID}'
+- 'asia-south1-docker.pkg.dev/${PROJECT_ID}/cloud-run-source-deploy/my-trading-platform/datradingplatform:${_REVISION_ID}'

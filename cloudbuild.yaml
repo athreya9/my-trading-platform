@@ -3,6 +3,7 @@ steps:
   args:
   - 'build'
   - '--builder=gcr.io/buildpacks/builder:latest'
+  - '--env=GOOGLE_PIP_REQUIREMENTS_FILE=requirements_minimal.txt'
   - 'asia-south1-docker.pkg.dev/${PROJECT_ID}/cloud-run-source-deploy/my-trading-platform/datradingplatform:${_REVISION_ID}'
 images:
 - 'asia-south1-docker.pkg.dev/${PROJECT_ID}/cloud-run-source-deploy/my-trading-platform/datradingplatform:${_REVISION_ID}'

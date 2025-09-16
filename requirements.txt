@@ -1,17 +1,2 @@
 flask
 flask-cors
-gspread
-pandas
-pandas-ta
-numpy
-joblib
-yfinance
-python-dotenv
-requests
-feedparser
-scikit-learn
-xgboost
-matplotlib
-seaborn
-google-auth-oauthlib
-kiteconnect

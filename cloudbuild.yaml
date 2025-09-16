@@ -43,8 +43,8 @@ steps:
     '--min-instances', '1', # Keep one instance warm to prevent cold start timeouts for scheduled jobs.
     # --- CRITICAL FIX: Explicitly define the startup command ---
     '--command', 'gunicorn',
-    # This points Gunicorn to the 'app' object inside the root 'app.py' file.
-    '--args', '--bind,0.0.0.0:$PORT,--workers,1,--threads,8,--timeout,0,app:app',
+    # This points Gunicorn to the 'app' object inside the root 'app.py' file, with robust argument formatting.
+    '--args', '--bind=0.0.0.0:$PORT,--workers=1,--threads=8,--timeout=0,app:app',
     # Mount secrets from Google Secret Manager as environment variables.
     # The format is 'ENV_VAR_NAME=SECRET_NAME:VERSION'.
     # You must create these secrets in Secret Manager first.

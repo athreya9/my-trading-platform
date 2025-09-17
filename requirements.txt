@@ -10,7 +10,7 @@ python-dotenv
 requests
 feedparser
 scikit-learn
-xgboost
+xgboost-cpu
 matplotlib
 seaborn
 google-auth-oauthlib

@@ -1,4 +1,5 @@
 # api/sheet_utils.py
+import base64
 import gspread
 import logging
 import os
@@ -48,12 +49,26 @@ def get_gspread_client():
     creds_json_str = os.environ.get('GOOGLE_SHEETS_CREDENTIALS')
     if creds_json_str:
         try:
-            creds_dict = json.loads(creds_json_str)
-            print("Authenticating with Google Sheets via environment variable.")
+            print(f"DEBUG: Raw GOOGLE_SHEETS_CREDENTIALS: {creds_json_str[:50]}...") # Print first 50 chars
+            # Attempt to decode from Base64 first
+            try:
+                decoded_creds = base64.b64decode(creds_json_str).decode('utf-8')
+                print(f"DEBUG: Decoded creds (Base64): {decoded_creds[:50]}...") # Print first 50 chars
+                creds_dict = json.loads(decoded_creds)
+                print("Authenticating with Google Sheets via Base64 decoded environment variable.")
+            except (base64.binascii.Error, json.JSONDecodeError) as e:
+                print(f"DEBUG: Base64 decode or JSON load failed: {e}")
+                print(f"DEBUG: Attempting direct JSON load...")
+                # Fallback to direct JSON load if not Base64 or invalid JSON
+                creds_dict = json.loads(creds_json_str)
+                print("Authenticating with Google Sheets via direct environment variable.")
+            print(f"DEBUG: Type of creds_dict: {type(creds_dict)}")
+            print(f"DEBUG: Content of creds_dict keys: {creds_dict.keys()}")
             gc = gspread.service_account_from_dict(creds_dict)
             return gc
-        except json.JSONDecodeError:
-            print("Error: GOOGLE_SHEETS_CREDENTIALS environment variable is not valid JSON.")
+        except json.JSONDecodeError as e:
+            print(f"Error: GOOGLE_SHEETS_CREDENTIALS environment variable is not valid JSON. Details: {e}")
+            print(f"Problematic string (if not Base64): {creds_json_str[:100]}...")
         except Exception as e:
             print(f"An error occurred during authentication with environment variable: {e}")
 
@@ -64,7 +79,7 @@ def get_gspread_client():
         # os.path.join(...) creates the full path to credentials.json
         credentials_path = os.path.join(os.path.dirname(__file__), 'credentials.json')
         print(f"Authenticating with Google Sheets via file: {credentials_path}")
-            gc = gspread.service_account(filename=credentials_path)
+        gc = gspread.service_account(filename=credentials_path)
         return gc
     except FileNotFoundError:
         print(f"Warning: credentials.json not found at {credentials_path}.")

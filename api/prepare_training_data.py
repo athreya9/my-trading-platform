@@ -15,11 +15,7 @@ import numpy as np
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from api.process_data import calculate_indicators, apply_price_action_indicators
-<<<<<<< HEAD
 from api.sheet_utils import connect_to_google_sheets, read_historical_data
-=======
-from api.sheet_utils import get_gspread_client
->>>>>>> feature/frontend-backend-setup
 
 
 # --- Configuration for the Target Variable ---
@@ -80,7 +76,6 @@ def main():
         print("--- Starting ML Data Preparation ---")
         try:
             # 1. Read historical data from Google Sheets
-<<<<<<< HEAD
             spreadsheet = connect_to_google_sheets(SHEET_NAME)
             # Use the new, dedicated function to read from the correct sheet.
             price_df = read_historical_data(spreadsheet)
@@ -96,22 +91,6 @@ def main():
             'Symbol': 'instrument',
             'Timestamp': 'timestamp'
         }, inplace=True)
-=======
-            gc = get_gspread_client()
-            if not gc:
-                print("Could not get Google Sheets client. Exiting.", file=sys.stderr)
-                sys.exit(1)
-            spreadsheet = gc.open(SHEET_NAME)
-            # Read data for ALL instruments to create a richer training set
-            price_df = read_price_data(spreadsheet, target_instrument=None)
-        except ValueError as e:
-            # This handles the specific case from read_price_data where the sheet is empty.
-            # It's not an error, just a state. We can't train, so we exit gracefully.
-            print(f"⚠️  {e}")
-            print("This is expected if the 'collect-data' job hasn't run yet. No data to train on.")
-            set_github_output('data_prepared', 'false')
-            sys.exit(0)
->>>>>>> feature/frontend-backend-setup
 
         # 2. Calculate all indicators to use as features
         # We reuse the robust functions from the main processing script.

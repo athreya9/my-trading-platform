@@ -1057,7 +1057,7 @@ def generate_advisor_output(signal):
     return advisor_data
 
 @retry(logger=logger)
-def def send_telegram_notification(message):
+def send_telegram_notification(message):
     """Sends a message to a Telegram chat using a bot, with Markdown formatting."""
     logger.info("Attempting to send Telegram notification...")
     bot_token = os.getenv('TELEGRAM_BOT_TOKEN')

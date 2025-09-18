@@ -1056,32 +1056,32 @@ def generate_advisor_output(signal):
     advisor_data = [recommendation, confidence_str, f"{entry_price:.2f}", f"{stop_loss:.2f}", f"{take_profit:.2f}", reasons, timestamp_str]
     return advisor_data
 
-# @retry(logger=logger)
-# def send_telegram_notification(message):
-#     """Sends a message to a Telegram chat using a bot, with Markdown formatting."""
-#     logger.info("Attempting to send Telegram notification...")
-#     bot_token = os.getenv('TELEGRAM_BOT_TOKEN')
-#     chat_id = os.getenv('TELEGRAM_CHAT_ID')
+@retry(logger=logger)
+def def send_telegram_notification(message):
+    """Sends a message to a Telegram chat using a bot, with Markdown formatting."""
+    logger.info("Attempting to send Telegram notification...")
+    bot_token = os.getenv('TELEGRAM_BOT_TOKEN')
+    chat_id = os.getenv('TELEGRAM_CHAT_ID')
 
-#     if not bot_token or not chat_id:
-#         logger.warning("TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID not set. Skipping notification.")
-#         return
+    if not bot_token or not chat_id:
+        logger.warning("TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID not set. Skipping notification.")
+        return
 
-#     url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
-#     payload = {
-#         'chat_id': chat_id,
-#         'text': message,
-#         'parse_mode': 'Markdown' # Use Markdown for bold, italics, etc.
-#     }
+    url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+    payload = {
+        'chat_id': chat_id,
+        'text': message,
+        'parse_mode': 'Markdown' # Use Markdown for bold, italics, etc.
+    }
 
-#     try:
-#         response = requests.post(url, json=payload, timeout=10)
-#         response.raise_for_status() # Raises an exception for 4xx/5xx status codes
-#         logger.info("Telegram notification sent successfully.")
-#     except requests.exceptions.RequestException as e:
-#         logger.error(f"Failed to send Telegram notification: {e}")
-#         # The @retry decorator will handle re-attempts on failure.
-#         raise
+    try:
+        response = requests.post(url, json=payload, timeout=10)
+        response.raise_for_status() # Raises an exception for 4xx/5xx status codes
+        logger.info("Telegram notification sent successfully.")
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Failed to send Telegram notification: {e}")
+        # The @retry decorator will handle re-attempts on failure.
+        raise
 
 @retry()
 def write_to_sheets(spreadsheet, price_df, signals_df, is_test_run=False):
@@ -1181,19 +1181,19 @@ def write_to_sheets(spreadsheet, price_df, signals_df, is_test_run=False):
         advisor_worksheet.update('A1', advisor_header + [advisor_row], value_input_option='USER_ENTERED')
         logger.info("Advisor output written successfully.")
 
-        # # --- Send Telegram Notification for the top signal ---
-        # # advisor_row: [recommendation, confidence, entry, sl, tp, reasons, timestamp]
-        # notification_message = (
-        #     f"📈 *New Trading Signal*\n\n"
-        #     f"*Action:* {advisor_row[0]}\n"
-        #     f"*Confidence:* {advisor_row[1]}\n\n"
-        #     f"Entry: `{advisor_row[2]}`\n"
-        #     f"Stop Loss: `{advisor_row[3]}`\n"
-        #     f"Take Profit: `{advisor_row[4]}`\n\n"
-        #     f"*Reason:* {advisor_row[5]}\n"
-        #     f"_{advisor_row[6]} UTC_"
-        # )
-        # send_telegram_notification(notification_message)
+        # --- Send Telegram Notification for the top signal ---
+        # advisor_row: [recommendation, confidence, entry, sl, tp, reasons, timestamp]
+        notification_message = (
+            f"📈 *New Trading Signal*\n\n"
+            f"*Action:* {advisor_row[0]}\n"
+            f"*Confidence:* {advisor_row[1]}\n\n"
+            f"Entry: `{advisor_row[2]}`\n"
+            f"Stop Loss: `{advisor_row[3]}`\n"
+            f"Take Profit: `{advisor_row[4]}`\n\n"
+            f"*Reason:* {advisor_row[5]}\n"
+            f"_{advisor_row[6]} UTC_"
+        )
+        send_telegram_notification(notification_message)
     else:
         logger.info("No signals to generate advice. Clearing and updating Advisor_Output sheet with status.")
         no_signal_row = [
@@ -1202,13 +1202,13 @@ def write_to_sheets(spreadsheet, price_df, signals_df, is_test_run=False):
         ]
         advisor_worksheet.update('A1', advisor_header + [no_signal_row], value_input_option='USER_ENTERED')
 
-        # # --- NEW: Send a status update to Telegram if no signal is found ---
-        # # This only runs on the first 15 minutes of the hour to avoid spam.
-        # if datetime.now().minute < 15:
-        #     notification_message = (
-        #         f"✅ *Bot Status Update*\n\nNo new high-confidence signals were found that met all criteria."
-        #     )
-        #     send_telegram_notification(notification_message)
+        # --- NEW: Send a status update to Telegram if no signal is found ---
+        # This only runs on the first 15 minutes of the hour to avoid spam.
+        if datetime.now().minute < 15:
+            notification_message = (
+                f"✅ *Bot Status Update*\n\nNo new high-confidence signals were found that met all criteria."
+            )
+            send_telegram_notification(notification_message)
 
     # --- NEW: Update Bot Control Timestamp ---
     try:

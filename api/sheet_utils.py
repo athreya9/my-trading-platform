@@ -7,6 +7,7 @@ import json
 from functools import wraps
 import time
 import pandas as pd
+import tempfile
 
 # This can be a shared logger or a new one.
 logger = logging.getLogger(__name__)
@@ -48,46 +49,43 @@ def get_gspread_client():
     # --- Strategy 1: Use Environment Variable ---
     creds_json_str = os.environ.get('GOOGLE_SHEETS_CREDENTIALS')
     if creds_json_str:
+        temp_file_path = None
         try:
-            print(f"DEBUG: Raw GOOGLE_SHEETS_CREDENTIALS: {creds_json_str[:50]}...") # Print first 50 chars
-            # Attempt to decode from Base64 first
+            # Attempt to decode from Base64 first (as before)
             try:
                 decoded_creds = base64.b64decode(creds_json_str).decode('utf-8')
-                print(f"DEBUG: Decoded creds (Base64): {decoded_creds[:50]}...") # Print first 50 chars
-                creds_dict = json.loads(decoded_creds)
-                print("Authenticating with Google Sheets via Base64 decoded environment variable.")
-            except (base64.binascii.Error, json.JSONDecodeError) as e:
-                print(f"DEBUG: Base64 decode or JSON load failed: {e}")
-                print(f"DEBUG: Attempting direct JSON load...")
+                creds_to_write = decoded_creds
+            except (base64.binascii.Error, json.JSONDecodeError):
                 # Fallback to direct JSON load if not Base64 or invalid JSON
-                creds_dict = json.loads(creds_json_str)
-                print("Authenticating with Google Sheets via direct environment variable.")
-            print(f"DEBUG: Type of creds_dict: {type(creds_dict)}")
-            print(f"DEBUG: Content of creds_dict keys: {creds_dict.keys()}")
-            gc = gspread.service_account_from_dict(creds_dict)
+                creds_to_write = creds_json_str
+
+            # Write credentials to a temporary file
+            with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.json') as temp_file:
+                temp_file.write(creds_to_write)
+                temp_file_path = temp_file.name
+
+            gc = gspread.service_account(filename=temp_file_path)
+            logger.info("Authenticating with Google Sheets via temporary file from environment variable.")
             return gc
-        except json.JSONDecodeError as e:
-            print(f"Error: GOOGLE_SHEETS_CREDENTIALS environment variable is not valid JSON. Details: {e}")
-            print(f"Problematic string (if not Base64): {creds_json_str[:100]}...")
         except Exception as e:
-            print(f"An error occurred during authentication with environment variable: {e}")
+            logger.error(f"An error occurred during authentication with environment variable via temp file: {e}", exc_info=True)
+        finally:
+            if temp_file_path and os.path.exists(temp_file_path):
+                os.remove(temp_file_path) # Clean up the temporary file
 
     # --- Strategy 2: Fallback to local credentials.json file ---
     try:
-        # __file__ is the path to the current script (e.g., /path/to/api/sheet_utils.py)
-        # os.path.dirname(__file__) gives the directory (e.g., /path/to/api)
-        # os.path.join(...) creates the full path to credentials.json
         credentials_path = os.path.join(os.path.dirname(__file__), 'credentials.json')
-        print(f"Authenticating with Google Sheets via file: {credentials_path}")
+        logger.info(f"Authenticating with Google Sheets via file: {credentials_path}")
         gc = gspread.service_account(filename=credentials_path)
         return gc
     except FileNotFoundError:
-        print(f"Warning: credentials.json not found at {credentials_path}.")
-        print("And GOOGLE_SHEETS_CREDENTIALS environment variable was not set.")
+        logger.warning(f"Warning: credentials.json not found at {credentials_path}.")
+        logger.warning("And GOOGLE_SHEETS_CREDENTIALS environment variable was not set.")
     except Exception as e:
-        print(f"An error occurred during authentication with file: {e}")
+        logger.error(f"An error occurred during authentication with file: {e}", exc_info=True)
 
-    print("Error: Could not authenticate with Google Sheets.")
+    logger.error("Error: Could not authenticate with Google Sheets.")
     return None
 
 @retry()

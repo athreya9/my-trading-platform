@@ -1487,6 +1487,25 @@ def get_dashboard_data():
     # except Exception as e:
     #     logger.error(f"Error fetching dashboard data: {e}", exc_info=True)
     #     return jsonify({"status": "error", "message": "Failed to fetch dashboard data from Google Sheets."}), 500
+    # --- END TEMPORARY DUMMY DATA ---
+
+    # try:
+    #     spreadsheet = connect_to_google_sheets(SHEET_NAME)
+
+    #     # Read data from all relevant sheets
+    #     dashboard_data = {
+    #         "advisorOutput": read_worksheet_data(spreadsheet, "Advisor_Output"),
+    #         "signals": read_worksheet_data(spreadsheet, "Signals"),
+    #         "botControl": read_worksheet_data(spreadsheet, "Bot_Control"),
+    #         "priceData": read_worksheet_data(spreadsheet, "Price_Data"),
+    #         "tradeLog": read_worksheet_data(spreadsheet, "Trade_Log"),
+    #         "lastRefreshed": datetime.now(pytz.utc).isoformat(),
+    #     }
+    #     return jsonify(dashboard_data), 200
+
+    # except Exception as e:
+    #     logger.error(f"Error fetching dashboard data: {e}", exc_info=True)
+    #     return jsonify({"status": "error", "message": "Failed to fetch dashboard data from Google Sheets."}), 500
 
 def fetch_latest_nifty_data():
     """Fetches and processes the latest Nifty 50 data."""

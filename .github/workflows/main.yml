@@ -116,8 +116,11 @@ jobs:
   #  JOB 2: Manually run data collection
   # ========================================================================
   collect-data:
-    name: "📈 Run Data Collection (Manual)"
-    if: github.event.inputs.run_data_collection
+    name: "📈 Run Data Collection"
+    needs: generate-token
+    if: |
+      (github.event_name == 'schedule' && github.event.schedule == '0 3 * * 1-5') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.run_data_collection)
     runs-on: ubuntu-latest
     timeout-minutes: 15
 

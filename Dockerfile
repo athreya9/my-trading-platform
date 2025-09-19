@@ -43,4 +43,4 @@ EXPOSE 8080
 # The PORT environment variable is automatically set by Cloud Run.
 # --timeout 0 disables the worker timeout, which is crucial for long-running tasks.
 # --threads 8 is added for multi-threaded request handling.
-CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:$PORT --workers 1 --threads 8 --timeout 0 app:app"]
+CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:$PORT --workers 1 --threads 8 --timeout 0 main:app"]

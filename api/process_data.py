@@ -1400,27 +1400,55 @@ def run_bot():
 def get_dashboard_data():
     """
     Provides a single endpoint for the frontend to fetch all necessary
-    dashboard data from Google Sheets. This is the first step to building
-    a custom frontend application.
+    dashboard data from Google Sheets.
     """
-    logger.info("Received request for dashboard data.")
-    try:
-        spreadsheet = connect_to_google_sheets(SHEET_NAME)
+    logger.info("Received request for dashboard data (DUMMY DATA MODE).")
+    # --- TEMPORARY DUMMY DATA FOR DEBUGGING ---
+    dummy_advisor_output = [
+        {"Recommendation": "BUY NIFTY (CALL)", "Confidence": "85%", "Entry Price": "22500.00", "Stop Loss": "22450.00", "Take Profit": "22600.00", "Reasons": "AI Prediction (85%)", "Timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+    ]
+    dummy_signals = [
+        {"Action": "BUY", "Symbol": "NIFTY", "Entry Price": "22500.00", "Stop Loss": "22450.00", "Take Profit": "22600.00", "Confidence": "85", "Reasons": "AI Prediction", "Timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+    ]
+    dummy_bot_control = [
+        {"Parameter": "status", "Value": "running"},
+        {"Parameter": "last_updated", "Value": datetime.now().strftime("%Y-%m-%d %H:%M:%S IST")}
+    ]
+    dummy_price_data = [
+        {"Symbol": "NIFTY 50", "Timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "open": "22500", "high": "22550", "low": "22480", "close": "22520", "volume": "100000"}
+    ]
+    dummy_trade_log = [
+        {"Date": "2025-09-17", "Instrument": "NIFTY", "Action": "BUY", "Quantity": "50", "Entry": "22000", "Exit": "22100", "P/L": "5000"}
+    ]
 
-        # Read data from all relevant sheets
-        dashboard_data = {
-            "advisorOutput": read_worksheet_data(spreadsheet, "Advisor_Output"),
-            "signals": read_worksheet_data(spreadsheet, "Signals"),
-            "botControl": read_worksheet_data(spreadsheet, "Bot_Control"),
-            "priceData": read_worksheet_data(spreadsheet, "Price_Data"),
-            "tradeLog": read_worksheet_data(spreadsheet, "Trade_Log"),
-            "lastRefreshed": datetime.now(pytz.utc).isoformat(),
-        }
-        return jsonify(dashboard_data), 200
+    dashboard_data = {
+        "advisorOutput": dummy_advisor_output,
+        "signals": dummy_signals,
+        "botControl": dummy_bot_control,
+        "priceData": dummy_price_data,
+        "tradeLog": dummy_trade_log,
+        "lastRefreshed": datetime.now(pytz.utc).isoformat(),
+    }
+    return jsonify(dashboard_data), 200
+    # --- END TEMPORARY DUMMY DATA ---
 
-    except Exception as e:
-        logger.error(f"Error fetching dashboard data: {e}", exc_info=True)
-        return jsonify({"status": "error", "message": "Failed to fetch dashboard data from Google Sheets."}), 500
+    # try:
+    #     spreadsheet = connect_to_google_sheets(SHEET_NAME)
+
+    #     # Read data from all relevant sheets
+    #     dashboard_data = {
+    #         "advisorOutput": read_worksheet_data(spreadsheet, "Advisor_Output"),
+    #         "signals": read_worksheet_data(spreadsheet, "Signals"),
+    #         "botControl": read_worksheet_data(spreadsheet, "Bot_Control"),
+    #         "priceData": read_worksheet_data(spreadsheet, "Price_Data"),
+    #         "tradeLog": read_worksheet_data(spreadsheet, "Trade_Log"),
+    #         "lastRefreshed": datetime.now(pytz.utc).isoformat(),
+    #     }
+    #     return jsonify(dashboard_data), 200
+
+    # except Exception as e:
+    #     logger.error(f"Error fetching dashboard data: {e}", exc_info=True)
+    #     return jsonify({"status": "error", "message": "Failed to fetch dashboard data from Google Sheets."}), 500
 
 def fetch_latest_nifty_data():
     """Fetches and processes the latest Nifty 50 data."""

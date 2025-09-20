@@ -1203,7 +1203,7 @@ def main(force_run=False):
             # The option chain is fetched but not currently used in signal generation.
             # To save API calls, this is commented out. It can be re-enabled if a strategy requires it.
             # option_chain_df = fetch_option_chain(kite, 'NIFTY')
-        # Step 2: Read supporting data from sheets
+        # Step 2: Read supporting data from Firestore
         manual_controls_df = read_manual_controls(db)
 
         # Step 3: Read historical trade log to calculate performance stats

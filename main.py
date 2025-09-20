@@ -21,8 +21,12 @@ try:
     app = Flask(__name__)
     logging.info("Flask app created.")
 
-    # Enable CORS to allow the frontend to make requests to this API
-    CORS(app)
+        # --- Enable CORS for the specific frontend origin ---
+        # This is a critical security and functionality step. It tells the browser
+        # that it's safe to allow the frontend code to access this backend API.
+        # We target the /api/* routes and specify the exact URL of the deployed frontend.
+        frontend_url = "https://my-trading-platform-471103.web.app"
+        CORS(app, resources={r"/api/*": {"origins": frontend_url}})
     logging.info("CORS enabled.")
 
     # Register the API endpoints from process_data.py under the /api prefix

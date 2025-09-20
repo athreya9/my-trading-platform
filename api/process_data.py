@@ -22,9 +22,18 @@ import re
 import sys
 from . import config
 import requests
-import feedparser
 from .sheet_utils import retry
 from firebase_admin import firestore
+
+# --- Defensive Import for feedparser ---
+# This prevents the entire application from crashing on startup if 'feedparser' is not installed.
+try:
+    import feedparser
+    FEEDPARSER_AVAILABLE = True
+except ImportError:
+    FEEDPARSER_AVAILABLE = False
+    # This warning will appear in the logs on Google Cloud Run.
+    logging.warning("`feedparser` library not found. News sentiment analysis will be disabled. To enable, run 'pip install feedparser' and add it to requirements.txt.")
 
 # --- NEW: Custom Exception for Graceful Halting ---
 class BotHaltedException(Exception):
@@ -693,6 +702,28 @@ def should_enter_trade(signal_params, market_conditions):
         
     return True
 
+def send_telegram_notification(message):
+    """Sends a message to a Telegram channel using secrets from environment variables."""
+    bot_token = os.getenv('TELEGRAM_BOT_TOKEN')
+    chat_id = os.getenv('TELEGRAM_CHAT_ID')
+
+    if not bot_token or not chat_id:
+        logger.warning("TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID not set. Skipping notification.")
+        return
+
+    url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+    payload = {
+        'chat_id': chat_id,
+        'text': message,
+        'parse_mode': 'Markdown' # Use Markdown for better formatting
+    }
+    try:
+        response = requests.post(url, json=payload)
+        response.raise_for_status() # Raise an exception for bad status codes (4xx or 5xx)
+        logger.info("Successfully sent Telegram notification.")
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Failed to send Telegram notification: {e}")
+
 def fetch_news_from_rss(ticker):
     """Fetches news headlines from a Google News RSS feed."""
     # Sanitize ticker for URL and create a search query
@@ -700,6 +731,10 @@ def fetch_news_from_rss(ticker):
     url = f"https://news.google.com/rss/search?q={query}&hl=en-IN&gl=IN&ceid=IN:en"
     
     try:
+        # Check if the library was imported successfully before trying to use it.
+        if not FEEDPARSER_AVAILABLE:
+            return []
+
         feed = feedparser.parse(url)
         # Get top 10 headlines for a good sample size
         headlines = [entry.title for entry in feed.entries[:10]]

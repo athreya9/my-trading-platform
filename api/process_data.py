@@ -29,6 +29,7 @@ import requests
 import feedparser
 from .sheet_utils import retry
 from .firestore_utils import get_firestore_client
+from firebase_admin import firestore
 
 # --- NEW: Custom Exception for Graceful Halting ---
 class BotHaltedException(Exception):
@@ -998,13 +999,9 @@ def generate_signals(price_data_dict, manual_controls_df, trade_log_df, market_c
         return pd.DataFrame()
         
     # --- New Code: Filter and Rank Signals ---
-    high_confidence_trades = []
-    for signal in all_potential_signals:
-        high_confidence_trades.append(signal) # All signals here have already passed the safety checks
-
-    # --- Now, sort the shortlist by confidence, take the top 5 ---
-    high_confidence_trades.sort(key=lambda x: x['confidence_score'], reverse=True)
-    final_recommended_trades = high_confidence_trades[:5] # TOP 5 TRADES
+    # Sort all generated signals by confidence score and take the top 5.
+    all_potential_signals.sort(key=lambda x: x.get('confidence_score', 0), reverse=True)
+    final_recommended_trades = all_potential_signals[:5]
 
     if not final_recommended_trades:
         logger.info("No high-confidence signals found after filtering.")
@@ -1272,7 +1269,6 @@ def main(force_run=False):
 
 
 # --- Script Execution ---
-#--- Script Execution ---
 @process_data_bp.route("/run", methods=["GET"])
 def run_bot():
     """

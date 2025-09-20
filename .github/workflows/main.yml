@@ -3,30 +3,23 @@ name: Trading Bot Workflow
 
 # --------------------------------------------------------------------------
 #  WORKFLOW TRIGGERS
-#  Defines when this workflow runs.
 # --------------------------------------------------------------------------
 on:
-  # 1. Runs on a schedule
   schedule:
-    # Runs daily before market open (e.g., 8:30 AM IST which is 3:00 UTC) to generate a new access token.
+    # Daily token generation
     - cron: '0 3 * * 1-5'
-    # Runs weekly on Sunday at 5:30 AM UTC to retrain the AI model
+    # Weekly AI model retraining
     - cron: '30 5 * * 0'
-
-  # 2. Allows manual runs from the GitHub Actions UI
   workflow_dispatch:
     inputs:
       run_token_generation:
         description: 'Manually generate a new access token?'
-        required: false
         type: boolean
       run_retraining:
         description: 'Manually run AI model retraining?'
-        required: false
         type: boolean
       run_data_collection:
-        description: 'Manually run data collection & signal generation (populates sheets)?'
-        required: false
+        description: 'Manually run data collection & signal generation?'
         type: boolean
       run_sheet_setup:
         description: 'Manually initialize/fix Google Sheet structure?'
@@ -34,8 +27,6 @@ on:
 
 # --------------------------------------------------------------------------
 #  CONCURRENCY CONTROL
-#  Ensures only one instance of this workflow runs at a time.
-#  This prevents race conditions and duplicate trading signals.
 # --------------------------------------------------------------------------
 concurrency:
   group: ${{ github.workflow }}
@@ -43,52 +34,41 @@ concurrency:
 
 # --------------------------------------------------------------------------
 #  JOBS
-#  The workflow is split into sequential jobs.
 # --------------------------------------------------------------------------
 jobs:
   # ========================================================================
-  #  JOB 1: Generate a fresh daily access token for Kite Connect
+  #  JOB 1: Generate Kite Access Token
   # ========================================================================
   generate-token:
     name: "🔑 Generate & Store Kite Access Token"
-    # This job runs on the daily schedule OR if manually triggered
     if: |
       (github.event_name == 'schedule' && github.event.schedule == '0 3 * * 1-5') ||
       (github.event_name == 'workflow_dispatch' && github.event.inputs.run_token_generation)
     runs-on: ubuntu-latest
-    timeout-minutes: 5 # Fail fast if token generation gets stuck
+    timeout-minutes: 5
 
     steps:
       - name: "Checkout Code"
         uses: actions/checkout@v4
-
       - name: "Set up Python"
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-
       - name: "Cache Pip Dependencies"
         uses: actions/cache@v4
         with:
           path: ~/.cache/pip
-          # Create a new cache if requirements files change
           key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}
           restore-keys: |
             ${{ runner.os }}-pip-
-
       - name: "Install Automation Dependencies"
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements-automation.txt
-
       - name: "Install System Dependencies for Headless Chrome"
         run: |
-          # Headless Chrome on Linux requires these system libraries to run.
           sudo apt-get update
-          # The libgconf-2-4 package is obsolete in newer Ubuntu versions.
-          # This updated list provides the necessary modern dependencies for headless Chrome.
           sudo apt-get install -y libnss3 libnspr4 libgbm1 libfontconfig1
-
       - name: "🤖 Run Automated Token Generation"
         id: token_generator
         env:
@@ -98,39 +78,29 @@ jobs:
           KITE_PASSWORD: ${{ secrets.KITE_PASSWORD }}
           KITE_TOTP_SECRET: ${{ secrets.KITE_TOTP_SECRET }}
         run: |
-          # Exit on error and fail if any command in a pipeline fails.
           set -eo pipefail
-          
           echo "::group::Generating new access token"
-          # Run the script and capture its standard output (the token).
           NEW_TOKEN=$(python automate_token_generation.py)
           echo "::endgroup::"
-
           if [ -z "$NEW_TOKEN" ]; then
             echo "::error::Failed to generate new access token. Script output was empty."
             exit 1
           fi
-
-          # Securely mask the token in logs and set it as an output
           echo "::add-mask::$NEW_TOKEN"
           echo "NEW_TOKEN=$NEW_TOKEN" >> "$GITHUB_ENV"
           echo "Successfully generated and masked a new access token."
-
       - name: '🔐 Authenticate to Google Cloud'
         if: success()
         uses: 'google-github-actions/auth@v2'
         with:
           credentials_json: '${{ secrets.GCP_SA_KEY }}'
-
       - name: 'Setup Google Cloud SDK'
         if: success()
         uses: 'google-github-actions/setup-gcloud@v2'
-
       - name: "Execute Secret Update"
         if: success()
         run: |
           echo "Updating KITE_ACCESS_TOKEN in Secret Manager..."
-          # The project ID is specified here to ensure the command targets the correct project.
           echo -n "${{ env.NEW_TOKEN }}" | gcloud secrets versions add KITE_ACCESS_TOKEN --data-file=- --project=my-trading-platform-471103
           echo "Secret updated successfully."
       - name: "Upload Debug Artifacts on Failure"
@@ -143,46 +113,42 @@ jobs:
             error_page_source.html
 
   # ========================================================================
-  #  JOB 2: Manually trigger the Cloud Run service to collect data
+  #  JOB 2: Manually run data collection
   # ========================================================================
   collect-data:
-    name: "📈 Run Data Collection (Manual)"
-    if: github.event.inputs.run_data_collection
+    name: "📈 Run Data Collection"
+    needs: generate-token
+    if: |
+      (github.event_name == 'schedule' && github.event.schedule == '0 3 * * 1-5') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.run_data_collection)
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
     steps:
       - name: "Checkout Code"
         uses: actions/checkout@v4
-
       - name: "Set up Python"
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-
       - name: "Install Dependencies"
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-
       - name: "📊 Run Data Collection Script"
         env:
-          # Pass all secrets needed by the script
           GOOGLE_SHEETS_CREDENTIALS: ${{ secrets.GCP_SA_KEY }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          # The script uses yfinance for forced runs, so Kite keys are not strictly needed,
-          # but we pass them for completeness in case the logic changes.
           KITE_API_KEY: ${{ secrets.KITE_API_KEY }}
           KITE_ACCESS_TOKEN: ${{ secrets.KITE_ACCESS_TOKEN }}
         run: python run_manual_collection.py
 
   # ========================================================================
-  #  JOB 3: Manually initialize or repair the Google Sheet structure
+  #  JOB 3: Manually initialize Google Sheet
   # ========================================================================
   setup-sheets:
     name: "🛠️ Initialize Google Sheet Structure"
-    # This job runs only when manually triggered with its specific input.
     if: github.event.inputs.run_sheet_setup
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -190,26 +156,21 @@ jobs:
     steps:
       - name: "Checkout Code"
         uses: actions/checkout@v4
-
       - name: "Set up Python"
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-
       - name: "Install Dependencies"
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-
       - name: "Run Sheet Setup Script"
         env:
-          # Use the same secret as other jobs for consistency
           GOOGLE_SHEETS_CREDENTIALS: ${{ secrets.GCP_SA_KEY }}
         run: python api/setup_sheets.py
 
-
   # ========================================================================
-  #  JOB 4: Retrain the AI model weekly to keep it updated
+  #  JOB 4: Prepare Training Data
   # ========================================================================
   prepare-training-data:
     name: "🧠 (1/2) Prepare Training Data"
@@ -222,64 +183,61 @@ jobs:
     steps:
       - name: "Checkout Code"
         uses: actions/checkout@v4
-
       - name: "Set up Python"
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-
       - name: "Install Dependencies"
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-
       - name: "📊 Run Data Preparation Script"
+        id: prepare_data
         env:
           GOOGLE_SHEETS_CREDENTIALS: ${{ secrets.GCP_SA_KEY }}
         run: python api/prepare_training_data.py
-
+      - name: "Check if Data Was Prepared"
+        if: steps.prepare_data.outputs.data_prepared != 'true'
+        run: |
+          echo "::error::No training data was prepared. Halting workflow."
+          exit 1
       - name: "📦 Upload Training Data as Artifact"
+        if: steps.prepare_data.outputs.data_prepared == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: training-data-csv
           path: api/training_data.csv
-          if-no-files-found: error # Fail the job if the file wasn't created
+          if-no-files-found: error
 
   # ========================================================================
-  #  JOB 5: Retrain the AI model using the prepared data
+  #  JOB 5: Retrain AI Model
   # ========================================================================
   retrain-ai-model:
     name: "🧠 (2/2) Retrain AI Model"
-    needs: prepare-training-data # This job depends on the one above
+    needs: prepare-training-data
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
-      # Grant write permissions to the contents of the repository for this job
       contents: write
 
     steps:
       - name: "Checkout Code"
         uses: actions/checkout@v4
-
       - name: "Set up Python"
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-
       - name: "Install Dependencies"
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-
       - name: "📥 Download Training Data Artifact"
         uses: actions/download-artifact@v4
         with:
           name: training-data-csv
-          path: api/ # Download into the 'api' directory
-
+          path: api/
       - name: "🤖 Train New AI Model"
         run: python api/train_model.py
-
       - name: "Commit and Push Updated Model"
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
@@ -288,3 +246,28 @@ jobs:
           commit_user_name: "GitHub Actions Bot"
           commit_user_email: "github-actions[bot]@users.noreply.github.com"
           commit_author: "github-actions[bot] <github-actions[bot]@users.noreply.github.com>"
+
+  # ========================================================================
+  #  JOB 6: Validate Model
+  # ========================================================================
+  validate-model:
+    name: "⚙️ Validate New Model with Backtest"
+    needs: retrain-ai-model
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: "Checkout Code"
+        uses: actions/checkout@v4
+      - name: "Set up Python"
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: "Install Dependencies"
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: "Run Backtest with New Model"
+        env:
+          GOOGLE_SHEETS_CREDENTIALS: ${{ secrets.GCP_SA_KEY }}
+        run: python backtest.py

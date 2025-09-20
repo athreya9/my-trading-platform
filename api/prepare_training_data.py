@@ -60,6 +60,18 @@ def main():
     """
     Main function to run the data preparation pipeline.
     """
+    # Get the GITHUB_OUTPUT path from environment variables for GitHub Actions
+    output_path_env = os.getenv('GITHUB_OUTPUT')
+
+    def set_github_output(name, value):
+        """Sets an output variable for subsequent steps in a GitHub Actions job."""
+        if output_path_env:
+            with open(output_path_env, 'a') as f:
+                f.write(f'{name}={value}\n')
+        else:
+            # Fallback for local execution where the env var is not set
+            print(f"INFO: Would set GitHub Action output '{name}' to '{value}'")
+
     try:
         print("--- Starting ML Data Preparation ---")
         try:
@@ -119,9 +131,12 @@ def main():
         print(f"✅ Success! Training data prepared and saved to:\n{output_path}")
         print(f"Total samples: {len(training_df)}")
         print("="*50)
+        # Set output for GitHub Actions to indicate success
+        set_github_output('data_prepared', 'true')
 
     except Exception as e:
         print(f"\n❌ An error occurred during data preparation: {e}", file=sys.stderr)
+        set_github_output('data_prepared', 'false')
         sys.exit(1)
 
 

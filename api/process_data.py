@@ -27,14 +27,13 @@ import sys
 from . import config
 import requests
 import feedparser
+from .sheet_utils import retry
 from .firestore_utils import get_firestore_client
 
 # --- NEW: Custom Exception for Graceful Halting ---
 class BotHaltedException(Exception):
     """Custom exception to indicate the bot was halted by user control."""
     pass
-
-process_data_bp = Blueprint('process_data', __name__)
 
 # --- Logging Configuration ---
 # Use a custom formatter to ensure all log times are in UTC for consistency
@@ -988,16 +987,6 @@ def generate_signals(price_data_dict, manual_controls_df, trade_log_df, market_c
                     })
                     signal_generated = True
 
-            # --- NEW: Price Action (FVG + CHoCH) Signal Logic ---
-            if not signal_generated and all_timeframes_bullish:
-                # ... (This logic can be kept as a secondary, rule-based check)
-                pass
-
-            # --- NEW: Order Block Entry Signal Logic ---
-            if not signal_generated and all_timeframes_bullish:
-                # ... (This logic can be kept as a secondary, rule-based check)
-                pass
-
         # --- Add common data and append to master list ---
         for sig in instrument_signals:
             sig['timestamp'] = latest_15m['timestamp']
@@ -1052,28 +1041,6 @@ def generate_advisor_output(signal):
     }
     return advisor_data
 
-def send_telegram_notification(message):
-    """Sends a message to a Telegram chat using a bot, with Markdown formatting."""
-    logger.info("Attempting to send Telegram notification...")
-    bot_token = os.getenv('TELEGRAM_BOT_TOKEN')
-    chat_id = os.getenv('TELEGRAM_CHAT_ID')
-    if not bot_token or not chat_id:
-        logger.warning("TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID not set. Skipping notification.")
-        return
-    url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
-    payload = {
-        'chat_id': chat_id,
-        'text': message,
-        'parse_mode': 'Markdown' # Use Markdown for bold, italics, etc.
-    }
-    try:
-        response = requests.post(url, json=payload, timeout=10)
-        response.raise_for_status() # Raises an exception for 4xx/5xx status codes
-        logger.info("Telegram notification sent successfully.")
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Failed to send Telegram notification: {e}")
-        raise
-
 def write_to_firestore(db, price_df, signals_df):
     """Writes all processed data to their respective Firestore collections."""
     logger.info("--- Starting Firestore Update Process ---")
@@ -1124,8 +1091,7 @@ def write_to_firestore(db, price_df, signals_df):
         advisor_data = generate_advisor_output(top_signal)
         batch.set(advisor_ref, advisor_data)
         logger.info(f"Staged top signal to Advisor_Output: {advisor_data['recommendation']}")
-
-        # Send Telegram Notification for the top signal
+        # --- Send Telegram Notification for the top signal ---
         notification_message = (
             f"📈 *New Trading Signal*\n\n"
             f"*Action:* {advisor_data['recommendation']}\n"
@@ -1146,8 +1112,8 @@ def write_to_firestore(db, price_df, signals_df):
             "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         }
         batch.set(advisor_ref, no_signal_data)
-
-        # Send a status update to Telegram if no signal is found
+        # --- Send a status update to Telegram if no signal is found ---
+        # This only runs on the first 15 minutes of the hour to avoid spam.
         if datetime.now().minute < 15:
             notification_message = (
                 f"✅ *Bot Status Update*\n\nNo new high-confidence signals were found that met all criteria."

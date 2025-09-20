@@ -1,4 +1,5 @@
 # api/sheet_utils.py
+import base64
 import gspread
 import logging
 import os
@@ -6,6 +7,7 @@ import json
 from functools import wraps
 import time
 import pandas as pd
+import tempfile
 
 # This can be a shared logger or a new one.
 logger = logging.getLogger(__name__)
@@ -33,45 +35,70 @@ def retry(tries=3, delay=5, backoff=2, logger=logger):
         return f_retry
     return deco_retry
 
+def get_gspread_client():
+    """
+    Authenticates with Google Sheets and returns a gspread client.
+
+    It uses a robust authentication strategy:
+    1. Tries to use the GOOGLE_SHEETS_CREDENTIALS environment variable,
+       which is ideal for production/CI environments (like GitHub Actions).
+    2. If the environment variable is not found, it falls back to loading
+       the 'credentials.json' file from the same directory. This is
+       ideal for local development.
+    """
+    # --- Strategy 1: Use Environment Variable ---
+    creds_json_str = os.environ.get('GOOGLE_SHEETS_CREDENTIALS')
+    if creds_json_str:
+        temp_file_path = None
+        try:
+            # Attempt to decode from Base64 first (as before)
+            try:
+                decoded_creds = base64.b64decode(creds_json_str).decode('utf-8')
+                creds_to_write = decoded_creds
+            except (base64.binascii.Error, json.JSONDecodeError):
+                # Fallback to direct JSON load if not Base64 or invalid JSON
+                creds_to_write = creds_json_str
+
+            # Write credentials to a temporary file
+            with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.json') as temp_file:
+                temp_file.write(creds_to_write)
+                temp_file_path = temp_file.name
+
+            gc = gspread.service_account(filename=temp_file_path)
+            logger.info("Authenticating with Google Sheets via temporary file from environment variable.")
+            return gc
+        except Exception as e:
+            logger.error(f"An error occurred during authentication with environment variable via temp file: {e}", exc_info=True)
+        finally:
+            if temp_file_path and os.path.exists(temp_file_path):
+                os.remove(temp_file_path) # Clean up the temporary file
+
+    # --- Strategy 2: Fallback to local credentials.json file ---
+    try:
+        credentials_path = os.path.join(os.path.dirname(__file__), 'credentials.json')
+        logger.info(f"Authenticating with Google Sheets via file: {credentials_path}")
+        gc = gspread.service_account(filename=credentials_path)
+        return gc
+    except FileNotFoundError:
+        logger.warning(f"Warning: credentials.json not found at {credentials_path}.")
+        logger.warning("And GOOGLE_SHEETS_CREDENTIALS environment variable was not set.")
+    except Exception as e:
+        logger.error(f"An error occurred during authentication with file: {e}", exc_info=True)
+
+    logger.error("Error: Could not authenticate with Google Sheets.")
+    return None
+
 @retry()
 def connect_to_google_sheets(sheet_name):
     """
     Connects to Google Sheets using a robust authentication strategy and opens the specified sheet.
-
-    Authentication Strategy:
-    1. Tries to use the GOOGLE_SHEETS_CREDENTIALS environment variable (for production/CI).
-    2. Falls back to loading 'credentials.json' from the same directory (for local development).
     """
-    logger.info("Attempting to authenticate with Google Sheets...")
-    client = None
-
-    # --- Strategy 1: Use Environment Variable ---
-    creds_json_str = os.getenv('GOOGLE_SHEETS_CREDENTIALS')
-    if creds_json_str:
-        try:
-            creds_dict = json.loads(creds_json_str)
-            logger.info("Authenticating with Google Sheets via environment variable.")
-            client = gspread.service_account_from_dict(creds_dict)
-        except json.JSONDecodeError:
-            logger.error("Error: GOOGLE_SHEETS_CREDENTIALS environment variable is not valid JSON.")
-        except Exception as e:
-            logger.error(f"An error occurred during authentication with environment variable: {e}")
-
-    # --- Strategy 2: Fallback to local credentials.json file ---
+    logger.info("Attempting to connect to Google Sheets...")
+    client = get_gspread_client()
     if not client:
-        try:
-            credentials_path = os.path.join(os.path.dirname(__file__), 'credentials.json')
-            logger.info(f"Authenticating with Google Sheets via file: {credentials_path}")
-            client = gspread.service_account(filename=credentials_path)
-        except FileNotFoundError:
-            logger.error(f"CRITICAL: 'credentials.json' not found at {credentials_path} and GOOGLE_SHEETS_CREDENTIALS env var was not set or failed.")
-            raise
-        except Exception as e:
-            logger.error(f"An error occurred during authentication with file: {e}")
-            raise
-
-    if not client:
-        raise Exception("Could not authenticate with Google Sheets using any method.")
+        # The get_gspread_client function already prints detailed errors.
+        # We can raise an exception to halt execution if no client is returned.
+        raise Exception("Failed to get Google Sheets client. Halting execution.")
 
     # --- Open Spreadsheet ---
     try:
@@ -79,6 +106,9 @@ def connect_to_google_sheets(sheet_name):
         spreadsheet = client.open(sheet_name)
         logger.info(f"Successfully connected to Google Sheet: '{spreadsheet.title}'")
         return spreadsheet
+    except gspread.exceptions.SpreadsheetNotFound:
+        logger.error(f"Error: Spreadsheet '{sheet_name}' not found or not shared with the service account.")
+        raise
     except Exception as e:
         raise Exception(f"Error opening Google Sheet '{sheet_name}'. Ensure the name is correct and the service account has access. Original error: {e}")
 

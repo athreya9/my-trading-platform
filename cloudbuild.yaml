@@ -1,66 +1,8 @@
-# cloudbuild.yaml - place this file in the root of your 'my-trading-platform' directory
 steps:
-# Step 0: (REMOVED) Pre-build check for AI model.
-# This check was removed because it created a circular dependency. The application
-# must be deployable *before* the model exists. The Python code is already
-# designed to handle a missing model file gracefully at runtime.
-# - name: 'gcr.io/cloud-builders/gcloud'
-#   ...
-
-# Step 1: Build the image using Google Cloud Buildpacks.
-# This now uses the Dockerfile directly for a more explicit and reliable build.
-- name: 'gcr.io/cloud-builders/docker'
-  id: Build
-  args: [
-    'build',
-    '-t', 'asia-south1-docker.pkg.dev/$PROJECT_ID/my-trading-repo/my-trading-platform-image:latest',
-    '.'
-  ]
-
-# Step 2: Push the Docker image to Google Artifact Registry.
-- name: 'gcr.io/cloud-builders/docker'
-  id: Push
-  args: [
-    'push',
-    'asia-south1-docker.pkg.dev/$PROJECT_ID/my-trading-repo/my-trading-platform-image:latest'
-  ]
-
-# Step 3: Deploy the container to a private Cloud Run service.
-- name: 'gcr.io/google-cloud-builders/gcloud'
-  id: 'Deploy to Cloud Run'
-  args: [
-    'run',
-    'deploy',
-    'datradingplatform', # Target your existing Cloud Run service.
-    '--image', 'asia-south1-docker.pkg.dev/$PROJECT_ID/my-trading-repo/my-trading-platform-image:latest',
-    '--region', 'asia-south1', # Set to Mumbai for optimal performance with Indian markets.
-    '--platform', 'managed',
-    '--timeout', '900s', # Increase timeout to 15 minutes for slow Selenium startup
-    '--cpu-boost', # Use startup CPU boost to accelerate cold starts
-    '--no-allow-unauthenticated', # Make the service private, invokable only by authenticated requests.
-    '--memory', '4Gi', # Increase memory for Selenium, which can be memory-intensive.
-    '--cpu', '1',      # Allocate 1 dedicated vCPU for better performance
-    '--min-instances', '1', # Keep one instance warm to prevent cold start timeouts for scheduled jobs.
-    # --- CRITICAL FIX: Explicitly define the startup command ---
-    '--command', 'gunicorn',
-    # This points Gunicorn to the 'app' object inside the root 'app.py' file, with robust argument formatting.
-    '--args', '--bind=0.0.0.0:$PORT,--workers=1,--threads=8,--timeout=0,app:app',
-    # Mount secrets from Google Secret Manager as environment variables.
-    # The format is 'ENV_VAR_NAME=SECRET_NAME:VERSION'.
-    # You must create these secrets in Secret Manager first.
-    '--set-secrets=KITE_API_KEY=KITE_API_KEY:latest',
-    '--set-secrets=GOOGLE_SHEETS_CREDENTIALS=GOOGLE_SHEETS_CREDENTIALS:latest',
-    '--set-secrets=TELEGRAM_BOT_TOKEN=TELEGRAM_BOT_TOKEN:latest',
-    '--set-secrets=TELEGRAM_CHAT_ID=TELEGRAM_CHAT_ID:latest',
-    '--set-secrets=KITE_ACCESS_TOKEN=KITE_ACCESS_TOKEN:latest',
-    '--set-secrets=KITE_API_SECRET=KITE_API_SECRET:latest',
-    '--set-secrets=KITE_USER_ID=KITE_USER_ID:latest',
-    '--set-secrets=KITE_PASSWORD=KITE_PASSWORD:latest',
-    '--set-secrets=KITE_TOTP_SECRET=KITE_TOTP_SECRET:latest',
-    # Set environment variables for the deployed container.
-    '--set-env-vars=GCP_PROJECT=$PROJECT_ID'
-  ]
-
-# This section lists the images that were built and pushed.
+- name: 'gcr.io/k8s-skaffold/pack'
+  args:
+  - 'build'
+  - '--builder=gcr.io/buildpacks/builder:latest'
+  - 'asia-south1-docker.pkg.dev/${PROJECT_ID}/cloud-run-source-deploy/my-trading-platform/datradingplatform:${_REVISION_ID}'
 images:
-- 'asia-south1-docker.pkg.dev/$PROJECT_ID/my-trading-repo/my-trading-platform-image:latest'
+- 'asia-south1-docker.pkg.dev/${PROJECT_ID}/cloud-run-source-deploy/my-trading-platform/datradingplatform:${_REVISION_ID}'

@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "my-trading-platform-471103",
+  "private_key_id": "9c6a6620baf312513503759078e6ac431d3d94de",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDfpeuT8DdcW6fc\nXxDBUMrYleKL+dgXI27dii1CRNP2QKM2baiHetGCgRCj4Ie57K3CLilE8K4myliy\nt4pz8B4dXGCEwQxulhHH6v+fpHMmf0DrNANLR9HJiVLVmLMZWFvqPuOxcTiuHs73\np2/tDbjBusC8YudqDNLEBaM0bvrxRAgyGEpRxcbvwvSrBDqAEQpKnwo6m2xeOZph\n5lyGfA5ztT72L6ISXlKcBKmSejlaGb8JvMgUx2QfBK/NM4nCiyLh685BolreNgo2\nz1Z1mXlDRMFz83Y4I209TLF8M7ur5wPShRMrijQ+ETbHWko+mpwpPXJq71/vjUAA\n4M5IKBFRAgMBAAECggEAFu6HMxJAnZk4+IPM5C2EZw8oqAv0XXGre/l06ORwIWyr\nmjibPQJZuiUWujRFu8l/YDeQfA+mTmGValnJz1fRwVadVO9gdsmvcA1yAYIAsUlU\ntD6POehWzps54Z84egL72w8bagXUdydp4a3gRZu7E9jcy1Q5gJUTsA1t7cHqvCh5\nuuKUiMWhpatLz6k2t4qQSphL0X3lY5d+Mr+xlJ1+57Dj0Ue9oPsw7LVxEQ7ut7gz\nEWqwD4ysyCdCRowgRpTrX/JdBnDOw77Upinvon6Poa6ygafX3oQiCZXZ8a1/tsHV\nqyRf90kqnHfksHqMGjqlb2n/osQ9sb4ohMqDIjXTGwKBgQDyx2BvY8xGUevY0WQo\nFNsilslQwnAjhNMH2U0x15FQUflEkNTxxGW7zbE7bUv/2MRGJ1zwFXSB3L7CYXUf\nCKhoHSe59mMKL9DIInILI58hr5aeYyqeik74rh7/J4bDV/sdiGnx4zx1Nd1MWd/z\nLS+ZXvcrb3BBfVmUzLkXbs1u5wKBgQDr09bRWQGBdLe0oU/TtYgpP005CuULzPD9\nfFrArNtbf/+Xl+SZr5/xXumQK+XyFo9Nz+aT/jQiSTsCXLMXC9k4SbZpAH1sVKgG\nlHJoPOWbS9f8GulBSxji/4dEFe1U0Mrl/e/2gcrJxSDA8h6qNxKtu1Sk3D/rOfVb\n3S/Mw9GPBwKBgD8pM6OHGSvqQCuGPkJXOrOC+xjxnO8ArU5LcFPZO0rkKK935o6H\ng9gaKVPGmZEUOevubbVgP5FRdqdnZ2sNe5Kqkx1ERnvt+Kk4nObc+5dt8Qd/0SSx\n4t27nwDOrbbAeuoyBS4S6jWsL8ifUS4YwVtrY25/bXr8O4QExtqbzwJdAoGAdrBv\ndX2uXFE6BBcL7il3Fgtd+k+ZZ48F2w4zPrXA0RRitxEjZJYXkYuLUZxGZskj5q20\nBtfxtS/WGyI8oGS+Nq4iuEYe2d7hki40RnIfvUE2uxNwQgRhyh2BHqtKf112QLrF\ngvNf9JzaF0HEXTbKl9WojDCtmt3Ytxtja1NCrRECgYEAthich3u5iEDi3Yz5M04i\nX7SOimY8CcdDtRb1R6RCSn6Qw2JeJNbmOcEvpmV+hpLgWNLFlx/1cZoarg26YXPQ\nJmxHWF9p5h+DJ+bFbFaCbN/vH9DV5059H6Srzi31K/DEGLGeBbB+mbomPmIJ2vkQ\nreypq3Gwvw0GA4xP/Gcziew=\n-----END PRIVATE KEY-----\n",
+  "client_email": "sheets-api-bot@my-trading-platform-471103.iam.gserviceaccount.com",
+  "client_id": "106804241611941575025",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/sheets-api-bot%40my-trading-platform-471103.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}

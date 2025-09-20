@@ -1,18 +1,31 @@
+# Core web framework and utilities
 flask
-flask-cors
-gspread
+python-dotenv
+requests
+Flask-Cors
+
+# Data manipulation and scientific computing
 pandas
 pandas-ta
 numpy
-joblib
-yfinance
-python-dotenv
-requests
-feedparser
+pytz
+
+# Machine Learning
 scikit-learn
-xgboost-cpu
+xgboost
 matplotlib
 seaborn
+
+# Google Cloud and Firebase
+firebase-admin
+gspread
+google-auth
 google-auth-oauthlib
+google-auth-httplib2
+
+# Financial data APIs
+yfinance
 kiteconnect
-gunicorn
+
+# Other utilities
+feedparser

@@ -2,6 +2,7 @@
 # A single, combined script for GitHub Actions.
 # It fetches data, generates signals, and updates Google Sheets.
 from flask import Blueprint, request, jsonify
+from flask_cors import CORS
 from kiteconnect import KiteConnect
 import pandas as pd
 import pandas_ta as ta
@@ -1261,6 +1262,13 @@ def main(force_run=False):
 
 
 
+
+# --- Blueprint Definition ---
+process_data_bp = Blueprint('process_data', __name__)
+
+# --- Enable CORS for the Blueprint ---
+# This allows the frontend hosted on a different domain to make API calls to this backend.
+CORS(process_data_bp)
 
 # --- Script Execution ---
 @process_data_bp.route("/run", methods=["GET"])

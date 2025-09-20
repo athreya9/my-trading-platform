@@ -2,7 +2,6 @@
 # A single, combined script for GitHub Actions.
 # It fetches data, generates signals, and updates Google Sheets.
 from flask import Blueprint, request, jsonify
-import gspread
 from kiteconnect import KiteConnect
 import pandas as pd
 import pandas_ta as ta
@@ -28,7 +27,7 @@ import sys
 from . import config
 import requests
 import feedparser
-from .sheet_utils import connect_to_google_sheets, enhance_sheet_structure, retry, read_worksheet_data
+from .firestore_utils import get_firestore_client
 
 # --- NEW: Custom Exception for Graceful Halting ---
 class BotHaltedException(Exception):
@@ -47,13 +46,6 @@ handler = logging.StreamHandler(sys.stdout)
 handler.setFormatter(formatter)
 logger.addHandler(handler)
 logger.setLevel(logging.INFO)
-
-# --- Sheet & Symbol Configuration ---
-SHEET_NAME = "Algo Trading Dashboard" # The name of your Google Sheet
-DATA_WORKSHEET_NAME = "Price_Data"
-
-HISTORICAL_DATA_WORKSHEET_NAME = "Historical_Data" # New sheet for long-term storage
-SIGNALS_WORKSHEET_NAME = "Signals"
 
 # Data collection settings are now imported from config.py
 
@@ -122,83 +114,78 @@ YFINANCE_TO_KITE_MAP = {
 
 # --- Main Functions ---
 
-@retry()
-def read_manual_controls(spreadsheet):
-    """Reads manual override settings from the 'Manual Control' sheet."""
-    logger.info("Reading data from 'Manual Control' sheet...")
-
+def read_manual_controls(db):
+    """Reads manual override settings from the 'manual_controls' collection."""
+    logger.info("Reading data from 'manual_controls' collection...")
     try:
-        worksheet = spreadsheet.worksheet("Manual Control")
-        records = worksheet.get_all_records()
-        if not records:
-            logger.info("No manual controls found or sheet is empty.")
+        controls = {}
+        docs = db.collection('manual_controls').stream()
+        for doc in docs:
+            # The document ID is the instrument name (e.g., 'RELIANCE')
+            controls[doc.id] = doc.to_dict()
 
-
+        if not controls:
+            logger.info("No manual controls found or collection is empty.")
             return pd.DataFrame()
-        
-        df = pd.DataFrame(records)
-        # Ensure key columns exist, even if empty
-        for col in ['instrument', 'limit_price', 'hold_status']:
-            if col not in df.columns:
-                df[col] = None
-        
+
+        df = pd.DataFrame.from_dict(controls, orient='index')
+        df.index.name = 'instrument'
+        df.reset_index(inplace=True)
+
+        # Set instrument as index for easy lookup
         df.set_index('instrument', inplace=True)
         logger.info("Manual controls loaded successfully.")
         return df
-    except gspread.exceptions.WorksheetNotFound:
-        logger.warning("'Manual Control' worksheet not found. Skipping manual overrides.")
-        return pd.DataFrame()
     except Exception as e:
-        logger.warning(f"Could not read manual controls: {e}")
-
+        logger.warning(f"Could not read manual controls from Firestore: {e}")
         return pd.DataFrame()
 
-@retry()
-def read_trade_log(spreadsheet):
-    """Reads the historical trade log from the 'Trade Log' sheet."""
-    logger.info("Reading data from 'Trade Log' sheet...")
+def read_trade_log(db):
+    """Reads the historical trade log from the 'trade_log' collection."""
+    logger.info("Reading data from 'trade_log' collection...")
     try:
-        worksheet = spreadsheet.worksheet("Trade Log")
-        records = worksheet.get_all_records()
-        if not records:
+        trades = [doc.to_dict() for doc in db.collection('trade_log').stream()]
+
+        if not trades:
             logger.info("Trade log is empty. Cannot calculate Kelly Criterion.")
             return pd.DataFrame()
-        
-        df = pd.DataFrame(records)
-        # The column name in the sheet is 'P/L'. We need to handle this.
+
+        df = pd.DataFrame(trades)
+        # Firestore field name should be 'p_l' or 'profit_loss'
         if 'P/L' not in df.columns:
-            logger.warning("'P/L' column not found in 'Trade Log'. Cannot calculate performance.")
-            return pd.DataFrame()
+            # Try a more code-friendly name
+            if 'p_l' in df.columns:
+                df.rename(columns={'p_l': 'P/L'}, inplace=True)
+            else:
+                logger.warning("'P/L' or 'p_l' column not found in 'trade_log'. Cannot calculate performance.")
+                return pd.DataFrame()
 
         # Convert profit to numeric, coercing errors to NaN and then dropping them
         df['profit'] = pd.to_numeric(df['P/L'], errors='coerce')
         df.dropna(subset=['profit'], inplace=True)
-        
+
         logger.info(f"Successfully read {len(df)} trades from the log.")
         return df
-    except gspread.exceptions.WorksheetNotFound:
-        logger.warning("'Trade Log' worksheet not found. Cannot calculate Kelly Criterion.")
-        return pd.DataFrame()
     except Exception as e:
-        logger.warning(f"Could not read trade log: {e}")
+        logger.warning(f"Could not read trade log from Firestore: {e}")
         return pd.DataFrame()
 
-@retry()
-def check_bot_status(spreadsheet):
-    """Checks the 'Bot_Control' tab for a 'running' status."""
-    logger.info("Checking bot operational status...")
+def check_bot_status(db):
+    """Checks the 'bot_control' collection for a 'running' status."""
+    logger.info("Checking bot operational status from Firestore...")
     try:
-        worksheet = spreadsheet.worksheet("Bot_Control")
-        # Read the status from cell B2, which holds the value ("running" or "stopped")
-        status = worksheet.acell('B2').value
-        logger.info(f"Bot status from sheet ('Bot_Control'!B2): '{status}'")
-        if status and status.strip().strip('.').lower() == 'running':
-            return True
-        else:
-            logger.warning(f"Bot status is '{status}'. Halting execution as per Bot_Control sheet.")
-            return False
+        doc_ref = db.collection('bot_control').document('status')
+        doc = doc_ref.get()
+        if doc.exists:
+            status = doc.to_dict().get('status')
+            logger.info(f"Bot status from Firestore: '{status}'")
+            if status and status.lower() == 'running':
+                return True
+
+        logger.warning(f"Bot status is not 'running' or document not found. Halting execution.")
+        return False
     except Exception as e:
-        logger.error(f"Could not read bot status: {e}. Halting for safety.")
+        logger.error(f"Could not read bot status from Firestore: {e}. Halting for safety.")
         return False
 
 def calculate_kelly_criterion(trades_df):
@@ -526,38 +513,44 @@ def calculate_indicators(price_df):
 
     # Define a single function to apply all indicators to a group (a single instrument's data)
     def apply_all_indicators(group):
-        group = group.copy()
+        try:
+            group = group.copy()
 
-        # --- Standard TA-Lib Indicators ---
-        # Note: Using pandas_ta's direct methods is clean and efficient.
-        group.ta.sma(length=20, append=True)
-        group.ta.sma(length=50, append=True)
-        group.ta.rsi(length=14, append=True)
-        group.ta.macd(fast=12, slow=26, signal=9, append=True)
-        group.ta.atr(length=ATR_PERIOD, append=True)
-        group['volume_avg_20'] = group['volume'].rolling(window=20).mean()
+            # --- Standard TA-Lib Indicators ---
+            # Note: Using pandas_ta's direct methods is clean and efficient.
+            group.ta.sma(length=20, append=True)
+            group.ta.sma(length=50, append=True)
+            group.ta.rsi(length=14, append=True)
+            group.ta.macd(fast=12, slow=26, signal=9, append=True)
+            group.ta.atr(length=ATR_PERIOD, append=True)
+            group['volume_avg_20'] = group['volume'].rolling(window=20).mean()
 
-        # --- New Microstructure Indicators ---
-        # 1. Realized Volatility (rolling standard deviation of log returns)
-        group['log_return'] = np.log(group['close'] / group['close'].shift(1))
-        group['realized_vol'] = group['log_return'].rolling(window=REALIZED_VOL_WINDOW).std()
+            # --- New Microstructure Indicators ---
+            # 1. Realized Volatility (rolling standard deviation of log returns)
+            group['log_return'] = np.log(group['close'] / group['close'].shift(1))
+            group['realized_vol'] = group['log_return'].rolling(window=REALIZED_VOL_WINDOW).std()
 
-        # 2. VWAP (Volume-Weighted Average Price) - calculated per day
-        def calculate_daily_vwap(daily_group):
-            # Fill NaN volumes with 0 to prevent issues in cumulative sum
-            daily_group['volume'] = daily_group['volume'].fillna(0)
-            cum_vol = daily_group['volume'].cumsum()
-            # Avoid division by zero; use close price as VWAP if volume is zero.
-            vwap_calc = (daily_group['close'] * daily_group['volume']).cumsum() / cum_vol.replace(0, np.nan)
-            # If VWAP is NaN (e.g., at the start), fill with the current close price
-            daily_group['vwap'] = vwap_calc.fillna(daily_group['close'])
-            return daily_group
+            # 2. VWAP (Volume-Weighted Average Price) - calculated per day
+            def calculate_daily_vwap(daily_group):
+                # Fill NaN volumes with 0 to prevent issues in cumulative sum
+                daily_group['volume'] = daily_group['volume'].fillna(0)
+                cum_vol = daily_group['volume'].cumsum()
+                # Avoid division by zero; use close price as VWAP if volume is zero.
+                vwap_calc = (daily_group['close'] * daily_group['volume']).cumsum() / cum_vol.replace(0, np.nan)
+                # If VWAP is NaN (e.g., at the start), fill with the current close price
+                daily_group['vwap'] = vwap_calc.fillna(daily_group['close'])
+                return daily_group
 
-        # Apply VWAP calculation daily. Using group_keys=False to avoid extra index level.
-        if not group.empty:
-            group = group.groupby(group['timestamp'].dt.date, group_keys=False).apply(calculate_daily_vwap)
+            # Apply VWAP calculation daily. Using group_keys=False to avoid extra index level.
+            if not group.empty:
+                group = group.groupby(group['timestamp'].dt.date, group_keys=False).apply(calculate_daily_vwap)
 
-        return group
+            return group
+        except Exception as e:
+            instrument_name = group['instrument'].iloc[0] if not group.empty else "Unknown"
+            logger.error(f"Could not calculate indicators for instrument '{instrument_name}'. Error: {e}", exc_info=True)
+            # Return the original group; it will be filtered out by later logic that requires indicator columns.
+            return group
 
     # Use groupby().apply() to run the indicator calculations for each instrument
     price_df = price_df.groupby('instrument', group_keys=False).apply(apply_all_indicators)
@@ -699,13 +692,6 @@ def should_enter_trade(signal_params, market_conditions):
         return False
         
     return True
-
-@retry()
-def get_news_sentiment(instrument, analyzer):
-    """Fetches news for an instrument and returns an aggregated sentiment score."""
-    # If sentiment analysis is disabled (analyzer is None), return neutral score immediately.
-    logger.info("Sentiment analysis is disabled. Skipping news fetch.")
-    return 0.0
 
 def fetch_news_from_rss(ticker):
     """Fetches news headlines from a Google News RSS feed."""
@@ -952,6 +938,7 @@ def generate_signals(price_data_dict, manual_controls_df, trade_log_df, market_c
             # The final trend check: all timeframes must agree
             # Explicitly cast to a standard Python boolean to prevent comparison errors with numpy.bool_
             is_15m_bullish = bool(latest_15m['SMA_20'] > latest_15m['SMA_50'] and latest_15m['RSI_14'] < 70)
+            logger.info(f"MTF Confluence for {instrument}: 15m={'BULLISH' if is_15m_bullish else 'NOT BULLISH'}, 30m={'BULLISH' if is_30m_bullish else 'NOT BULLISH'}, 1h={'BULLISH' if is_1h_bullish else 'NOT BULLISH'}")
             all_timeframes_bullish = is_15m_bullish and is_30m_bullish and is_1h_bullish
 
             # --- Automated Signal Logic (with new rules) ---
@@ -1048,177 +1035,132 @@ def generate_advisor_output(signal):
     take_profit = signal.get('take_profit', 0)
     
     recommendation = f"BUY {stock_name} ({signal['option_type']})"
-    confidence_str = f"{confidence:.0f}%"
+    confidence_str = f"{int(confidence)}%"
     timestamp_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
     # This list directly matches the new "Advisor_Output" tab structure.
     # Using f-strings to format numbers to 2 decimal places for clarity.
-    advisor_data = [recommendation, confidence_str, f"{entry_price:.2f}", f"{stop_loss:.2f}", f"{take_profit:.2f}", reasons, timestamp_str]
+    # Return a dictionary for Firestore
+    advisor_data = {
+        "recommendation": recommendation,
+        "confidence": confidence_str,
+        "entry_price": f"{entry_price:.2f}",
+        "stop_loss": f"{stop_loss:.2f}",
+        "take_profit": f"{take_profit:.2f}",
+        "reasons": reasons,
+        "timestamp": timestamp_str
+    }
     return advisor_data
 
-# @retry(logger=logger)
-# def send_telegram_notification(message):
-#     """Sends a message to a Telegram chat using a bot, with Markdown formatting."""
-#     logger.info("Attempting to send Telegram notification...")
-#     bot_token = os.getenv('TELEGRAM_BOT_TOKEN')
-#     chat_id = os.getenv('TELEGRAM_CHAT_ID')
-
-#     if not bot_token or not chat_id:
-#         logger.warning("TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID not set. Skipping notification.")
-#         return
-
-#     url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
-#     payload = {
-#         'chat_id': chat_id,
-#         'text': message,
-#         'parse_mode': 'Markdown' # Use Markdown for bold, italics, etc.
-#     }
-
-#     try:
-#         response = requests.post(url, json=payload, timeout=10)
-#         response.raise_for_status() # Raises an exception for 4xx/5xx status codes
-#         logger.info("Telegram notification sent successfully.")
-#     except requests.exceptions.RequestException as e:
-#         logger.error(f"Failed to send Telegram notification: {e}")
-#         # The @retry decorator will handle re-attempts on failure.
-#         raise
-
-@retry()
-def write_to_sheets(spreadsheet, price_df, signals_df, is_test_run=False):
-    """Writes price data, signals, and the final advice to their respective sheets."""
-
-    logger.debug("--- Starting Google Sheet Update Process ---")
+def send_telegram_notification(message):
+    """Sends a message to a Telegram chat using a bot, with Markdown formatting."""
+    logger.info("Attempting to send Telegram notification...")
+    bot_token = os.getenv('TELEGRAM_BOT_TOKEN')
+    chat_id = os.getenv('TELEGRAM_CHAT_ID')
+    if not bot_token or not chat_id:
+        logger.warning("TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID not set. Skipping notification.")
+        return
+    url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+    payload = {
+        'chat_id': chat_id,
+        'text': message,
+        'parse_mode': 'Markdown' # Use Markdown for bold, italics, etc.
+    }
     try:
-        # Get all required worksheets, assuming they exist after running the fix script.
-        price_worksheet = spreadsheet.worksheet("Price_Data")
-        signals_worksheet = spreadsheet.worksheet("Signals")
-        advisor_worksheet = spreadsheet.worksheet("Advisor_Output")
-        historical_worksheet = spreadsheet.worksheet("Historical_Data")
-        bot_control_worksheet = spreadsheet.worksheet("Bot_Control")
-        
-        # Clear sheets that should be overwritten each run
-        signals_worksheet.clear()
-        advisor_worksheet.clear()
-        # DO NOT clear Price_Data or Historical_Data here. They are handled below.
-    except gspread.exceptions.WorksheetNotFound as e:
-        logger.error(f"A required worksheet is missing: {e}. Please run emergency_fix.py to set up the sheet structure.")
+        response = requests.post(url, json=payload, timeout=10)
+        response.raise_for_status() # Raises an exception for 4xx/5xx status codes
+        logger.info("Telegram notification sent successfully.")
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Failed to send Telegram notification: {e}")
         raise
 
-    # --- Write Price Data ---
-    if price_df.empty:
-        # This is a critical failure. If this function is called, data is expected.
-        # A silent success here hides upstream problems where data is lost during processing.
-        raise ValueError("Attempted to write to sheets, but the provided price dataframe was empty.")
+def write_to_firestore(db, price_df, signals_df):
+    """Writes all processed data to their respective Firestore collections."""
+    logger.info("--- Starting Firestore Update Process ---")
+    batch = db.batch()
 
-    logger.info(f"Preparing to write {len(price_df)} rows to 'Price_Data' sheet...")
-    # Select and format columns for the sheet.
-    price_data_to_write = price_df[['instrument', 'timestamp', 'open', 'high', 'low', 'close', 'volume']].copy()
-    price_data_to_write.rename(columns={'instrument': 'Symbol', 'timestamp': 'Timestamp'}, inplace=True)
-    
-    # Ensure timestamp is a string for writing
-    price_data_to_write['Timestamp'] = price_data_to_write['Timestamp'].dt.strftime('%Y-%m-%d %H:%M:%S')
-    
-    logger.info("Overwriting 'Price_Data' sheet with fresh data...")
-    price_worksheet.clear() # Clear before writing
-    price_worksheet.update(range_name='A1', values=[price_data_to_write.columns.values.tolist()] + price_data_to_write.fillna('').values.tolist(), value_input_option='USER_ENTERED')
-    logger.info("Price data written successfully.")
-    
-    # --- Append to Historical Data sheet for AI training ---
-    # This logic now runs for ALL data collection runs, manual or scheduled.
-    try:
-        # Check if the sheet is empty by checking cell A1. This is much faster than get_all_records().
-        is_sheet_empty = historical_worksheet.acell('A1').value is None
+    # 1. Write Price Data (one document per instrument in the 'price_data' collection)
+    if not price_df.empty:
+        for instrument, group in price_df.groupby('instrument'):
+            # Use a clean name for the document ID
+            doc_id = instrument.replace('.NS', '').replace('^', '')
+            doc_ref = db.collection('price_data').document(doc_id)
+            
+            # Convert dataframe to a list of dicts for Firestore
+            data_list = group.to_dict('records')
+            
+            # Firestore handles Python datetime objects automatically
+            batch.set(doc_ref, {'data': data_list, 'last_updated': firestore.SERVER_TIMESTAMP})
+        logger.info(f"Staged price data for {len(price_df['instrument'].unique())} instruments.")
+    else:
+        raise ValueError("Attempted to write to Firestore, but the provided price dataframe was empty.")
 
-        
-        if is_sheet_empty:
-             logger.info(f"'{HISTORICAL_DATA_WORKSHEET_NAME}' is empty. Writing headers and data.")
-             # Add header row to the data
-             historical_worksheet.update('A1', [price_data_to_write.columns.values.tolist()] + price_data_to_write.fillna('').values.tolist(), value_input_option='USER_ENTERED')
-        else:
-             logger.info(f"Appending {len(price_data_to_write)} new rows to '{HISTORICAL_DATA_WORKSHEET_NAME}'.")
-             # Append only the data rows, without the header
-             historical_worksheet.append_rows(price_data_to_write.fillna('').values.tolist(), value_input_option='USER_ENTERED')
-        
-        logger.info("Historical data appended successfully.")
-    except Exception as e:
-        logger.error(f"Failed to append data to '{HISTORICAL_DATA_WORKSHEET_NAME}': {e}", exc_info=True)
-        raise
-
-    # --- Write Signal Data ---
+    # 2. Clear old signals and write new ones
+    # This ensures the 'signals' collection only contains the latest run's signals.
+    old_signals_query = db.collection('signals').limit(500) # Delete in batches if needed
+    for doc in old_signals_query.stream():
+        batch.delete(doc.reference)
+    
     if not signals_df.empty:
-        logger.info(f"Preparing to write {len(signals_df)} rows to 'Signals'...")
-        # Select and rename columns to match the new sheet structure
-        signals_to_write = signals_df[[
-            'option_type', 'instrument', 'underlying_price', 'stop_loss', 'take_profit',
-            'confidence_score', 'reason', 'timestamp'
-
-        ]].copy()
-        signals_to_write.rename(columns={
-            'option_type': 'Action', 'instrument': 'Symbol', 'underlying_price': 'Entry Price',
-            'stop_loss': 'Stop Loss', 'take_profit': 'Take Profit',
-            'confidence_score': 'Confidence', 'reason': 'Reasons', 'timestamp': 'Timestamp'
-        }, inplace=True)
-        signals_to_write['Timestamp'] = signals_to_write['Timestamp'].dt.strftime('%Y-%m-%d %H:%M:%S')
-        
-        logger.info("Writing to 'Signals' sheet...")
-        signals_worksheet.update(range_name='A1', values=[signals_to_write.columns.values.tolist()] + signals_to_write.values.tolist(), value_input_option='USER_ENTERED')
-        logger.info("Signal data written successfully.")
+        for _, signal_row in signals_df.iterrows():
+            signal_doc_ref = db.collection('signals').document() # New doc with auto-ID
+            signal_data = signal_row.to_dict()
+            # Ensure all numpy types are converted to native Python types
+            for key, value in signal_data.items():
+                if isinstance(value, (np.int64, np.int32)):
+                    signal_data[key] = int(value)
+                elif isinstance(value, (np.float64, np.float32)):
+                    signal_data[key] = float(value)
+            batch.set(signal_doc_ref, signal_data)
+        logger.info(f"Staged {len(signals_df)} signals for Firestore.")
     else:
         logger.info("No signals to write.")
 
-    # --- Write Final Advisor Output ---
-    logger.info("Preparing to write to 'Advisor_Output' sheet...")
-    advisor_header = [["Recommendation", "Confidence", "Entry Price", "Stop Loss", "Take Profit", "Reasons", "Timestamp"]]
+    # 3. Write Final Advisor Output (a single document)
+    advisor_ref = db.collection('advisor_output').document('latest_recommendation')
     if not signals_df.empty:
-        # Rank signals to find the best opportunity
-        signals_df_sorted = signals_df.sort_values(by=['confidence_score', 'sentiment_score'], ascending=[False, False])
-        top_signal = signals_df_sorted.iloc[0]
-        
-        # Generate the single-row advisor data
-        advisor_row = generate_advisor_output(top_signal)
-        
-        logger.info(f"Writing top signal to Advisor_Output: {advisor_row}")
-        advisor_worksheet.update('A1', advisor_header + [advisor_row], value_input_option='USER_ENTERED')
-        logger.info("Advisor output written successfully.")
+        signals_df_sorted = signals_df.sort_values(by=['confidence_score'], ascending=False)
+        top_signal = signals_df_sorted.iloc[0].to_dict()
+        advisor_data = generate_advisor_output(top_signal)
+        batch.set(advisor_ref, advisor_data)
+        logger.info(f"Staged top signal to Advisor_Output: {advisor_data['recommendation']}")
 
-        # # --- Send Telegram Notification for the top signal ---
-        # # advisor_row: [recommendation, confidence, entry, sl, tp, reasons, timestamp]
-        # notification_message = (
-        #     f"📈 *New Trading Signal*\n\n"
-        #     f"*Action:* {advisor_row[0]}\n"
-        #     f"*Confidence:* {advisor_row[1]}\n\n"
-        #     f"Entry: `{advisor_row[2]}`\n"
-        #     f"Stop Loss: `{advisor_row[3]}`\n"
-        #     f"Take Profit: `{advisor_row[4]}`\n\n"
-        #     f"*Reason:* {advisor_row[5]}\n"
-        #     f"_{advisor_row[6]} UTC_"
-        # )
-        # send_telegram_notification(notification_message)
+        # Send Telegram Notification for the top signal
+        notification_message = (
+            f"📈 *New Trading Signal*\n\n"
+            f"*Action:* {advisor_data['recommendation']}\n"
+            f"*Confidence:* {advisor_data['confidence']}\n\n"
+            f"Entry: `{advisor_data['entry_price']}`\n"
+            f"Stop Loss: `{advisor_data['stop_loss']}`\n"
+            f"Take Profit: `{advisor_data['take_profit']}`\n\n"
+            f"*Reason:* {advisor_data['reasons']}\n"
+            f"_{advisor_data['timestamp']} UTC_"
+        )
+        send_telegram_notification(notification_message)
     else:
-        logger.info("No signals to generate advice. Clearing and updating Advisor_Output sheet with status.")
-        no_signal_row = [
-            "No high-confidence signals found.", "0%", "N/A", "N/A", "N/A",
-            "Market conditions not met.", datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        ]
-        advisor_worksheet.update('A1', advisor_header + [no_signal_row], value_input_option='USER_ENTERED')
+        logger.info("No signals to generate advice. Updating Advisor_Output with status.")
+        no_signal_data = {
+            "recommendation": "No high-confidence signals found.",
+            "confidence": "0%",
+            "reasons": "Market conditions not met.",
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        }
+        batch.set(advisor_ref, no_signal_data)
 
-        # # --- NEW: Send a status update to Telegram if no signal is found ---
-        # # This only runs on the first 15 minutes of the hour to avoid spam.
-        # if datetime.now().minute < 15:
-        #     notification_message = (
-        #         f"✅ *Bot Status Update*\n\nNo new high-confidence signals were found that met all criteria."
-        #     )
-        #     send_telegram_notification(notification_message)
+        # Send a status update to Telegram if no signal is found
+        if datetime.now().minute < 15:
+            notification_message = (
+                f"✅ *Bot Status Update*\n\nNo new high-confidence signals were found that met all criteria."
+            )
+            send_telegram_notification(notification_message)
 
-    # --- NEW: Update Bot Control Timestamp ---
-    try:
-        timestamp_str = datetime.now(pytz.timezone('Asia/Kolkata')).strftime('%Y-%m-%d %H:%M:%S IST')
-        bot_control_worksheet.update_acell('B4', timestamp_str) # Update the correct cell for the timestamp
-        logger.info("Successfully updated 'last_updated' timestamp in Bot_Control sheet.")
-    except Exception as e:
-        logger.warning(f"Could not update Bot_Control timestamp: {e}")
+    # 4. Update Bot Control Timestamp
+    bot_control_ref = db.collection('bot_control').document('status')
+    batch.update(bot_control_ref, {'last_updated': firestore.SERVER_TIMESTAMP})
 
-    logger.info("--- Sheet Update Process Completed ---")
+    # 5. Commit all batched writes to Firestore
+    batch.commit()
+    logger.info("--- Firestore Update Process Completed ---")
 
 def should_run():
     """
@@ -1278,12 +1220,11 @@ def main(force_run=False):
         else: # This is a forced run
             logger.warning("Forced run detected. Using yfinance data source for this run.")
         
-        # Step 1: Connect to Google Sheets (always required)
-        spreadsheet = connect_to_google_sheets(SHEET_NAME)
-        enhance_sheet_structure(spreadsheet)
+        # Step 1: Connect to Firestore
+        db = get_firestore_client()
         
-        # Check if the bot is enabled in the Google Sheet before proceeding.
-        if not check_bot_status(spreadsheet):
+        # Check if the bot is enabled in Firestore before proceeding.
+        if not check_bot_status(db):
             # This is the critical fix: Do not use sys.exit() in a web server. Instead,
 
             # raise a custom exception to be handled gracefully by the web endpoint.
@@ -1306,10 +1247,10 @@ def main(force_run=False):
                 logger.info("-----------------------------------------")
 
         # Step 2: Read supporting data from sheets
-        manual_controls_df = read_manual_controls(spreadsheet)
+        manual_controls_df = read_manual_controls(db)
 
         # Step 3: Read historical trade log to calculate performance stats
-        trade_log_df = read_trade_log(spreadsheet)
+        trade_log_df = read_trade_log(db)
         
         # Sentiment analysis model is no longer needed.
 
@@ -1322,13 +1263,9 @@ def main(force_run=False):
         if price_data_dict.get("15m") is None or price_data_dict["15m"].empty:
             logger.warning("No data was collected from the source. Skipping indicator calculation, signal generation, and sheet writing.")
             # Even if no data, we should update the 'last_updated' timestamp to show the bot ran.
-            try:
-                bot_control_worksheet = spreadsheet.worksheet("Bot_Control")
-                timestamp_str = datetime.now(pytz.timezone('Asia/Kolkata')).strftime('%Y-%m-%d %H:%M:%S IST')
-                bot_control_worksheet.update_acell('B4', timestamp_str)
-                logger.info("Successfully updated 'last_updated' timestamp in Bot_Control sheet.")
-            except Exception as e:
-                logger.warning(f"Could not update Bot_Control timestamp: {e}")
+            bot_control_ref = db.collection('bot_control').document('status')
+            bot_control_ref.update({'last_updated': firestore.SERVER_TIMESTAMP})
+            logger.info("Successfully updated 'last_updated' timestamp in Firestore.")
             logger.info("--- Trading Signal Process Completed (No Data) ---")
             return {"status": "success", "message": "No data collected from source."}
 
@@ -1352,7 +1289,7 @@ def main(force_run=False):
         signals_df = generate_signals(price_data_dict, manual_controls_df, trade_log_df, market_context, economic_events)
         
         # Step 7: Write both data and signals to the sheets
-        write_to_sheets(spreadsheet, price_data_dict["15m"], signals_df)
+        write_to_firestore(db, price_data_dict["15m"], signals_df)
 
         logger.info("--- Trading Signal Process Completed Successfully ---")
         return {"status": "success", "message": "Trading bot executed successfully."}
@@ -1369,7 +1306,8 @@ def main(force_run=False):
 
 
 # --- Script Execution ---
-@process_data_bp.route('/run', methods=['GET'])
+#--- Script Execution ---
+@process_data_bp.route("/run", methods=["GET"])
 def run_bot():
     """
     HTTP endpoint to trigger the trading bot's main logic.
@@ -1396,28 +1334,42 @@ def run_bot():
 
 
 # --- NEW: API Endpoint for Frontend Dashboard ---
-@process_data_bp.route('/dashboard', methods=['GET'])
+@process_data_bp.route("/dashboard", methods=["GET"])
 def get_dashboard_data():
     """
     Provides a single endpoint for the frontend to fetch all necessary
     dashboard data from Google Sheets. This is the first step to building
     a custom frontend application.
     """
-    logger.info("Received request for dashboard data.")
+    logger.info("Received request for dashboard data from Firestore.")
     try:
-        spreadsheet = connect_to_google_sheets(SHEET_NAME)
+        db = get_firestore_client()
 
-        # Read data from all relevant sheets
+        # Fetch data from all relevant collections
+        advisor_doc = db.collection('advisor_output').document('latest_recommendation').get()
+        signals_docs = db.collection('signals').stream()
+        bot_control_doc = db.collection('bot_control').document('status').get()
+        trade_log_docs = db.collection('trade_log').stream()
+        
+        # For price data, fetching all documents can be slow.
+        # For a dashboard, you might only fetch the watchlist symbols.
+        price_data = {}
+        for symbol in config.WATCHLIST_SYMBOLS:
+            doc_id = symbol.replace('.NS', '').replace('^', '')
+            price_doc = db.collection('price_data').document(doc_id).get()
+            if price_doc.exists:
+                price_data[symbol] = price_doc.to_dict().get('data', [])
+
         dashboard_data = {
-            "advisorOutput": read_worksheet_data(spreadsheet, "Advisor_Output"),
-            "signals": read_worksheet_data(spreadsheet, "Signals"),
-            "botControl": read_worksheet_data(spreadsheet, "Bot_Control"),
-            "priceData": read_worksheet_data(spreadsheet, "Price_Data"),
-            "tradeLog": read_worksheet_data(spreadsheet, "Trade_Log"),
+            "advisorOutput": [advisor_doc.to_dict()] if advisor_doc.exists else [],
+            "signals": [doc.to_dict() for doc in signals_docs],
+            "botControl": [bot_control_doc.to_dict()] if bot_control_doc.exists else [],
+            "priceData": price_data,
+            "tradeLog": [doc.to_dict() for doc in trade_log_docs],
             "lastRefreshed": datetime.now(pytz.utc).isoformat(),
         }
         return jsonify(dashboard_data), 200
 
     except Exception as e:
-        logger.error(f"Error fetching dashboard data: {e}", exc_info=True)
-        return jsonify({"status": "error", "message": "Failed to fetch dashboard data from Google Sheets."}), 500
+        logger.error(f"Error fetching dashboard data from Firestore: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": "Failed to fetch dashboard data from Firestore."}), 500

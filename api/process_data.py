@@ -1290,6 +1290,21 @@ def get_dashboard_data():
     a custom frontend application.
     """
     from .firestore_utils import get_firestore_client # LAZY IMPORT
+
+    def sanitize_for_json(doc_data):
+        """
+        Recursively cleans a dictionary or list to make it JSON serializable.
+        Specifically converts numpy/float NaN values to None (which becomes null in JSON).
+        """
+        if isinstance(doc_data, dict):
+            return {k: sanitize_for_json(v) for k, v in doc_data.items()}
+        if isinstance(doc_data, list):
+            return [sanitize_for_json(i) for i in doc_data]
+        # The core of the fix: NaN is not valid JSON. Convert it to None.
+        if isinstance(doc_data, float) and np.isnan(doc_data):
+            return None
+        return doc_data
+
     logger.info("Received request for dashboard data from Firestore.")
     try:
         db = get_firestore_client()
@@ -1327,16 +1342,19 @@ def get_dashboard_data():
                 else:
                     price_data[doc_id_to_symbol_map[doc.id]] = []
 
+        # Sanitize all data before sending to jsonify to handle non-serializable types like NaN.
         dashboard_data = {
-            "advisorOutput": [advisor_doc.to_dict()] if advisor_doc.exists else [],
-            "signals": [doc.to_dict() for doc in signals_docs],
-            "botControl": [bot_control_doc.to_dict()] if bot_control_doc.exists else [],
-            "priceData": price_data,
-            "tradeLog": [doc.to_dict() for doc in trade_log_docs],
+            "advisorOutput": [sanitize_for_json(advisor_doc.to_dict())] if advisor_doc.exists else [],
+            "signals": [sanitize_for_json(doc.to_dict()) for doc in signals_docs],
+            "botControl": [sanitize_for_json(bot_control_doc.to_dict())] if bot_control_doc.exists else [],
+            "priceData": sanitize_for_json(price_data),
+            "tradeLog": [sanitize_for_json(doc.to_dict()) for doc in trade_log_docs],
             "lastRefreshed": datetime.now(pytz.utc).isoformat(),
         }
         return jsonify(dashboard_data), 200
 
     except Exception as e:
+        # Provide a more descriptive error message for the frontend toast.
+        error_message = f"A backend error occurred while fetching dashboard data: {str(e)}"
         logger.error(f"Error fetching dashboard data from Firestore: {e}", exc_info=True)
-        return jsonify({"status": "error", "message": "Failed to fetch dashboard data from Firestore."}), 500
+        return jsonify({"status": "error", "message": error_message}), 500

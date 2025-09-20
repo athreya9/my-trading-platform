@@ -1332,12 +1332,20 @@ def get_dashboard_data():
                 # --- DEFINITIVE FIX for 500 Error ---
                 # The previous code would crash if any data point was missing a timestamp.
                 # This new code first filters for valid data points, then sorts them.
+                # --- FURTHER FIX: The sort can still fail if timestamps are mixed types (e.g. str and datetime).
                 if all_price_data:
-                    # 1. Filter out any data points that are missing a valid timestamp.
-                    valid_data = [dp for dp in all_price_data if dp and dp.get('timestamp')]
-                    # 2. Sort the valid data by timestamp.
-                    valid_data.sort(key=lambda x: x['timestamp'])
-                    # 3. Assign the last 200 points to the result.
+                    # 1. Filter for data points that are dicts and have a timestamp.
+                    valid_data = [dp for dp in all_price_data if isinstance(dp, dict) and dp.get('timestamp')]
+
+                    # 2. Sort robustly. If a timestamp is not a datetime object (e.g., legacy string data),
+                    # treat it as the oldest possible date to prevent a TypeError during sort.
+                    def get_sortable_timestamp(item):
+                        ts = item.get('timestamp')
+                        return ts if isinstance(ts, datetime) else datetime.min.replace(tzinfo=pytz.utc)
+
+                    valid_data.sort(key=get_sortable_timestamp)
+
+                    # 3. Assign the last 200 data points to the result.
                     price_data[doc_id_to_symbol_map[doc.id]] = valid_data[-200:]
                 else:
                     price_data[doc_id_to_symbol_map[doc.id]] = []

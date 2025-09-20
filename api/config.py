@@ -46,3 +46,12 @@ MARKET_BREADTH_SYMBOLS = FULL_MARKET_BREADTH_SYMBOLS if CURRENT_MODE == 'FULL' e
 
 # Combine the main index (^NSEI), watchlist, and market breadth symbols
 SYMBOLS = ['^NSEI'] + WATCHLIST_SYMBOLS + list(MARKET_BREADTH_SYMBOLS.values())
+
+# --- Machine Learning Feature Configuration ---
+# This list defines the exact features the AI model will be trained on and use for predictions.
+# Centralizing it here prevents inconsistencies between training and live prediction.
+ML_FEATURE_COLUMNS = [
+    'SMA_20', 'SMA_50', 'RSI_14', 'MACD_12_26_9', 'ATRr_14',
+    'volume_avg_20', 'realized_vol', 'vwap', 'bos', 'choch',
+    'last_bull_ob_top', 'last_bull_ob_bottom'
+]

@@ -8,6 +8,7 @@ import pandas_ta as ta
 import numpy as np
 import json
 import time
+import threading
 from datetime import datetime, timedelta
 import pytz
 import joblib
@@ -29,6 +30,14 @@ from firebase_admin import firestore
 class BotHaltedException(Exception):
     """Custom exception to indicate the bot was halted by user control."""
     pass
+
+# --- In-memory cache for the dashboard endpoint ---
+dashboard_cache = {
+    "data": None,
+    "timestamp": None,
+}
+CACHE_LIFETIME_SECONDS = 60  # Cache data for 60 seconds
+cache_lock = threading.Lock()
 
 # --- Logging Configuration ---
 # Use a custom formatter to ensure all log times are in UTC for consistency
@@ -1285,84 +1294,213 @@ def run_bot():
 @process_data_bp.route("/dashboard", methods=["GET"])
 def get_dashboard_data():
     """
-    Provides a single endpoint for the frontend to fetch all necessary
-    dashboard data from Google Sheets. This is the first step to building
-    a custom frontend application.
+    Provides a single endpoint for the frontend to fetch all necessary dashboard data.
+    Includes in-memory caching to reduce Firestore reads and improve performance.
     """
-    from .firestore_utils import get_firestore_client # LAZY IMPORT
+'use client';
 
-    def sanitize_for_json(doc_data):
-        """
-        Recursively cleans a dictionary or list to make it JSON serializable.
-        Specifically converts numpy/float NaN values to None (which becomes null in JSON).
-        """
-        if isinstance(doc_data, dict):
-            return {k: sanitize_for_json(v) for k, v in doc_data.items()}
-        if isinstance(doc_data, list):
-            return [sanitize_for_json(i) for i in doc_data]
-        # The core of the fix: NaN is not valid JSON. Convert it to None.
-        if isinstance(doc_data, float) and np.isnan(doc_data):
-            return None
-        return doc_data
+import { useState, useEffect } from 'react';
+import { DashboardData } from '@/lib/types';
+import AdvisorOutput from './AdvisorOutput';
+import SignalsTable from './SignalsTable';
+import BotControl from './BotControl';
+import PriceCharts from './PriceCharts';
+import TradeLog from './TradeLog';
 
-    logger.info("Received request for dashboard data from Firestore.")
-    try:
-        db = get_firestore_client()
+const Dashboard = () => {
+  const [data, setData] = useState<DashboardData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-        # Fetch singleton documents
-        advisor_doc = db.collection('advisor_output').document('latest_recommendation').get()
-        signals_docs = db.collection('signals').stream()
-        bot_control_doc = db.collection('bot_control').document('status').get()
-        trade_log_docs = db.collection('trade_log').stream()
-        
-        # For price data, fetching all documents can be slow.
-        # For a dashboard, you might only fetch the watchlist symbols.
-        # --- NEW: Efficiently fetch price data for all watchlist symbols in one query ---
-        price_data = {}
-        doc_ids_to_fetch = [s.replace('.NS', '').replace('^', '') for s in config.WATCHLIST_SYMBOLS]
-        # A map to convert the doc_id back to the original symbol
-        doc_id_to_symbol_map = {doc_id: symbol for doc_id, symbol in zip(doc_ids_to_fetch, config.WATCHLIST_SYMBOLS)}
+  const fetchData = async (isRefresh = false) => {
+    if (isRefresh) {
+      setIsRefreshing(true);
+    } else {
+      setLoading(true);
+    }
+    setError(null);
 
-        if doc_ids_to_fetch:
-            # Firestore 'in' queries are limited to 10 items. We handle this by batching if necessary.
-            # For now, assuming watchlist is < 10. For larger lists, this would need a loop.
-            price_docs = db.collection('price_data').where('__name__', 'in', doc_ids_to_fetch).stream()
-            for doc in price_docs:
-                all_price_data = doc.to_dict().get('data', [])
-                # --- DEFINITIVE FIX for 500 Error ---
-                # The previous code would crash if any data point was missing a timestamp.
-                # This new code first filters for valid data points, then sorts them.
-                # --- FURTHER FIX: The sort can still fail if timestamps are mixed types (e.g. str and datetime).
-                if all_price_data:
-                    # 1. Filter for data points that are dicts and have a timestamp.
-                    valid_data = [dp for dp in all_price_data if isinstance(dp, dict) and dp.get('timestamp')]
+    try {
+      const url = isRefresh
+        ? `${process.env.NEXT_PUBLIC_API_URL}/api/dashboard?refresh=true`
+        : `${process.env.NEXT_PUBLIC_API_URL}/api/dashboard`;
 
-                    # 2. Sort robustly. If a timestamp is not a datetime object (e.g., legacy string data),
-                    # treat it as the oldest possible date to prevent a TypeError during sort.
-                    def get_sortable_timestamp(item):
-                        ts = item.get('timestamp')
-                        return ts if isinstance(ts, datetime) else datetime.min.replace(tzinfo=pytz.utc)
-
-                    valid_data.sort(key=get_sortable_timestamp)
-
-                    # 3. Assign the last 200 data points to the result.
-                    price_data[doc_id_to_symbol_map[doc.id]] = valid_data[-200:]
-                else:
-                    price_data[doc_id_to_symbol_map[doc.id]] = []
-
-        # Sanitize all data before sending to jsonify to handle non-serializable types like NaN.
-        dashboard_data = {
-            "advisorOutput": [sanitize_for_json(advisor_doc.to_dict())] if advisor_doc.exists else [],
-            "signals": [sanitize_for_json(doc.to_dict()) for doc in signals_docs],
-            "botControl": [sanitize_for_json(bot_control_doc.to_dict())] if bot_control_doc.exists else [],
-            "priceData": sanitize_for_json(price_data),
-            "tradeLog": [sanitize_for_json(doc.to_dict()) for doc in trade_log_docs],
-            "lastRefreshed": datetime.now(pytz.utc).isoformat(),
+      const response = await fetch(url);
+      if (!response.ok) {
+        // Try to parse the error message from the backend if it's JSON
+        try {
+          const errorData = await response.json();
+          throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+        } catch {
+          throw new Error(`HTTP error! status: ${response.status}`);
         }
-        return jsonify(dashboard_data), 200
+      }
+      const result = await response.json();
+      setData(result);
+    } catch (e: any) {
+      console.error("Error fetching dashboard data:", e);
+      setError(e.message || "Failed to load dashboard data. The backend might be offline or returning an error.");
+    } finally {
+      if (isRefresh) {
+        setIsRefreshing(false);
+      } else {
+        setLoading(false);
+      }
+    }
+  };
 
-    except Exception as e:
-        # Provide a more descriptive error message for the frontend toast.
-        error_message = f"A backend error occurred while fetching dashboard data: {str(e)}"
-        logger.error(f"Error fetching dashboard data from Firestore: {e}", exc_info=True)
-        return jsonify({"status": "error", "message": error_message}), 500
+  useEffect(() => {
+    fetchData(false); // Initial load
+    // The auto-refresh interval should not force a cache bypass
+    const interval = setInterval(() => fetchData(false), 60000);
+    return () => clearInterval(interval);
+  }, []);
+
+  if (loading) {
+    return <div className="flex justify-center items-center h-screen">Loading dashboard...</div>;
+  }
+
+  if (error) {
+    return <div className="flex justify-center items-center h-screen text-red-500">{error}</div>;
+  }
+
+  if (!data) {
+    return <div className="flex justify-center items-center h-screen">No data available.</div>;
+  }
+
+  return (
+    <div className="p-4 md:p-6">
+      <div className="flex justify-between items-center mb-4">
+        <h1 className="text-2xl font-bold">Trading Dashboard</h1>
+        <div className="flex items-center space-x-4">
+          {data?.lastRefreshed && (
+            <div className="text-sm text-gray-500 hidden md:block">
+              Last Refreshed: {new Date(data.lastRefreshed).toLocaleString()}
+            </div>
+          )}
+          <button
+            onClick={() => fetchData(true)}
+            disabled={isRefreshing}
+            className="px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm disabled:bg-gray-400 disabled:cursor-not-allowed"
+          >
+            {isRefreshing ? 'Refreshing...' : 'Refresh'}
+          </button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 space-y-6">
+          <AdvisorOutput data={data.advisorOutput} />
+          <SignalsTable signals={data.signals} />
+        </div>
+        <div className="space-y-6">
+          <BotControl control={data.botControl} />
+          <TradeLog trades={data.tradeLog} />
+        </div>
+      </div>
+
+      <div className="mt-6">
+        <PriceCharts priceData={data.priceData} />
+      </div>
+    </div>
+  );
+};
+
+export default Dashboard;
+    # Check for a refresh request from the frontend to bypass the cache
+    force_refresh = request.args.get('refresh', 'false').lower() == 'true'
+    if force_refresh:
+        logger.info("Cache bypass requested via ?refresh=true. Fetching fresh data.")
+
+    # --- Caching Logic: Check 1 (no lock) ---
+    if not force_refresh and dashboard_cache["timestamp"] and \
+       (datetime.now() - dashboard_cache["timestamp"]).total_seconds() < CACHE_LIFETIME_SECONDS:
+        logger.info("Returning dashboard data from cache.")
+        return jsonify(dashboard_cache["data"])
+
+    with cache_lock:
+        # --- Caching Logic: Check 2 (with lock) ---
+        if not force_refresh and dashboard_cache["timestamp"] and \
+           (datetime.now() - dashboard_cache["timestamp"]).total_seconds() < CACHE_LIFETIME_SECONDS:
+            logger.info("Returning dashboard data from cache (after lock).")
+            return jsonify(dashboard_cache["data"])
+
+        logger.info("Fetching fresh dashboard data from Firestore (cache stale or bypassed).")
+        from .firestore_utils import get_firestore_client # LAZY IMPORT
+
+        def sanitize_for_json(doc_data):
+            """
+            Recursively cleans data to make it JSON serializable.
+            Converts numpy types to native Python types and NaN to None.
+            """
+            if isinstance(doc_data, dict):
+                return {k: sanitize_for_json(v) for k, v in doc_data.items()}
+            if isinstance(doc_data, list):
+                return [sanitize_for_json(i) for i in doc_data]
+            # Handle numpy numeric types
+            if isinstance(doc_data, (np.int64, np.int32, np.int16, np.int8)):
+                return int(doc_data)
+            if isinstance(doc_data, (np.float64, np.float32, np.float16)):
+                return None if np.isnan(doc_data) else float(doc_data)
+            # Handle numpy bool type
+            if isinstance(doc_data, np.bool_):
+                return bool(doc_data)
+            # Handle standalone NaN float
+            if isinstance(doc_data, float) and np.isnan(doc_data):
+                return None
+            return doc_data
+
+        try:
+            db = get_firestore_client()
+
+            # Fetch all data
+            advisor_doc = db.collection('advisor_output').document('latest_recommendation').get()
+            signals_docs = db.collection('signals').stream()
+            bot_control_doc = db.collection('bot_control').document('status').get()
+            trade_log_docs = db.collection('trade_log').stream()
+            
+            price_data = {}
+            doc_ids_to_fetch = [s.replace('.NS', '').replace('^', '') for s in config.WATCHLIST_SYMBOLS]
+            doc_id_to_symbol_map = {doc_id: symbol for doc_id, symbol in zip(doc_ids_to_fetch, config.WATCHLIST_SYMBOLS)}
+
+            if doc_ids_to_fetch:
+                price_docs = db.collection('price_data').where('__name__', 'in', doc_ids_to_fetch).stream()
+                for doc in price_docs:
+                    all_price_data = doc.to_dict().get('data', [])
+                    if all_price_data:
+                        valid_data = [dp for dp in all_price_data if isinstance(dp, dict) and dp.get('timestamp')]
+
+                        def get_sortable_timestamp(item):
+                            ts = item.get('timestamp')
+                            if not isinstance(ts, datetime):
+                                return datetime.min.replace(tzinfo=pytz.utc)
+                            if ts.tzinfo is None:
+                                return ts.replace(tzinfo=pytz.utc)
+                            return ts
+
+                        valid_data.sort(key=get_sortable_timestamp)
+                        price_data[doc_id_to_symbol_map[doc.id]] = valid_data[-200:]
+                    else:
+                        price_data[doc_id_to_symbol_map[doc.id]] = []
+
+            dashboard_data = {
+                "advisorOutput": [sanitize_for_json(advisor_doc.to_dict())] if advisor_doc.exists else [],
+                "signals": [sanitize_for_json(doc.to_dict()) for doc in signals_docs],
+                "botControl": [sanitize_for_json(bot_control_doc.to_dict())] if bot_control_doc.exists else [],
+                "priceData": sanitize_for_json(price_data),
+                "tradeLog": [sanitize_for_json(doc.to_dict()) for doc in trade_log_docs],
+                "lastRefreshed": datetime.now(pytz.utc).isoformat(),
+            }
+            
+            # --- Caching Logic: Update Cache ---
+            dashboard_cache["data"] = dashboard_data
+            dashboard_cache["timestamp"] = datetime.now()
+            logger.info("Dashboard cache updated.")
+
+            return jsonify(dashboard_data), 200
+
+        except Exception as e:
+            error_message = f"A backend error occurred while fetching dashboard data: {str(e)}"
+            logger.error(f"Error fetching dashboard data from Firestore: {e}", exc_info=True)
+            return jsonify({"status": "error", "message": error_message}), 500

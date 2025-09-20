@@ -2,7 +2,6 @@
 # A single, combined script for GitHub Actions.
 # It fetches data, generates signals, and updates Google Sheets.
 from flask import Blueprint, request, jsonify
-from flask_cors import CORS
 from kiteconnect import KiteConnect
 import pandas as pd
 import pandas_ta as ta
@@ -68,11 +67,12 @@ AI_CONFIDENCE_THRESHOLD = 0.80
 # Path to the trained model file
 MODEL_PATH = os.path.join(os.path.dirname(__file__), 'trading_model.pkl')
 
-@lru_cache(maxsize=1)
 def get_ai_model():
     """
     Lazily loads the AI model and its associated scaler from the file system.
-    The result is cached so the file is only read once per process.
+    This function is NOT cached to ensure that if the model file is updated
+    (e.g., by a retraining job), the new model is loaded on the next run.
+    The OS file cache provides sufficient performance.
     """
     try:
         # --- CRITICAL FIX: Load both the model and the scaler ---
@@ -1265,10 +1265,6 @@ def main(force_run=False):
 
 # --- Blueprint Definition ---
 process_data_bp = Blueprint('process_data', __name__)
-
-# --- Enable CORS for the Blueprint ---
-# This allows the frontend hosted on a different domain to make API calls to this backend.
-CORS(process_data_bp)
 
 # --- Script Execution ---
 @process_data_bp.route("/run", methods=["GET"])

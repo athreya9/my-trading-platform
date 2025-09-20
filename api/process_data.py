@@ -1200,14 +1200,9 @@ def main(force_run=False):
         if not use_yfinance:
             kite = connect_to_kite() # This can raise an exception, which is fine for a live run.
             instrument_map = get_instrument_map(kite)
-
-            # Fetch option chain only if kite connection was made
-            option_chain_df = fetch_option_chain(kite, 'NIFTY')
-            if option_chain_df is not None:
-                logger.info("--- Option Chain Data (first 5 rows) ---")
-                logger.info(option_chain_df.head())
-                logger.info("-----------------------------------------")
-
+            # The option chain is fetched but not currently used in signal generation.
+            # To save API calls, this is commented out. It can be re-enabled if a strategy requires it.
+            # option_chain_df = fetch_option_chain(kite, 'NIFTY')
         # Step 2: Read supporting data from sheets
         manual_controls_df = read_manual_controls(db)
 

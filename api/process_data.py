@@ -226,13 +226,6 @@ def connect_to_kite():
     api_key = os.getenv('KITE_API_KEY', '').strip().strip('"\'')
     access_token = os.getenv('KITE_ACCESS_TOKEN', '').strip().strip('"\'')
 
-    # --- START: Added for debugging authentication issues ---
-    logger.info(f"DEBUG: API Key (first 4 chars): '{api_key[:4]}...'")
-    logger.info(f"DEBUG: Access Token (first 4 chars): '{access_token[:4]}...'")
-    logger.info(f"DEBUG: API Key length: {len(api_key)}")
-    logger.info(f"DEBUG: Access Token length: {len(access_token)}")
-    # --- END: Added for debugging ---
-
     if not api_key or not access_token:
         raise ValueError("KITE_API_KEY or KITE_ACCESS_TOKEN environment variables not found.")
     try:
@@ -1320,7 +1313,19 @@ def get_dashboard_data():
             # For now, assuming watchlist is < 10. For larger lists, this would need a loop.
             price_docs = db.collection('price_data').where('__name__', 'in', doc_ids_to_fetch).stream()
             for doc in price_docs:
-                price_data[doc_id_to_symbol_map[doc.id]] = doc.to_dict().get('data', [])
+                all_price_data = doc.to_dict().get('data', [])
+                # --- DEFINITIVE FIX for 500 Error ---
+                # The previous code would crash if any data point was missing a timestamp.
+                # This new code first filters for valid data points, then sorts them.
+                if all_price_data:
+                    # 1. Filter out any data points that are missing a valid timestamp.
+                    valid_data = [dp for dp in all_price_data if dp and dp.get('timestamp')]
+                    # 2. Sort the valid data by timestamp.
+                    valid_data.sort(key=lambda x: x['timestamp'])
+                    # 3. Assign the last 200 points to the result.
+                    price_data[doc_id_to_symbol_map[doc.id]] = valid_data[-200:]
+                else:
+                    price_data[doc_id_to_symbol_map[doc.id]] = []
 
         dashboard_data = {
             "advisorOutput": [advisor_doc.to_dict()] if advisor_doc.exists else [],

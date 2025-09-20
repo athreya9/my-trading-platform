@@ -1467,7 +1467,14 @@ export default Dashboard;
             if doc_ids_to_fetch:
                 price_docs = db.collection('price_data').where('__name__', 'in', doc_ids_to_fetch).stream()
                 for doc in price_docs:
-                    all_price_data = doc.to_dict().get('data', [])
+                    # --- DEFINITIVE FIX for 500 Error ---
+                    # If a document in Firestore is empty, doc.to_dict() returns None,
+                    # which would cause an AttributeError on .get('data', []). This check prevents that crash.
+                    doc_dict = doc.to_dict()
+                    if not doc_dict:
+                        logger.warning(f"Document '{doc.id}' in 'price_data' collection is empty. Skipping.")
+                        continue
+                    all_price_data = doc_dict.get('data', [])
                     if all_price_data:
                         valid_data = [dp for dp in all_price_data if isinstance(dp, dict) and dp.get('timestamp')]
 

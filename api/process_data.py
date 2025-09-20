@@ -16,11 +16,6 @@ import os
 import yfinance as yf
 from dotenv import load_dotenv
 
-# Load environment variables from .env file for local development.
-# This will not override environment variables set in the GitHub Actions runner.
-load_dotenv()
-
-
 import logging
 import re
 import sys

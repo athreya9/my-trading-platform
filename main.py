@@ -6,40 +6,43 @@ This acts as the single entry point for the Gunicorn server.
 import os
 from flask import Flask
 from flask_cors import CORS
-
-# Import the blueprint
-from api.process_data import process_data_bp
-
 import logging
 
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s - %(levelname)s - %(message)s')
 
-logging.info("Starting Flask application...")
-
-try:
+def create_app():
+    """
+    Application factory to create and configure the Flask app.
+    This pattern prevents import-time errors and makes the app more modular.
+    """
+    logging.info("Creating Flask application...")
     app = Flask(__name__)
-    logging.info("Flask app created.")
 
-    # --- Enable CORS for the specific frontend origin ---
-    # This is a critical security and functionality step. It tells the browser
-    # that it's safe to allow the frontend code to access this backend API.
-    # We target the /api/* routes and specify the exact URL of the deployed frontend.
-    frontend_url = "https://my-trading-platform-471103.web.app"
-    CORS(app, resources={r"/api/*": {"origins": frontend_url}})
+    # Configure CORS to allow requests from your frontend.
+    # Using "*" is acceptable for now, but for production, you might restrict
+    # it to your specific frontend URL.
+    CORS(app, resources={r"/api/*": {
+        "origins": "*",
+        "allow_headers": ["Content-Type", "Authorization"]
+    }})
     logging.info("CORS enabled.")
 
-    # Register the API endpoints from process_data.py under the /api prefix
+    # --- Import and Register Blueprints ---
+    # We import here to avoid circular dependencies and ensure the app context is available.
+    from api.process_data import process_data_bp
     app.register_blueprint(process_data_bp, url_prefix='/api')
-    logging.info("Blueprint registered.")
-except Exception as e:
-    logging.error(f"Error initializing Flask app: {e}", exc_info=True)
-    raise
+    logging.info("API blueprint registered.")
 
-@app.route('/')
-def index():
-    """A simple health-check endpoint to confirm the server is running."""
-    return "Python backend is running."
+    @app.route('/')
+    def index():
+        """A simple health-check endpoint to confirm the server is running."""
+        return "Python backend is running."
+
+    return app
+
+# Create the app instance for Gunicorn to use
+app = create_app()
 
 if __name__ == '__main__':
     logging.info("Running Flask app in main block (local development).")

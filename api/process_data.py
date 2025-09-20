@@ -28,7 +28,6 @@ from . import config
 import requests
 import feedparser
 from .sheet_utils import retry
-from .firestore_utils import get_firestore_client
 from firebase_admin import firestore
 
 # --- NEW: Custom Exception for Graceful Halting ---
@@ -1166,6 +1165,7 @@ def fetch_economic_events():
 def main(force_run=False):
     """Main function that runs the entire process."""
     try:
+        from .firestore_utils import get_firestore_client # LAZY IMPORT
         logger.info("--- Trading Signal Process Started ---")
         
         is_market_open = should_run()
@@ -1301,11 +1301,12 @@ def get_dashboard_data():
     dashboard data from Google Sheets. This is the first step to building
     a custom frontend application.
     """
+    from .firestore_utils import get_firestore_client # LAZY IMPORT
     logger.info("Received request for dashboard data from Firestore.")
     try:
         db = get_firestore_client()
 
-        # Fetch data from all relevant collections
+        # Fetch singleton documents
         advisor_doc = db.collection('advisor_output').document('latest_recommendation').get()
         signals_docs = db.collection('signals').stream()
         bot_control_doc = db.collection('bot_control').document('status').get()
@@ -1313,12 +1314,18 @@ def get_dashboard_data():
         
         # For price data, fetching all documents can be slow.
         # For a dashboard, you might only fetch the watchlist symbols.
+        # --- NEW: Efficiently fetch price data for all watchlist symbols in one query ---
         price_data = {}
-        for symbol in config.WATCHLIST_SYMBOLS:
-            doc_id = symbol.replace('.NS', '').replace('^', '')
-            price_doc = db.collection('price_data').document(doc_id).get()
-            if price_doc.exists:
-                price_data[symbol] = price_doc.to_dict().get('data', [])
+        doc_ids_to_fetch = [s.replace('.NS', '').replace('^', '') for s in config.WATCHLIST_SYMBOLS]
+        # A map to convert the doc_id back to the original symbol
+        doc_id_to_symbol_map = {doc_id: symbol for doc_id, symbol in zip(doc_ids_to_fetch, config.WATCHLIST_SYMBOLS)}
+
+        if doc_ids_to_fetch:
+            # Firestore 'in' queries are limited to 10 items. We handle this by batching if necessary.
+            # For now, assuming watchlist is < 10. For larger lists, this would need a loop.
+            price_docs = db.collection('price_data').where('__name__', 'in', doc_ids_to_fetch).stream()
+            for doc in price_docs:
+                price_data[doc_id_to_symbol_map[doc.id]] = doc.to_dict().get('data', [])
 
         dashboard_data = {
             "advisorOutput": [advisor_doc.to_dict()] if advisor_doc.exists else [],

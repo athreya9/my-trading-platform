@@ -27,6 +27,8 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
 from webdriver_manager.chrome import ChromeDriverManager
 from urllib.parse import urlparse, parse_qs
+from pathlib import Path
+from dotenv import load_dotenv # Import load_dotenv
 
 # --- Centralized Logging Setup ---
 # This is a best practice to manage diagnostic output.
@@ -65,8 +67,14 @@ def main():
     """
     driver = None
     try:
+        # Construct the path to the .env file relative to this script and load it.
+        script_dir = Path(__file__).resolve().parent
+        dotenv_path = script_dir / '.env'
+        load_dotenv(dotenv_path=dotenv_path)
+        logger.info(f"Loading environment variables from {dotenv_path}")
         # --- Get Credentials from Environment Variables ---
         api_key = os.environ['KITE_API_KEY']
+        logger.info(f"DEBUG: KITE_API_KEY loaded: {api_key}")
         api_secret = os.environ['KITE_API_SECRET']
         user_id = os.environ['KITE_USER_ID']
         password = os.environ['KITE_PASSWORD']

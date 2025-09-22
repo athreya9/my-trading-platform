@@ -9,8 +9,8 @@ Flask-Cors~=4.0.0
 # Data manipulation and scientific computing.
 # Pinning to a consistent set of versions from a similar time period (early 2023)
 # to resolve complex dependency conflicts.
-pandas==1.5.3
-pandas-ta==0.3.14b0
+pandas
+pandas-ta==0.4.71b0
 numpy==1.24.3
 pytz==2023.3
 

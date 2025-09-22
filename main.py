@@ -28,7 +28,7 @@ def create_app():
     # It explicitly tells the browser that requests from your deployed frontend
     # URL are permitted.
     origins = [
-        "https://my-trading-platform-471103.web.app",  # Your production frontend
+        "https://trading-platform-analysis-dashboard-884404713353.us-west1.run.app",  # Your NEW production frontend
         "http://localhost:3000",                      # For local React dev server
         "http://127.0.0.1:3000"                       # Alternative for local dev
     ]

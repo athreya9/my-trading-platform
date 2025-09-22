@@ -1,19 +1,38 @@
-# Service account credentials
-api/credentials.json
-
-# Python cache
+# Byte-compiled / optimized / DLL files
 __pycache__/
 *.pyc
-
-# Node.js dependencies
-node_modules/
-
-# Log files
+*.pyd
+*.pyo
 *.log
 
-# Build artifacts
-build/
-dist/
+# Distribution / packaging
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
 
-# Environment variables
-.env
+# Editors
+*.swp
+*~
+.DS_Store
+
+# IDEs
+.idea/
+.vscode/
+
+# OS generated files
+.DS_Store
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Specific to this project
+access_token.txt
+*.json
+error_screenshot.png
+error_page_source.html
+trading-dashboard-app/
+package.json
+chromedriver.log

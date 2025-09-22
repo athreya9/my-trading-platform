@@ -1,6 +1,7 @@
 # Use an official Python runtime as a parent image.
-# Using 'slim' reduces the final image size.
-FROM python:3.12-slim
+# Using 'slim-bullseye' provides a stable Debian 11 base, which can resolve
+# dependency issues seen with newer Debian versions (Bookworm).
+FROM python:3.11-slim-bullseye
 
 # Set the working directory in the container to /app
 WORKDIR /app
@@ -23,6 +24,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Copy the requirements file into the container at /app
 COPY requirements.txt .
+
+# Upgrade pip to the latest version to ensure compatibility and access to the newest features/bugfixes.
+# This can resolve issues where older pip versions cannot find compatible package versions.
+RUN pip install --upgrade pip
 
 # Install any needed packages specified in requirements.txt.
 # --no-cache-dir reduces image size by not storing the pip cache.

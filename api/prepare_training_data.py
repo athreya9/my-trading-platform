@@ -16,6 +16,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from api.process_data import calculate_indicators, apply_price_action_indicators
 from api.sheet_utils import connect_to_google_sheets, read_historical_data
+from api.config import ML_FEATURE_COLUMNS
 
 
 # --- Configuration for the Target Variable ---
@@ -60,18 +61,6 @@ def main():
     """
     Main function to run the data preparation pipeline.
     """
-    # Get the GITHUB_OUTPUT path from environment variables for GitHub Actions
-    output_path_env = os.getenv('GITHUB_OUTPUT')
-
-    def set_github_output(name, value):
-        """Sets an output variable for subsequent steps in a GitHub Actions job."""
-        if output_path_env:
-            with open(output_path_env, 'a') as f:
-                f.write(f'{name}={value}\n')
-        else:
-            # Fallback for local execution where the env var is not set
-            print(f"INFO: Would set GitHub Action output '{name}' to '{value}'")
-
     try:
         print("--- Starting ML Data Preparation ---")
         try:
@@ -103,13 +92,7 @@ def main():
 
         # 4. Select final features and clean the data
         # We drop columns that are not useful for prediction (like future data or raw prices).
-        # This is a starting point; feature selection is a key part of ML.
-        feature_columns = [
-            'SMA_20', 'SMA_50', 'RSI_14', 'MACD_12_26_9', 'ATRr_14',
-            'volume_avg_20', 'realized_vol', 'vwap', 'bos', 'choch',
-            'last_bull_ob_top', 'last_bull_ob_bottom'
-        ]
-        final_columns = feature_columns + ['target']
+        final_columns = ML_FEATURE_COLUMNS + ['target']
 
         # Select the final columns and handle missing values robustly.
         training_df = labeled_df[final_columns].copy()
@@ -118,7 +101,7 @@ def main():
         # Now, we fill any remaining NaNs in the *feature* columns. This is crucial
         # for features like order blocks that might not appear in the initial data,
         # preventing the entire row from being dropped. A value of 0 is a neutral default.
-        training_df[feature_columns] = training_df[feature_columns].fillna(0)
+        training_df[ML_FEATURE_COLUMNS] = training_df[ML_FEATURE_COLUMNS].fillna(0)
 
         # Final safety check to ensure no NaNs are passed to the model.
         training_df.dropna(inplace=True)
@@ -131,12 +114,9 @@ def main():
         print(f"✅ Success! Training data prepared and saved to:\n{output_path}")
         print(f"Total samples: {len(training_df)}")
         print("="*50)
-        # Set output for GitHub Actions to indicate success
-        set_github_output('data_prepared', 'true')
 
     except Exception as e:
         print(f"\n❌ An error occurred during data preparation: {e}", file=sys.stderr)
-        set_github_output('data_prepared', 'false')
         sys.exit(1)
 
 

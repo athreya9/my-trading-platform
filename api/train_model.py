@@ -161,8 +161,10 @@ def main():
         print(f"\nDefault Accuracy (at 0.5 threshold): {accuracy:.2%}")
 
         # 6. Save the Trained Model
-        joblib.dump(model, MODEL_PATH)
-        print(f"\n✅ Trained model saved successfully to: '{MODEL_PATH}'")
+        # --- CRITICAL FIX: Save the scaler along with the model ---
+        # The live prediction code needs the exact same scaler to transform data.
+        joblib.dump({'model': model, 'scaler': scaler}, MODEL_PATH)
+        print(f"\n✅ Trained model and scaler saved successfully to: '{MODEL_PATH}'")
         # 7. Visualize the results
         plot_confusion_matrix(y_test, y_pred, "XGBoost (Threshold 0.5)")
         plot_feature_importance(model, feature_names)

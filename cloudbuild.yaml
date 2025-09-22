@@ -1,8 +1,62 @@
+# cloudbuild.yaml - This file defines the build and deployment pipeline.
 steps:
-- name: 'gcr.io/k8s-skaffold/pack'
-  args:
-  - 'build'
-  - '--builder=gcr.io/buildpacks/builder:latest'
-  - 'asia-south1-docker.pkg.dev/${PROJECT_ID}/cloud-run-source-deploy/my-trading-platform/datradingplatform:${_REVISION_ID}'
+# Step 1: Build the image using the Dockerfile.
+# This provides more control and is more explicit than using buildpacks directly.
+- name: 'gcr.io/cloud-builders/docker'
+  id: Build
+  args: [
+    'build',
+    '-t', 'asia-south1-docker.pkg.dev/$PROJECT_ID/my-trading-repo/my-trading-platform-image:latest',
+    '.'
+  ]
+
+# Step 2: Push the Docker image to Google Artifact Registry.
+- name: 'gcr.io/cloud-builders/docker'
+  id: Push
+  args: [
+    'push',
+    'asia-south1-docker.pkg.dev/$PROJECT_ID/my-trading-repo/my-trading-platform-image:latest'
+  ]
+
+# Step 3: Deploy the container to the private Cloud Run service.
+# Use the official gcloud builder from 'cloud-builders', not 'google-cloud-builders'.
+# This was the cause of the "permission denied" error on the builder image.
+- name: 'gcr.io/cloud-builders/gcloud'
+  id: 'Deploy to Cloud Run'
+  args: [
+    'run',
+    'deploy',
+    'datradingplatform', # Target your existing Cloud Run service.
+    '--image', 'asia-south1-docker.pkg.dev/$PROJECT_ID/my-trading-repo/my-trading-platform-image:latest',
+    '--region', 'asia-south1',
+    '--platform', 'managed',
+    '--timeout', '900s', # 15 minutes for potentially long-running tasks.
+    '--cpu-boost', # Accelerate cold starts.
+    '--no-allow-unauthenticated', # Keep the service private.
+    '--memory', '4Gi', # Increased memory for data processing and libraries.
+    '--cpu', '1',
+    '--min-instances', '1', # Keep one instance warm to prevent cold start timeouts.
+    # Explicitly define the startup command to ensure consistency.
+    '--command', 'gunicorn',
+    # The $$PORT syntax is crucial. It escapes the '$' so that Cloud Build passes the
+    # literal string '$PORT' to the gcloud command. Cloud Run then substitutes this
+    # at runtime with the correct port number.
+    '--args', '--bind,0.0.0.0:$$PORT,--workers,1,--threads,8,--timeout,0,main:app',
+    # Mount all necessary secrets from Secret Manager.
+    '--set-secrets=KITE_API_KEY=KITE_API_KEY:latest',
+    '--set-secrets=GOOGLE_SHEETS_CREDENTIALS=GOOGLE_SHEETS_CREDENTIALS:latest',
+    '--set-secrets=TELEGRAM_BOT_TOKEN=TELEGRAM_BOT_TOKEN:latest',
+    '--set-secrets=TELEGRAM_CHAT_ID=TELEGRAM_CHAT_ID:latest',
+    '--set-secrets=KITE_ACCESS_TOKEN=KITE_ACCESS_TOKEN:latest',
+    '--set-secrets=KITE_API_SECRET=KITE_API_SECRET:latest',
+    '--set-secrets=KITE_USER_ID=KITE_USER_ID:latest',
+    '--set-secrets=KITE_PASSWORD=KITE_PASSWORD:latest',
+    '--set-secrets=KITE_TOTP_SECRET=KITE_TOTP_SECRET:latest',
+    # Set environment variables. Each flag and its value must be a separate
+    # item in the args list.
+    '--set-env-vars',
+    'GCP_PROJECT=$PROJECT_ID'
+  ]
+
 images:
-- 'asia-south1-docker.pkg.dev/${PROJECT_ID}/cloud-run-source-deploy/my-trading-platform/datradingplatform:${_REVISION_ID}'
+- 'asia-south1-docker.pkg.dev/$PROJECT_ID/my-trading-repo/my-trading-platform-image:latest'

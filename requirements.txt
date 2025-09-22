@@ -1,31 +1,35 @@
 # Core web framework and utilities
-flask
-python-dotenv
-requests
-Flask-Cors
+# Using ~= allows for patch updates but prevents breaking changes from major/minor versions.
+flask~=3.0.0
+python-dotenv~=1.0.0
+requests~=2.31.0
+Flask-Cors~=4.0.0
 
-# Data manipulation and scientific computing
-pandas
-pandas-ta
-numpy
-pytz
+
+# Data manipulation and scientific computing.
+# Pinning to a consistent set of versions from a similar time period (early 2023)
+# to resolve complex dependency conflicts.
+pandas==1.5.3
+pandas-ta==0.3.14b0
+numpy==1.24.3
+pytz==2023.3
 
 # Machine Learning
-scikit-learn
-xgboost
-matplotlib
-seaborn
+scikit-learn==1.2.2
+xgboost==1.7.5
+matplotlib==3.7.1
+seaborn==0.12.2
 
 # Google Cloud and Firebase
-firebase-admin
-gspread
-google-auth
-google-auth-oauthlib
-google-auth-httplib2
+firebase-admin~=6.5.0
+gspread~=6.0.0
+google-auth~=2.28.0
+google-auth-oauthlib~=1.2.0
+google-auth-httplib2~=0.2.0
 
 # Financial data APIs
-yfinance
-kiteconnect
+yfinance~=0.2.37
+kiteconnect~=5.0.1
 
 # Other utilities
-feedparser
+feedparser~=6.0.11

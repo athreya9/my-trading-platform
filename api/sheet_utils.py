@@ -6,8 +6,7 @@ import os
 import json
 from functools import wraps
 import time
-import pandas as pd
-import tempfile
+import google.auth
 
 # This can be a shared logger or a new one.
 logger = logging.getLogger(__name__)
@@ -39,53 +38,65 @@ def get_gspread_client():
     """
     Authenticates with Google Sheets and returns a gspread client.
 
-    It uses a robust authentication strategy:
-    1. Tries to use the GOOGLE_SHEETS_CREDENTIALS environment variable,
-       which is ideal for production/CI environments (like GitHub Actions).
-    2. If the environment variable is not found, it falls back to loading
-       the 'credentials.json' file from the same directory. This is
-       ideal for local development.
+    It uses a robust, multi-layered authentication strategy:
+    1. Tries to use Application Default Credentials (ADC). This is the
+       recommended method for Google Cloud environments like Cloud Run. It
+       automatically uses the service account associated with the Cloud Run
+       service, eliminating the need for key files or environment variables.
+    2. Falls back to the GOOGLE_SHEETS_CREDENTIALS environment variable.
+       This is ideal for other CI/CD environments or local testing.
+    3. Finally, falls back to loading 'credentials.json' from the same
+       directory, which is convenient for local development.
     """
-    # --- Strategy 1: Use Environment Variable ---
+    # --- Strategy 1: Application Default Credentials (for GCP environments) ---
+    try:
+        scopes = [
+            'https://www.googleapis.com/auth/spreadsheets',
+            'https://www.googleapis.com/auth/drive'
+        ]
+        creds, _ = google.auth.default(scopes=scopes)
+        gc = gspread.authorize(creds)
+        logger.info("Authenticated with Google Sheets via Application Default Credentials.")
+        return gc
+    except google.auth.exceptions.DefaultCredentialsError:
+        logger.info("Application Default Credentials not found. Falling back to other auth methods.")
+    except Exception as e:
+        logger.warning(f"ADC failed with an unexpected error: {e}. Falling back to other auth methods.")
+
+    # --- Strategy 2: Use Environment Variable (no temp file) ---
     creds_json_str = os.environ.get('GOOGLE_SHEETS_CREDENTIALS')
     if creds_json_str:
-        temp_file_path = None
         try:
-            # Attempt to decode from Base64 first (as before)
+            creds_dict = None
+            # Try to decode from Base64 first
             try:
                 decoded_creds = base64.b64decode(creds_json_str).decode('utf-8')
-                creds_to_write = decoded_creds
-            except (base64.binascii.Error, json.JSONDecodeError):
-                # Fallback to direct JSON load if not Base64 or invalid JSON
-                creds_to_write = creds_json_str
-
-            # Write credentials to a temporary file
-            with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.json') as temp_file:
-                temp_file.write(creds_to_write)
-                temp_file_path = temp_file.name
-
-            gc = gspread.service_account(filename=temp_file_path)
-            logger.info("Authenticating with Google Sheets via temporary file from environment variable.")
-            return gc
+                creds_dict = json.loads(decoded_creds)
+            except (base64.binascii.Error, UnicodeDecodeError, json.JSONDecodeError):
+                # If not Base64, assume it's a raw JSON string
+                try:
+                    creds_dict = json.loads(creds_json_str)
+                except json.JSONDecodeError:
+                    logger.error("GOOGLE_SHEETS_CREDENTIALS is not valid Base64 or a valid JSON string.")
+            
+            if creds_dict:
+                gc = gspread.service_account_from_dict(creds_dict)
+                logger.info("Authenticated with Google Sheets via GOOGLE_SHEETS_CREDENTIALS environment variable.")
+                return gc
         except Exception as e:
-            logger.error(f"An error occurred during authentication with environment variable via temp file: {e}", exc_info=True)
-        finally:
-            if temp_file_path and os.path.exists(temp_file_path):
-                os.remove(temp_file_path) # Clean up the temporary file
+            logger.warning(f"Failed to auth with env var: {e}. Falling back to local file.", exc_info=True)
 
-    # --- Strategy 2: Fallback to local credentials.json file ---
+    # --- Strategy 3: Fallback to local credentials.json file ---
     try:
         credentials_path = os.path.join(os.path.dirname(__file__), 'credentials.json')
-        logger.info(f"Authenticating with Google Sheets via file: {credentials_path}")
         gc = gspread.service_account(filename=credentials_path)
+        logger.info(f"Authenticated with Google Sheets via local file: {credentials_path}")
         return gc
     except FileNotFoundError:
-        logger.warning(f"Warning: credentials.json not found at {credentials_path}.")
-        logger.warning("And GOOGLE_SHEETS_CREDENTIALS environment variable was not set.")
+        logger.error("Could not authenticate. No ADC, GOOGLE_SHEETS_CREDENTIALS not set/valid, and credentials.json not found.")
     except Exception as e:
-        logger.error(f"An error occurred during authentication with file: {e}", exc_info=True)
+        logger.error(f"An error occurred during authentication with local file: {e}", exc_info=True)
 
-    logger.error("Error: Could not authenticate with Google Sheets.")
     return None
 
 @retry()

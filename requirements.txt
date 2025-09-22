@@ -33,3 +33,4 @@ kiteconnect~=5.0.1
 
 # Other utilities
 feedparser~=6.0.11
+joblib~=1.4.2

@@ -32,8 +32,8 @@ def create_app():
         "http://localhost:3000",                      # For local React dev server
         "http://127.0.0.1:3000"                       # Alternative for local dev
     ]
-    CORS(app, origins=origins, supports_credentials=True, resources={r"/api/*": {}})
-    logging.info(f"CORS enabled for specified origins: {origins}")
+    CORS(app, origins=origins, supports_credentials=True)
+    logging.info(f"CORS enabled for all routes with origins: {origins}")
 
     # Register the API endpoints from process_data.py under the /api prefix
     app.register_blueprint(process_data_bp, url_prefix='/api')
@@ -42,6 +42,7 @@ def create_app():
     @app.route('/')
     def index():
         """A simple health-check endpoint to confirm the server is running."""
+        # Triggering a new deployment.
         return "Python backend is running."
 
     return app

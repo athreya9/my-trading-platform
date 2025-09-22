@@ -9,7 +9,7 @@ from flask_cors import CORS
 import logging
 
 # Import the blueprint from the api package
-from api.process_data import process_data_bp
+from api.process_data import process_data_bp, get_dashboard_data
 
 # --- Standard Logging Setup ---
 logging.basicConfig(level=logging.INFO,
@@ -44,6 +44,19 @@ def create_app():
         """A simple health-check endpoint to confirm the server is running."""
         # Triggering a new deployment.
         return "Python backend is running."
+
+    @app.route('/health')
+    def health_check():
+        """A simple health-check endpoint for load balancers."""
+        return "OK", 200
+
+    # This is a workaround for a misconfigured frontend.
+    # The frontend should be calling /api/dashboard, but it's calling /dashboard-data.
+    # This alias makes it work without needing a frontend change.
+    @app.route('/dashboard-data')
+    def dashboard_data_alias():
+        """Alias for the /api/dashboard endpoint."""
+        return get_dashboard_data()
 
     return app
 

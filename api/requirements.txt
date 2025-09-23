@@ -1,0 +1,4 @@
+# API-specific dependencies for the trading-backend service
+fastapi~=0.111.0
+uvicorn[standard]~=0.29.0
+firebase-admin~=6.5.0

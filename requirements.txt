@@ -1,9 +1,9 @@
 # Core web framework and utilities
 # Using ~= allows for patch updates but prevents breaking changes from major/minor versions.
-flask~=3.0.0
+fastapi~=0.111.0
+uvicorn[standard]~=0.29.0
 python-dotenv~=1.0.0
 requests~=2.31.0
-Flask-Cors~=4.0.0
 
 
 # Data manipulation and scientific computing.
@@ -11,13 +11,13 @@ Flask-Cors~=4.0.0
 # to resolve complex dependency conflicts.
 pandas
 pandas-ta==0.4.71b0
-numpy==1.24.3
+numpy
 pytz==2023.3
 
 # Machine Learning
 scikit-learn==1.2.2
 xgboost==1.7.5
-matplotlib==3.7.1
+matplotlib
 seaborn==0.12.2
 
 # Google Cloud and Firebase

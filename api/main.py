@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 import firebase_admin
 from firebase_admin import firestore
 import os
 import logging
+
+from .process_data import main as run_trading_bot_main
 
 # --- Setup ---
 logger = logging.getLogger("uvicorn")
@@ -43,6 +45,25 @@ except Exception as e:
 def health_check():
     """A simple endpoint to confirm the API is running."""
     return {"status": "ok", "firestore_initialized": db is not None}
+
+
+@app.get("/api/run")
+def run_bot(request: Request):
+    """
+    Triggers the trading bot's main logic.
+    """
+    logger.info("Received request to run the trading bot.")
+    force_run = request.query_params.get('force', 'false').lower() == 'true'
+    if force_run:
+        logger.warning("'force=true' parameter detected. Bypassing market hours check for this run.")
+
+    try:
+        result = run_trading_bot_main(force_run=force_run)
+        return result
+    except Exception as e:
+        logger.error(f"Error executing trading bot: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.get("/api/trading-data")
 def get_trading_data():

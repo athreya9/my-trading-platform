@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+import logging
+logging.basicConfig(level=logging.INFO)
+logging.info("Starting api/main.py")
+
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 import firebase_admin

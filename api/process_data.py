@@ -1,4 +1,8 @@
 # process_data.py
+import logging
+logging.basicConfig(level=logging.INFO)
+logging.info("Starting api/process_data.py")
+
 # A single, combined script for GitHub Actions.
 # It fetches data, generates signals, and updates Google Sheets.
 from flask import Blueprint, request, jsonify

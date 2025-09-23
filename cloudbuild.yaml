@@ -32,7 +32,7 @@ steps:
     '--platform', 'managed',
     '--timeout', '900s', # 15 minutes for potentially long-running tasks.
     '--cpu-boost', # Accelerate cold starts.
-    '--no-allow-unauthenticated', # Keep the service private.
+    '--allow-unauthenticated', # Make the service public
     '--memory', '4Gi', # Increased memory for data processing and libraries.
     '--cpu', '1',
     '--min-instances', '1', # Keep one instance warm to prevent cold start timeouts.

@@ -18,7 +18,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the application code into the container
-COPY ./main.py .
+COPY . .
 
 # Run uvicorn server. The host 0.0.0.0 is required to be accessible from outside the container.
 # The PORT environment variable is automatically set by Cloud Run.

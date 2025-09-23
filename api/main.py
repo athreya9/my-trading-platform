@@ -10,7 +10,7 @@ from firebase_admin import firestore
 import os
 import logging
 
-from .process_data import main as run_trading_bot_main
+from process_data import main as run_trading_bot_main
 
 # --- Setup ---
 logger = logging.getLogger("uvicorn")

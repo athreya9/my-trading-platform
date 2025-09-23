@@ -1069,6 +1069,38 @@ def generate_advisor_output(signal):
     }
     return advisor_data
 
+
+def write_to_google_sheets(price_df, signals_df):
+    """Writes price data and signals to Google Sheets as a backup."""
+    logger.info("--- Starting Google Sheets Backup Process ---")
+    try:
+        from .sheet_utils import connect_to_google_sheets, write_dataframe_to_sheet
+        
+        # Define the name of the Google Sheet
+        SHEET_NAME = "Trading_Data_Backup"
+        
+        spreadsheet = connect_to_google_sheets(SHEET_NAME)
+        
+        if not price_df.empty:
+            price_worksheet = spreadsheet.worksheet("Price_Data")
+            write_dataframe_to_sheet(price_worksheet, price_df)
+        else:
+            logger.info("Price data is empty. Skipping sheet backup for Price_Data.")
+            
+        if not signals_df.empty:
+            signals_worksheet = spreadsheet.worksheet("Signals")
+            write_dataframe_to_sheet(signals_worksheet, signals_df)
+        else:
+            logger.info("Signals data is empty. Skipping sheet backup for Signals.")
+            
+        logger.info("--- Google Sheets Backup Process Completed ---")
+        
+    except Exception as e:
+        logger.error(f"An error occurred during Google Sheets backup: {e}", exc_info=True)
+        # We don't re-raise the exception here to avoid failing the entire process
+        # if the backup to Google Sheets fails.
+
+
 def write_to_firestore(db, price_df, signals_df):
     """Writes all processed data to their respective Firestore collections."""
     logger.info("--- Starting Firestore Update Process ---")
@@ -1280,6 +1312,7 @@ def main(force_run=False):
         
         # Step 7: Write both data and signals to the sheets
         write_to_firestore(db, price_data_dict["15m"], signals_df)
+        write_to_google_sheets(price_data_dict["15m"], signals_df)
 
         logger.info("--- Trading Signal Process Completed Successfully ---")
         return {"status": "success", "message": "Trading bot executed successfully."}

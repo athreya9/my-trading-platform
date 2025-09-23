@@ -7,6 +7,7 @@ import json
 from functools import wraps
 import time
 import google.auth
+import pandas as pd
 
 # This can be a shared logger or a new one.
 logger = logging.getLogger(__name__)
@@ -194,3 +195,18 @@ def read_worksheet_data(spreadsheet, worksheet_name):
     except Exception as e:
         logger.error(f"Could not read data from '{worksheet_name}': {e}", exc_info=True)
         return []
+
+@retry()
+def write_dataframe_to_sheet(worksheet, df):
+    """
+    Clears a worksheet and writes a pandas DataFrame to it.
+    """
+    try:
+        worksheet.clear()
+        # Convert dataframe to list of lists, including headers
+        values = [df.columns.values.tolist()] + df.values.tolist()
+        worksheet.update(range_name='A1', values=values, value_input_option='USER_ENTERED')
+        logger.info(f"Successfully wrote {len(df)} rows to '{worksheet.title}' sheet.")
+    except Exception as e:
+        logger.error(f"Failed to write to '{worksheet.title}' sheet: {e}", exc_info=True)
+        raise

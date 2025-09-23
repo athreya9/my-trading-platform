@@ -7,7 +7,7 @@ steps:
   args: [
     'build',
     '-t', 'asia-south1-docker.pkg.dev/$PROJECT_ID/my-trading-repo/my-trading-platform-image:latest',
-    '.'
+    'api/'
   ]
 
 # Step 2: Push the Docker image to Google Artifact Registry.
@@ -36,12 +36,6 @@ steps:
     '--memory', '4Gi', # Increased memory for data processing and libraries.
     '--cpu', '1',
     '--min-instances', '1', # Keep one instance warm to prevent cold start timeouts.
-    # Explicitly define the startup command to ensure consistency.
-    '--command', 'gunicorn',
-    # The $$PORT syntax is crucial. It escapes the '$' so that Cloud Build passes the
-    # literal string '$PORT' to the gcloud command. Cloud Run then substitutes this
-    # at runtime with the correct port number.
-    '--args', '--bind,0.0.0.0:$$PORT,--workers,1,--threads,8,--timeout,0,main:app',
     # Mount all necessary secrets from Secret Manager.
     '--set-secrets=KITE_API_KEY=KITE_API_KEY:latest',
     '--set-secrets=GOOGLE_SHEETS_CREDENTIALS=GOOGLE_SHEETS_CREDENTIALS:latest',

@@ -1,16 +1,18 @@
 #!/usr/bin/env python3
 import logging
-logging.basicConfig(level=logging.INFO)
-logging.info("Starting api/main.py")
-
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-import firebase_admin
-from firebase_admin import firestore
 import os
 import logging
-
-from process_data import main as run_trading_bot_main
+from .firestore_utils import (
+    init_json_storage as init_firestore_client, 
+    get_db, 
+    write_data_to_firestore, 
+    check_bot_status, 
+    read_manual_controls, 
+    read_trade_log,
+    get_dashboard_data
+)
 
 # --- Setup ---
 logger = logging.getLogger("uvicorn")
@@ -20,8 +22,7 @@ app = FastAPI()
 # This is crucial to allow your frontend Cloud Run service to access this API.
 origins = [
     "http://localhost:3000",  # For local Next.js development
-    # The public URL of your 'trading-platform-analysis-dashboard' Cloud Run service
-    "https://trading-platform-analysis-dashboard-884404713353.us-west1.run.app",
+    "https://trading-dashboard-app.vercel.app/",
 ]
 
 app.add_middleware(
@@ -32,64 +33,62 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- Firestore Initialization ---
-try:
-    # In a Google Cloud environment (like Cloud Run), credentials are automatically
-    # discovered if the service account has the correct permissions (e.g., Cloud Datastore User).
-    firebase_admin.initialize_app()
-    db = firestore.client()
-    logger.info("Successfully initialized Firestore client.")
-except Exception as e:
-    logger.error(f"Failed to initialize Firestore: {e}")
-    # This is a fatal error for the app, but we'll let endpoints handle failures.
-    db = None
+# --- JSON Storage Initialization ---
+init_firestore_client()
 
 # --- API Endpoints ---
 @app.get("/api/health")
 def health_check():
     """A simple endpoint to confirm the API is running."""
-    return {"status": "ok", "firestore_initialized": db is not None}
-
-
-@app.get("/api/run")
-def run_bot(request: Request):
-    """
-    Triggers the trading bot's main logic.
-    """
-    logger.info("Received request to run the trading bot.")
-    force_run = request.query_params.get('force', 'false').lower() == 'true'
-    if force_run:
-        logger.warning("'force=true' parameter detected. Bypassing market hours check for this run.")
-
-    try:
-        result = run_trading_bot_main(force_run=force_run)
-        return result
-    except Exception as e:
-        logger.error(f"Error executing trading bot: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+    return {"status": "ok", "json_storage_initialized": os.path.exists("data")}
 
 
 @app.get("/api/trading-data")
 def get_trading_data():
     """
-    Fetches trading data from a Firestore collection.
-    This endpoint queries a collection and returns the documents.
+    Fetches trading data from a json file.
     """
-    if db is None:
-        raise HTTPException(status_code=500, detail="Server configuration error: Firestore client not initialized.")
+    db = get_db()
+    data = read_collection(db, 'pnl_history')
+    if not data:
+        return {"message": "No data found in the collection.", "data": []}
 
-    try:
-        # IMPORTANT: Replace 'pnl_history' with your actual Firestore collection name.
-        collection_ref = db.collection('pnl_history').order_by('Date', direction=firestore.Query.DESCENDING).limit(100)
-        docs = collection_ref.stream()
+    return {"data": data}
 
-        # Convert documents to a list of dictionaries
-        data = [doc.to_dict() for doc in docs]
+@app.get("/api/status")
+def get_status():
+    """Returns the connection status of various services."""
+    return [
+        {"name": "Frontend", "status": "connected"},
+        {"name": "Backend", "status": "connected"},
+        {"name": "KITE API", "status": "disconnected"},
+        {"name": "JSON Storage", "status": "connected"},
+    ]
 
-        if not data:
-            return {"message": "No data found in the collection.", "data": []}
+@app.get("/api/stats")
+def get_stats():
+    """Returns key performance statistics for the dashboard."""
+    db = get_db()
+    dashboard_data = get_dashboard_data(db)
+    return {
+        "portfolioValue": {"value": f"${dashboard_data['current_portfolio_value']:.2f}", "change": ""},
+        "dayPL": {"value": f"${dashboard_data['today_pnl']:.2f}", "change": f"{dashboard_data['total_trades']} trades", "status": "loss" if dashboard_data['today_pnl'] < 0 else "profit"},
+        "activeTrades": {"value": f"{len(dashboard_data['open_positions'])}", "change": ""},
+        "winRate": {"value": "0%", "change": "This month"},
+    }
 
-        return {"data": data}
-    except Exception as e:
-        logger.error(f"An unexpected error occurred while fetching data from Firestore: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="An internal error occurred while fetching data.")
+@app.get("/api/trades")
+def get_trades():
+    """Returns a list of recent trades."""
+    db = get_db()
+    return read_trade_log(db, limit=20)
+
+@app.get("/api/performance")
+def get_performance_data():
+    """Returns data for the portfolio performance chart."""
+    db = get_db()
+    trades = read_trade_log(db)
+    # create a fake performance chart
+    return [
+        {"name": f"Day {i+1}", "value": 100000 + (t['pnl'] if t else 0)} for i, t in enumerate(trades)
+    ]

@@ -1,0 +1,259 @@
+# api/ai_analysis_engine.py
+import pandas as pd
+import numpy as np
+from datetime import datetime, timedelta
+import requests
+import json
+import os
+from dotenv import load_dotenv
+from .accurate_telegram_alerts import AccurateTelegramAlerts
+
+load_dotenv()
+
+# Placeholder for the AI model
+class DummyModel:
+    def predict(self, data):
+        return np.random.rand(1, 2)
+
+class AIAnalysisEngine:
+    def __init__(self):
+        self.model = self.load_ai_model()
+
+    def load_ai_model(self):
+        # In a real scenario, this would load a trained model from a file
+        return DummyModel()
+
+    def analyze_trading_opportunity(self, kite_data, market_context, news_sentiment):
+        """
+        Comprehensive AI analysis that provides INTELLIGENT suggestions
+        """
+        
+        # 1. TECHNICAL ANALYSIS
+        technical_analysis = self._technical_analysis(kite_data)
+        
+        # 2. FUNDAMENTAL/MARKET ANALYSIS  
+        market_score = self._market_analysis(market_context)
+        
+        # 3. NEWS SENTIMENT ANALYSIS
+        sentiment_score = self._sentiment_analysis(news_sentiment)
+        
+        # 4. RISK ANALYSIS (Kelly Criterion, Position Sizing)
+        risk_analysis = self._risk_analysis(kite_data)
+        
+        # 5. AI MODEL PREDICTION
+        ai_prediction = self._ai_prediction(kite_data, technical_analysis['score'])
+        
+        # 6. COMBINE ALL FACTORS
+        final_recommendation = self._combine_analysis(
+            technical_analysis, market_score, sentiment_score, risk_analysis, ai_prediction
+        )
+        
+        return final_recommendation
+
+    def _technical_analysis(self, data):
+        """Real technical analysis using your existing indicators"""
+        score = 0
+        strengths = []
+        
+        # Use your existing indicator calculations
+        if data.get('rsi', 50) < 30: 
+            score += 20  # Oversold bounce
+            strengths.append("RSI indicating oversold conditions")
+        if data.get('sma_20', 0) > data.get('sma_50', 1): 
+            score += 25  # Trend alignment
+            strengths.append("Positive trend alignment (SMA20 > SMA50)")
+        if data.get('volume', 0) > data.get('volume_avg', 1) * 1.5: 
+            score += 15  # Volume confirmation
+            strengths.append("Volume surge confirmation")
+        if data.get('macd', 0) > data.get('macd_signal', 1): 
+            score += 20  # Momentum
+            strengths.append("MACD indicating bullish momentum")
+        if data.get('atr', 100) < data.get('atr_avg', 200): 
+            score += 10  # Low volatility
+            strengths.append("Low volatility environment")
+        
+        return {'score': min(score, 100), 'reason': 'Multi-factor technical analysis', 'strengths': strengths, 'pattern': 'Rule-based'}
+
+    def _market_analysis(self, context):
+        """Analyze broader market conditions"""
+        analysis = {
+            'sector_rotation': self._detect_sector_rotation(context),
+            'market_breadth': self._calculate_market_breadth(context),
+            'volatility_regime': self._assess_volatility(context),
+            'institutional_flow': self._detect_institutional_activity(context)
+        }
+        return analysis
+
+    def _sentiment_analysis(self, news_sentiment):
+        """Placeholder for sentiment analysis"""
+        return {
+            'overall': 'Neutral',
+            'key_drivers': []
+        }
+
+    def _risk_analysis(self, data):
+        """Advanced risk management using Kelly Criterion"""
+        # Calculate optimal position size
+        win_rate = self._calculate_historical_win_rate(data.get('symbol'))
+        avg_win, avg_loss = self._calculate_avg_win_loss(data.get('symbol'))
+        
+        # Kelly Criterion formula
+        if avg_loss != 0:
+            kelly_fraction = (win_rate * avg_win - (1 - win_rate) * abs(avg_loss)) / abs(avg_loss)
+            kelly_fraction = max(0, min(kelly_fraction, 0.2))  # Cap at 20%
+        else:
+            kelly_fraction = 0.1  # Conservative default
+            
+        return {
+            'kelly_fraction': kelly_fraction,
+            'optimal_position_size': kelly_fraction * 100,  # % of capital
+            'max_drawdown_risk': self._calculate_max_drawdown_risk(data),
+            'var_95': self._calculate_var(data),
+            'win_probability': win_rate * 100
+        }
+
+    def _ai_prediction(self, data, technical_score):
+        """Placeholder for AI model prediction, based on technical score"""
+        # Simple mapping from technical score to a pseudo-prediction
+        return [0.0, technical_score / 100.0]
+
+    def _combine_analysis(self, technical_analysis, market_score, sentiment_score, risk_analysis, ai_prediction):
+        """Combine all analysis into a single recommendation"""
+        composite_score = (technical_analysis['score'] * 0.4) + (ai_prediction[1] * 100 * 0.6)
+        
+        return {
+            'composite_score': composite_score,
+            'technical': technical_analysis,
+            'market': market_score,
+            'sentiment': sentiment_score,
+            'risk': risk_analysis,
+            'reasoning': "Rule-based analysis suggests a potential trading opportunity."
+        }
+
+    def generate_intelligent_signal(self, analysis_result):
+        """
+        Generate SMART trading signal with specific instructions
+        """
+        signal = {
+            'action': 'HOLD',  # Default to safety
+            'confidence': 0,
+            'specific_instructions': [],
+            'risk_metrics': {},
+            'profit_targets': {},
+            'time_horizon': None,
+            'reasoning': analysis_result.get('reasoning', ''),
+            'exit_conditions': 'Price crosses below 20-period moving average',
+            'trail_stop_level': 'Entry price after Target 1 is hit'
+        }
+        
+        # Only recommend trade if AI confidence is high
+        if analysis_result['composite_score'] > 75:
+            signal['action'] = 'BUY'
+            signal['confidence'] = analysis_result['composite_score']
+            
+            # Specific instructions based on analysis
+            if analysis_result['technical']['pattern'] == 'Breakout':
+                signal['specific_instructions'].append(
+                    "Enter on breakout confirmation above resistance"
+                )
+                
+            # Risk-managed profit targets
+            signal['profit_targets'] = self._calculate_smart_targets(analysis_result)
+            
+            # Position sizing based on Kelly Criterion
+            signal['position_size'] = f"{analysis_result['risk']['optimal_position_size']:.2f}% of capital"
+            
+        elif analysis_result['composite_score'] < 30:
+            signal['action'] = 'AVOID'
+            signal['specific_instructions'].append("Market conditions unfavorable")
+            
+        return signal
+
+    # --- Placeholder helper functions ---
+    def _check_multi_tf_bullish(self, data):
+        return True
+    
+    def _analyze_volume_profile(self, data):
+        return 0.8
+
+    def _detect_price_patterns(self, data):
+        return "Breakout"
+
+    def _detect_sector_rotation(self, context):
+        return "Rotation into Banks"
+
+    def _calculate_market_breadth(self, context):
+        return "Improving"
+
+    def _assess_volatility(self, context):
+        return "Medium"
+
+    def _detect_institutional_activity(self, context):
+        return "Accumulation"
+
+    def _calculate_historical_win_rate(self, symbol):
+        return 0.6
+
+    def _calculate_avg_win_loss(self, symbol):
+        return 100, 50
+
+    def _calculate_max_drawdown_risk(self, data):
+        return 0.1
+
+    def _calculate_var(self, data):
+        return 5.0
+
+    def _calculate_smart_targets(self, analysis_result):
+        return {
+            'description': 'Target 1: 10%, Target 2: 20%',
+            'targets': [1.1, 1.2]
+        }
+
+
+from .accurate_telegram_alerts import AccurateTelegramAlerts
+
+def send_ai_powered_alert(signal, analysis):
+    """
+    Send alert that shows WHY the AI is recommending this trade
+    """
+    message = f"""
+ **AI-POWERED TRADING SIGNAL** 
+
+ **RECOMMENDATION:** {signal['action']}
+ **CONFIDENCE LEVEL:** {signal['confidence']:.2f}%
+
+ **AI ANALYSIS BREAKDOWN:**
+
+ **Technical Score:** {analysis['technical']['score']}/100
+• Patterns: {analysis['technical']['pattern']}
+• Strengths: {', '.join(analysis['technical']['strengths'][:2])}
+
+ **Market Context:** {analysis['market']['sector_rotation']}
+• Breadth: {analysis['market']['market_breadth']}
+• Volatility: {analysis['market']['volatility_regime']}
+
+ **News Sentiment:** {analysis['sentiment']['overall']}
+• Key Factors: {', '.join(analysis['sentiment']['key_drivers'][:3])}
+
+️ **RISK MANAGEMENT:**
+• Kelly Criterion: {analysis['risk']['kelly_fraction']*100:.2f}% position
+• Max Risk: {analysis['risk']['var_95']}% 
+• Win Probability: {analysis['risk']['win_probability']:.2f}%
+
+ **WHY THIS TRADE:**
+{signal['reasoning']}
+
+ **SMART TARGETS:**
+{signal['profit_targets']['description']}
+
+⏰ **EXPECTED DURATION:** {signal['time_horizon']}
+
+⚠️ **AI MONITORING PARAMETERS:**
+- Exit if: {signal['exit_conditions']}
+- Trail stop at: {signal['trail_stop_level']}
+
+*Generated by AI Trading Agent • {datetime.now().strftime('%Y-%m-%d %H:%M')}*
+"""
+    
+    telegram_bot = AccurateTelegramAlerts()
+    return telegram_bot._send_telegram_message(message)

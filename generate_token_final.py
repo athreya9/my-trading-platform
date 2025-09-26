@@ -2,6 +2,9 @@ import os
 import sys
 import hashlib
 import requests
+from dotenv import load_dotenv
+
+load_dotenv()
 
 def generate_checksum(api_key, request_token, api_secret):
     """Generate SHA256 checksum for Kite Connect API"""

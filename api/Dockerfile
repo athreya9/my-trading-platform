@@ -21,5 +21,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Run uvicorn server. The host 0.0.0.0 is required to be accessible from outside the container.
-# The PORT environment variable is automatically set by Cloud Run.
+# The PORT environment variable is automatically set by Cloud Run, so we use `sh -c`
+# to substitute the environment variable at runtime.
 CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT:-8080}"]

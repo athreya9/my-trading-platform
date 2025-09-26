@@ -25,9 +25,76 @@ import logging
 import re
 import sys
 from . import config
+from .ai_analysis_engine import AIAnalysisEngine, send_ai_powered_alert
+from .alert_manager import AlertManager
+from .data_collector import DataCollector
+from .ai_training_pipeline import AITrainingPipeline
+from .market_calendar import should_run_trading_bot
+
+alert_manager = AlertManager()
 import requests
-from .sheet_utils import retry
-from firebase_admin import firestore
+from .firestore_utils import (
+    init_json_storage as init_firestore_client, 
+    get_db, 
+    write_data_to_firestore, 
+    check_bot_status, 
+    read_manual_controls, 
+    read_trade_log,
+    get_dashboard_data
+)
+
+
+
+def save_dataframe_to_json(df, filename):
+    """Save DataFrame to JSON file"""
+    os.makedirs('data', exist_ok=True)
+    filepath = f"data/{filename}.json"
+    
+    # Convert DataFrame to records
+    records = df.to_dict('records')
+    
+    # Read existing data
+    try:
+        with open(filepath, 'r') as f:
+            existing_data = json.load(f)
+    except FileNotFoundError:
+        existing_data = []
+    
+    # Append new data with timestamp
+    for record in records:
+        record['timestamp'] = datetime.now().isoformat()
+        existing_data.append(record)
+    
+    # Save back to file
+    with open(filepath, 'w') as f:
+        json.dump(existing_data, f, indent=2)
+    
+    print(f"✅ Data saved to {filepath}")
+
+def save_to_json(data_type, data):
+    """Save single data point to JSON"""
+    os.makedirs('data', exist_ok=True)
+    filename = f"data/{data_type}.json"
+    
+    # Read existing data
+    try:
+        with open(filename, 'r') as f:
+            existing_data = json.load(f)
+    except FileNotFoundError:
+        existing_data = []
+    
+    # Append new data
+    data_with_timestamp = {
+        **data,
+        'timestamp': datetime.now().isoformat()
+    }
+    existing_data.append(data_with_timestamp)
+    
+    # Save back to file
+    with open(filename, 'w') as f:
+        json.dump(existing_data, f, indent=2)
+    
+    print(f"✅ Data saved to {filename}")
 
 # --- Defensive Import for feedparser ---
 # This prevents the entire application from crashing on startup if 'feedparser' is not installed.
@@ -135,49 +202,50 @@ YFINANCE_TO_KITE_MAP = {
 # --- Main Functions ---
 
 def read_manual_controls(db):
-    """Reads manual override settings from the 'manual_controls' collection."""
-    logger.info("Reading data from 'manual_controls' collection...")
+    """Reads manual override settings from the 'manual_controls.json' file."""
+    logger.info("Reading data from 'manual_controls.json'...")
     try:
-        controls = {}
-        docs = db.collection('manual_controls').stream()
-        for doc in docs:
-            # The document ID is the instrument name (e.g., 'RELIANCE')
-            controls[doc.id] = doc.to_dict()
+        with open('data/manual_controls.json', 'r') as f:
+            controls = json.load(f)
 
         if not controls:
-            logger.info("No manual controls found or collection is empty.")
+            logger.info("No manual controls found or file is empty.")
             return pd.DataFrame()
 
+        # The JSON is expected to be a dictionary where keys are instrument names
         df = pd.DataFrame.from_dict(controls, orient='index')
         df.index.name = 'instrument'
         df.reset_index(inplace=True)
 
         # Set instrument as index for easy lookup
         df.set_index('instrument', inplace=True)
-        logger.info("Manual controls loaded successfully.")
+        logger.info("Manual controls loaded successfully from JSON.")
         return df
+    except FileNotFoundError:
+        logger.warning("'manual_controls.json' not found. No manual controls will be applied.")
+        return pd.DataFrame()
     except Exception as e:
-        logger.warning(f"Could not read manual controls from Firestore: {e}")
+        logger.warning(f"Could not read manual controls from JSON: {e}")
         return pd.DataFrame()
 
 def read_trade_log(db):
-    """Reads the historical trade log from the 'trade_log' collection."""
-    logger.info("Reading data from 'trade_log' collection...")
+    """Reads the historical trade log from the 'trade_log.json' file."""
+    logger.info("Reading data from 'trade_log.json'...")
     try:
-        trades = [doc.to_dict() for doc in db.collection('trade_log').stream()]
+        with open('data/trade_log.json', 'r') as f:
+            trades = json.load(f)
 
         if not trades:
             logger.info("Trade log is empty. Cannot calculate Kelly Criterion.")
             return pd.DataFrame()
 
         df = pd.DataFrame(trades)
-        # Firestore field name should be 'p_l' or 'profit_loss'
+        # The JSON file should have a 'P/L' or 'p_l' column
         if 'P/L' not in df.columns:
-            # Try a more code-friendly name
             if 'p_l' in df.columns:
                 df.rename(columns={'p_l': 'P/L'}, inplace=True)
             else:
-                logger.warning("'P/L' or 'p_l' column not found in 'trade_log'. Cannot calculate performance.")
+                logger.warning("'P/L' or 'p_l' column not found in 'trade_log.json'. Cannot calculate performance.")
                 return pd.DataFrame()
 
         # Convert profit to numeric, coercing errors to NaN and then dropping them
@@ -186,26 +254,35 @@ def read_trade_log(db):
 
         logger.info(f"Successfully read {len(df)} trades from the log.")
         return df
+    except FileNotFoundError:
+        logger.warning("'trade_log.json' not found. Cannot calculate Kelly Criterion.")
+        return pd.DataFrame()
     except Exception as e:
-        logger.warning(f"Could not read trade log from Firestore: {e}")
+        logger.warning(f"Could not read trade log from JSON: {e}")
         return pd.DataFrame()
 
 def check_bot_status(db):
-    """Checks the 'bot_control' collection for a 'running' status."""
-    logger.info("Checking bot operational status from Firestore...")
+    """Checks the 'bot_control.json' file for a 'running' status."""
+    logger.info("Checking bot operational status from 'bot_control.json'...")
     try:
-        doc_ref = db.collection('bot_control').document('status')
-        doc = doc_ref.get()
-        if doc.exists:
-            status = doc.to_dict().get('status')
-            logger.info(f"Bot status from Firestore: '{status}'")
+        with open('data/bot_control.json', 'r') as f:
+            status_data = json.load(f)
+        
+        # The data is a list of dicts, get the last one
+        if isinstance(status_data, list) and status_data:
+            latest_status = status_data[-1]
+            status = latest_status.get('status')
+            logger.info(f"Bot status from JSON: '{status}'")
             if status and status.lower() == 'running':
                 return True
-
-        logger.warning(f"Bot status is not 'running' or document not found. Halting execution.")
+        
+        logger.warning("Bot status is not 'running' or file is empty/invalid. Halting execution.")
+        return False
+    except FileNotFoundError:
+        logger.warning("'bot_control.json' not found. Assuming bot is stopped for safety.")
         return False
     except Exception as e:
-        logger.error(f"Could not read bot status from Firestore: {e}. Halting for safety.")
+        logger.error(f"Could not read bot status from JSON: {e}. Halting for safety.")
         return False
 
 def calculate_kelly_criterion(trades_df):
@@ -279,7 +356,6 @@ def get_instrument_map(kite):
         logger.error(f"Failed to fetch or process instrument list: {e}", exc_info=True)
         raise
 
-@retry()
 def fetch_historical_data(kite, instrument_token, from_date, to_date, interval, original_symbol):
     """Fetches historical data from Kite Connect for a given instrument token."""
     logger.info(f"Fetching {interval} data for {original_symbol} (Token: {instrument_token})...")
@@ -298,7 +374,6 @@ def fetch_historical_data(kite, instrument_token, from_date, to_date, interval, 
         logger.warning(f"Could not fetch Kite data for {original_symbol}: {e}")
         return pd.DataFrame()
 
-@retry()
 def fetch_historical_data_yfinance(symbols, interval, period):
     """Fetches historical data from Yahoo Finance for testing outside market hours."""
     logger.info(f"Fetching {interval} data for {len(symbols)} symbols from yfinance (period: {period})...")
@@ -341,7 +416,6 @@ def fetch_historical_data_yfinance(symbols, interval, period):
         logger.warning(f"Could not fetch yfinance data: {e}")
         return pd.DataFrame()
 
-@retry()
 def fetch_option_chain(kite, underlying_instrument):
     """Fetches and structures the option chain for a given underlying instrument."""
     logger.info(f"Fetching and structuring option chain for {underlying_instrument}...")
@@ -417,92 +491,27 @@ def fetch_option_chain(kite, underlying_instrument):
         return None
 
 
-def run_data_collection(kite, instrument_map, use_yfinance=False):
-    """Fetches data for all symbols and timeframes and returns a dictionary of DataFrames."""
+def run_data_collection():
+    """Fetches data for all symbols and timeframes using yfinance."""
     
-    if use_yfinance:
-        logger.warning("Market is closed. Using yfinance for historical data as a fallback for testing.")
-        data_frames = {"15m": None, "30m": None, "1h": None}
-        
-        yfinance_params = {
-            "15m": {"interval": "15m", "period": "5d"},
-            "30m": {"interval": "30m", "period": "10d"},
-            "1h": {"interval": "60m", "period": "60d"}
-        }
-        
-        for tf, params in yfinance_params.items():
-            data_frames[tf] = fetch_historical_data_yfinance(config.SYMBOLS, params['interval'], params['period'])
-        
-        combined_df_15m = data_frames["15m"]
-        combined_df_30m = data_frames["30m"]
-        combined_df_1h = data_frames["1h"]
-    else:
-        logger.info("Market is open. Using Kite Connect for live and historical data.")
-        data_frames = {"15m": [], "30m": [], "1h": []}
-        to_date = datetime.now()
-        
-        for symbol in config.SYMBOLS:
-            # Translate yfinance symbol to Kite tradingsymbol
-            kite_symbol = YFINANCE_TO_KITE_MAP.get(symbol, symbol.replace('.NS', ''))
-            instrument_token = instrument_map.get(kite_symbol)
-
-            if not instrument_token:
-                logger.warning(
-                    f"Could not find instrument token for symbol '{symbol}' (Kite: '{kite_symbol}'). Skipping."
-                )
-                continue
-
-
-            # --- Fetch data for all required timeframes ---
-            from_date_15m = to_date - timedelta(days=5)
-            df_15m = fetch_historical_data(kite, instrument_token, from_date_15m, to_date, "15minute", symbol)
-            if not df_15m.empty:
-                data_frames["15m"].append(df_15m)
-
-            from_date_30m = to_date - timedelta(days=10)
-            df_30m = fetch_historical_data(kite, instrument_token, from_date_30m, to_date, "30minute", symbol)
-            if not df_30m.empty:
-                data_frames["30m"].append(df_30m)
-
-            from_date_1h = to_date - timedelta(days=60)
-            df_1h = fetch_historical_data(kite, instrument_token, from_date_1h, to_date, "60minute", symbol)
-            if not df_1h.empty:
-                data_frames["1h"].append(df_1h)
-
-        # Combine the lists of dataframes into single dataframes
-        combined_df_15m = pd.concat(data_frames["15m"], ignore_index=True) if data_frames["15m"] else pd.DataFrame()
-        combined_df_30m = pd.concat(data_frames["30m"], ignore_index=True) if data_frames["30m"] else pd.DataFrame()
-        combined_df_1h = pd.concat(data_frames["1h"], ignore_index=True) if data_frames["1h"] else pd.DataFrame()
-
-        # --- NEW: Fetch LIVE data and merge it to prevent using stale historical data ---
-        logger.info("Fetching live quote data to merge with historical data...")
-        kite_symbols_for_quote = [f"NSE:{YFINANCE_TO_KITE_MAP.get(s, s.replace('.NS', ''))}" for s in config.SYMBOLS]
-
-        if kite_symbols_for_quote:
-            try:
-                live_quotes = kite.quote(kite_symbols_for_quote)
-                kite_to_internal_map = {f"NSE:{YFINANCE_TO_KITE_MAP.get(s, s.replace('.NS', ''))}": s for s in config.SYMBOLS}
-
-                for df in [combined_df_15m, combined_df_30m, combined_df_1h]:
-                    if df.empty: continue
-                    last_indices = df.groupby('instrument').tail(1).index
-                    for idx in last_indices:
-                        internal_symbol = df.loc[idx, 'instrument']
-                        kite_api_symbol = next((k for k, v in kite_to_internal_map.items() if v == internal_symbol), None)
-                        if kite_api_symbol and kite_api_symbol in live_quotes:
-                            quote = live_quotes[kite_api_symbol]
-                            ltp = quote['last_price']
-                            df.loc[idx, 'close'] = ltp
-                            df.loc[idx, 'high'] = max(df.loc[idx, 'high'], ltp)
-                            df.loc[idx, 'low'] = min(df.loc[idx, 'low'], ltp)
-                            df.loc[idx, 'timestamp'] = datetime.now(pytz.timezone('Asia/Kolkata'))
-                logger.info("Successfully merged live quote data into historical dataframes.")
-            except Exception as e:
-                logger.error(f"Could not fetch or merge live quotes: {e}")
+    logger.warning("Using yfinance for historical data.")
+    data_frames = {"15m": None, "30m": None, "1h": None}
+    
+    yfinance_params = {
+        "15m": {"interval": "15m", "period": "5d"},
+        "30m": {"interval": "30m", "period": "10d"},
+        "1h": {"interval": "60m", "period": "60d"}
+    }
+    
+    for tf, params in yfinance_params.items():
+        data_frames[tf] = fetch_historical_data_yfinance(config.SYMBOLS, params['interval'], params['period'])
+    
+    combined_df_15m = data_frames["15m"]
+    combined_df_30m = data_frames["30m"]
+    combined_df_1h = data_frames["1h"]
 
     if combined_df_15m is None or combined_df_15m.empty:
-        logger.warning("No 15m data was fetched for any symbol. The process will continue, but no data will be written to the sheets.")
-        # Return a dictionary of empty dataframes to prevent downstream errors
+        logger.warning("No 15m data was fetched for any symbol.")
         return {"15m": pd.DataFrame(), "30m": pd.DataFrame(), "1h": pd.DataFrame()}
 
     logger.info(f"Processed {len(combined_df_15m)} rows (15m), {len(combined_df_30m)} rows (30m), {len(combined_df_1h)} rows (1h).")
@@ -706,27 +715,7 @@ def should_enter_trade(signal_params, market_conditions):
         
     return True
 
-def send_telegram_notification(message):
-    """Sends a message to a Telegram channel using secrets from environment variables."""
-    bot_token = os.getenv('TELEGRAM_BOT_TOKEN')
-    chat_id = os.getenv('TELEGRAM_CHAT_ID')
 
-    if not bot_token or not chat_id:
-        logger.warning("TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID not set. Skipping notification.")
-        return
-
-    url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
-    payload = {
-        'chat_id': chat_id,
-        'text': message,
-        'parse_mode': 'Markdown' # Use Markdown for better formatting
-    }
-    try:
-        response = requests.post(url, json=payload)
-        response.raise_for_status() # Raise an exception for bad status codes (4xx or 5xx)
-        logger.info("Successfully sent Telegram notification.")
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Failed to send Telegram notification: {e}")
 
 def fetch_news_from_rss(ticker):
     """Fetches news headlines from a Google News RSS feed."""
@@ -829,222 +818,28 @@ def analyze_market_internals(price_data_dict):
 
     return market_context
 
-def generate_signals(price_data_dict, manual_controls_df, trade_log_df, market_context, economic_events):
-    """Generates trading signals for all instruments, applying a suite of validation and risk rules."""
-
-    if not price_data_dict or all(df.empty for df in price_data_dict.values()):
-        logger.warning("No price data available, skipping signal generation.")
-        return pd.DataFrame()
-
+def generate_intelligent_signals(price_data_dict, market_context, news_data):
+    """Generate signals with AI analysis and smart alerting"""
     
-    # --- Setup & Market Context Filter ---
-    kelly_pct, win_rate, win_loss_ratio = calculate_kelly_criterion(trade_log_df)
-    all_potential_signals = []
-    price_df_15m = price_data_dict['15m']
-    price_df_30m = price_data_dict['30m']
-    price_df_1h = price_data_dict['1h']
-    if price_df_30m.empty:
-        logger.warning("30m data not available. Multi-timeframe confluence check will be skipped.")
-    if price_df_1h.empty:
-        logger.warning("1h data not available. Multi-timeframe confluence check will be skipped for all signals.")
-
-    if market_context.get('is_vix_high', False):
-        logger.info(f"Market Context Alert: VIX is above {VIX_THRESHOLD}. Avoiding new aggressive long positions.")
-    if market_context.get('sentiment') == 'BEARISH':
-        logger.info("Market Context Alert: Overall market trend is Bearish. Long signals will be suppressed.")
+    # 1. Run AI analysis
+    ai_engine = AIAnalysisEngine()
+    analysis = ai_engine.analyze_trading_opportunity(
+        price_data_dict, market_context, news_data
+    )
     
-    is_high_impact_event_today = any(event.get('impact') == 'high' for event in economic_events)
-    if is_high_impact_event_today:
-        logger.warning("High-impact economic event scheduled today. Trading will be more conservative.")
+    # 2. Generate intelligent signal
+    signal = ai_engine.generate_intelligent_signal(analysis)
+    
+    # 3. Manage alert
+    should_send, reason = alert_manager.manage_alert(signal)
 
-    # --- Iterate over each instrument's 15-minute data ---
-    for instrument, group_15m in price_df_15m.groupby('instrument'):
-        # Ensure we have enough data for lookbacks and that price action features were calculated
-        required_cols = ['SMA_50', 'RSI_14', f'ATRr_{ATR_PERIOD}', 'volume_avg_20', 'fvg_bull_bottom', 'choch', 'last_bull_ob_top', 'last_bull_ob_bottom']
-        group_15m = group_15m.copy().dropna(subset=required_cols)
-        if len(group_15m) < 3: # Need at least 3 rows for pattern detection lookbacks
-            continue
-
-        instrument_signals = []
-
-        # Skip signal generation for the market internal instruments themselves
-        if instrument in config.MARKET_BREADTH_SYMBOLS.values():
-            continue
-
-        latest_15m = group_15m.iloc[-1]
-
-        # --- AI-DRIVEN SIGNAL GENERATION (PRIMARY) ---
-        # This is now the main signal generator. Rule-based signals can act as a fallback.
-        ai_signal_generated = False
-        # Lazily load the model and scaler.
-        ai_model, scaler = get_ai_model()
-
-        if ai_model is not None and scaler is not None:
-            # Ensure all required feature columns are present and not NaN
-            if all(col in latest_15m and pd.notna(latest_15m[col]) for col in config.ML_FEATURE_COLUMNS):
-                # Prepare features for the model
-                features = latest_15m[config.ML_FEATURE_COLUMNS].values.reshape(1, -1)
-                # --- CRITICAL FIX: Scale the live features using the loaded scaler ---
-                features_scaled = scaler.transform(features)
-                
-                # Get prediction probability for the 'BUY' class (1)
-                buy_probability = ai_model.predict_proba(features_scaled)[0][1]
-
-                if buy_probability >= AI_CONFIDENCE_THRESHOLD:
-                    logger.info(f"AI SIGNAL for {instrument}: BUY with {buy_probability:.2%} confidence.")
-                    
-                    signal_params = {
-                        'instrument': instrument,
-                        'reason': f'AI Prediction ({buy_probability:.0%})',
-                        'quality_score': 4, # Highest quality score for AI signals
-
-                        'rsi': latest_15m['RSI_14'],
-                        'volume_confirmed': True, # AI model implicitly learns volume patterns
-                        'sentiment_score': analyze_sentiment(instrument),
-                    }
-                    signal_params['confidence_score'] = int(buy_probability * 100)
-
-                    # Use existing safety checks before finalizing the signal
-                    if should_enter_trade(signal_params, market_context):
-                        entry_price = latest_15m['close']
-                        atr_val = latest_15m[f'ATRr_{ATR_PERIOD}']
-                        stop_loss = entry_price - (atr_val * STOP_LOSS_MULTIPLIER)
-                        take_profit = entry_price + (atr_val * TAKE_PROFIT_MULTIPLIER)
-
-                        
-                        instrument_signals.append({
-                            'option_type': 'CALL', 'strike_price': get_atm_strike(entry_price, instrument),
-                            'underlying_price': entry_price, 'stop_loss': stop_loss, 'take_profit': take_profit,
-                            'position_size': calculate_position_size(entry_price, stop_loss),
-                            'reason': signal_params['reason'], 'confidence_score': signal_params['confidence_score'],
-                            'win_rate_p': win_rate, 'win_loss_ratio_b': win_loss_ratio, 'kelly_pct': kelly_pct
-                        })
-                        ai_signal_generated = True
-
-
-        # --- Manual Override Logic ---
-        manual_override_triggered = False
-        if not manual_controls_df.empty and instrument in manual_controls_df.index:
-            control = manual_controls_df.loc[instrument]
-            if str(control['hold_status']).upper() == 'HOLD':
-                logger.info(f"'{instrument}' is on HOLD. Skipping automated signal.")
-                continue
-            elif str(control['hold_status']).upper() == 'SELL':
-                logger.info(f"'{instrument}' has manual SELL override.")
-                instrument_signals.append({'option_type': 'PUT (MANUAL)', 'strike_price': get_atm_strike(latest_15m['close'], instrument), 'underlying_price': latest_15m['close']})
-                manual_override_triggered = True
-
-        if manual_override_triggered:
-            # Add common data and append to master list
-            for sig in instrument_signals:
-                sig['timestamp'] = latest_15m['timestamp']
-                sig['instrument'] = instrument
-                all_potential_signals.append(sig)
-            continue
-
-        # --- FALLBACK: Rule-Based Signal Generation ---
-        # This logic only runs if the AI did not generate a high-confidence signal.
-        if not ai_signal_generated:
-            # --- Rule 1: Volatility Filter ---
-            atr_percentage = (latest_15m[f'ATRr_{ATR_PERIOD}'] / latest_15m['close']) * 100
-            if atr_percentage > 3.0:
-                logger.info(f"Skipping {instrument}: High volatility detected (ATR is {atr_percentage:.2f}% of price).")
-                continue
-
-            # --- Rule 2: Multi-Timeframe Confluence ---
-            # Default to True, will be set to False if any timeframe disagrees.
-            is_30m_bullish = True
-            is_1h_bullish = True
-            
-            if not price_df_30m.empty:
-                group_30m = price_df_30m[price_df_30m['instrument'] == instrument].copy().dropna(subset=['SMA_20', 'SMA_50'])
-                if not group_30m.empty:
-                    is_30m_bullish = group_30m.iloc[-1]['SMA_20'] > group_30m.iloc[-1]['SMA_50']
-                else:
-                    is_30m_bullish = False # Not enough data to confirm
-
-            if not price_df_1h.empty:
-                group_1h = price_df_1h[price_df_1h['instrument'] == instrument].copy().dropna(subset=['SMA_20', 'SMA_50'])
-                if not group_1h.empty:
-                    is_1h_bullish = group_1h.iloc[-1]['SMA_20'] > group_1h.iloc[-1]['SMA_50']
-                else:
-                    is_1h_bullish = False # Not enough data to confirm
-
-            # The final trend check: all timeframes must agree
-            # Explicitly cast to a standard Python boolean to prevent comparison errors with numpy.bool_
-            is_15m_bullish = bool(latest_15m['SMA_20'] > latest_15m['SMA_50'] and latest_15m['RSI_14'] < 70)
-            logger.info(f"MTF Confluence for {instrument}: 15m={'BULLISH' if is_15m_bullish else 'NOT BULLISH'}, 30m={'BULLISH' if is_30m_bullish else 'NOT BULLISH'}, 1h={'BULLISH' if is_1h_bullish else 'NOT BULLISH'}")
-            all_timeframes_bullish = is_15m_bullish and is_30m_bullish and is_1h_bullish
-
-            # --- Automated Signal Logic (with new rules) ---
-            sentiment_score = analyze_sentiment(instrument)
-            signal_generated = False
-            reasons = []
-
-            if is_high_impact_event_today:
-                logger.info(f"Skipping signal generation for {instrument} due to scheduled high-impact economic event.")
-                continue
-
-            # --- New VWAP Filter ---
-            price_above_vwap = latest_15m['close'] > latest_15m['vwap']
-
-            if not signal_generated and all_timeframes_bullish and price_above_vwap:
-                signal_params = {
-                    'instrument': instrument,
-                    'reason': 'Bullish Trend',
-                    'quality_score': 1,
-                    'rsi': latest_15m['RSI_14'],
-                    'volume_confirmed': latest_15m['volume'] > (latest_15m['volume_avg_20'] * 1.2), # 120% of avg volume
-                    'sentiment_score': sentiment_score,
-                }
-                signal_params['confidence_score'] = calculate_confidence_score(signal_params, latest_15m)
-
-                if should_enter_trade(signal_params, market_context):
-                    logger.info(f"All safety checks passed for {instrument}. Generating BUY signal.")
-                    reasons = [signal_params['reason'], "Passed all safety checks"]
-                    option_type = "CALL"
-                    
-                    atr_val = latest_15m[f'ATRr_{ATR_PERIOD}']
-                    entry_price = latest_15m['close']
-                    stop_loss = entry_price - (atr_val * STOP_LOSS_MULTIPLIER)
-                    take_profit = entry_price + (atr_val * TAKE_PROFIT_MULTIPLIER)
-                    position_size = calculate_position_size(entry_price, stop_loss)
-
-                    instrument_signals.append({
-                        'option_type': option_type, 'strike_price': get_atm_strike(entry_price, instrument),
-                        'underlying_price': entry_price, 'stop_loss': stop_loss, 'take_profit': take_profit,
-                        'position_size': round(position_size), 'reason': ", ".join(reasons),
-                        'sentiment_score': sentiment_score,
-                        'win_rate_p': win_rate,
-                        'win_loss_ratio_b': win_loss_ratio,
-                        'kelly_pct': kelly_pct,
-                        'quality_score': signal_params['quality_score'],
-                        'confidence_score': signal_params['confidence_score']
-                    })
-                    signal_generated = True
-
-        # --- Add common data and append to master list ---
-        for sig in instrument_signals:
-            sig['timestamp'] = latest_15m['timestamp']
-            sig['instrument'] = instrument
-            all_potential_signals.append(sig)
-
-    if not all_potential_signals:
-        logger.info("No new signals generated after applying all rules.")
-        return pd.DataFrame()
-        
-    # --- New Code: Filter and Rank Signals ---
-    # Sort all generated signals by confidence score and take the top 5.
-    all_potential_signals.sort(key=lambda x: x.get('confidence_score', 0), reverse=True)
-    final_recommended_trades = all_potential_signals[:5]
-
-    if not final_recommended_trades:
-        logger.info("No high-confidence signals found after filtering.")
-        return pd.DataFrame()
-
-    final_signals_df = pd.DataFrame(final_recommended_trades)
-    logger.info(f"Generated {len(final_signals_df)} high-confidence signals after filtering.")
-    return final_signals_df
+    if should_send:
+        logger.info(f"✅ Alert to be sent: {signal.get('symbol')} - {reason}")
+        send_ai_powered_alert(signal, analysis)
+        return signal
+    else:
+        logger.info(f"⏸️  Alert filtered: {signal.get('symbol')} - {reason}")
+        return None
 
 def generate_advisor_output(signal):
     """Formats the top signal into a single row for the Advisor_Output sheet."""
@@ -1073,100 +868,35 @@ def generate_advisor_output(signal):
     }
     return advisor_data
 
-
-def write_to_google_sheets(price_df, signals_df):
-    """Writes price data and signals to Google Sheets as a backup."""
-    logger.info("--- Starting Google Sheets Backup Process ---")
-    try:
-        from .sheet_utils import connect_to_google_sheets, write_dataframe_to_sheet
-        
-        # Define the name of the Google Sheet
-        SHEET_NAME = "Trading_Data_Backup"
-        
-        spreadsheet = connect_to_google_sheets(SHEET_NAME)
-        
-        if not price_df.empty:
-            price_worksheet = spreadsheet.worksheet("Price_Data")
-            write_dataframe_to_sheet(price_worksheet, price_df)
-        else:
-            logger.info("Price data is empty. Skipping sheet backup for Price_Data.")
-            
-        if not signals_df.empty:
-            signals_worksheet = spreadsheet.worksheet("Signals")
-            write_dataframe_to_sheet(signals_worksheet, signals_df)
-        else:
-            logger.info("Signals data is empty. Skipping sheet backup for Signals.")
-            
-        logger.info("--- Google Sheets Backup Process Completed ---")
-        
-    except Exception as e:
-        logger.error(f"An error occurred during Google Sheets backup: {e}", exc_info=True)
-        # We don't re-raise the exception here to avoid failing the entire process
-        # if the backup to Google Sheets fails.
-
-
 def write_to_firestore(db, price_df, signals_df):
-    """Writes all processed data to their respective Firestore collections."""
-    logger.info("--- Starting Firestore Update Process ---")
-    batch = db.batch()
-
-    # 1. Write Price Data (one document per instrument in the 'price_data' collection)
-    if not price_df.empty:
-        for instrument, group in price_df.groupby('instrument'):
-            # Use a clean name for the document ID
-            doc_id = instrument.replace('.NS', '').replace('^', '')
-            doc_ref = db.collection('price_data').document(doc_id)
-            
-            # Convert dataframe to a list of dicts for Firestore
-            data_list = group.to_dict('records')
-            
-            # Firestore handles Python datetime objects automatically
-            batch.set(doc_ref, {'data': data_list, 'last_updated': firestore.SERVER_TIMESTAMP})
-        logger.info(f"Staged price data for {len(price_df['instrument'].unique())} instruments.")
-    else:
-        raise ValueError("Attempted to write to Firestore, but the provided price dataframe was empty.")
-
-    # 2. Clear old signals and write new ones
-    # This ensures the 'signals' collection only contains the latest run's signals.
-    old_signals_query = db.collection('signals').limit(500) # Delete in batches if needed
-    for doc in old_signals_query.stream():
-        batch.delete(doc.reference)
+    """Writes all processed data to JSON files instead of Firestore."""
+    logger.info("--- Starting JSON Storage Update Process ---")
     
-    if not signals_df.empty:
-        for _, signal_row in signals_df.iterrows():
-            signal_doc_ref = db.collection('signals').document() # New doc with auto-ID
-            signal_data = signal_row.to_dict()
-            # Ensure all numpy types are converted to native Python types
-            for key, value in signal_data.items():
-                if isinstance(value, (np.int64, np.int32)):
-                    signal_data[key] = int(value)
-                elif isinstance(value, (np.float64, np.float32)):
-                    signal_data[key] = float(value)
-            batch.set(signal_doc_ref, signal_data)
-        logger.info(f"Staged {len(signals_df)} signals for Firestore.")
-    else:
-        logger.info("No signals to write.")
+    try:
+        # 1. Write Price Data to JSON
+        if not price_df.empty:
+            save_dataframe_to_json(price_df, "price_data")
+            logger.info(f"✅ Saved price data for {len(price_df['instrument'].unique())} instruments to JSON.")
+        else:
+            raise ValueError("Attempted to write to storage, but the provided price dataframe was empty.")
 
-    # 3. Write Final Advisor Output (a single document)
-    advisor_ref = db.collection('advisor_output').document('latest_recommendation')
-    if not signals_df.empty:
-        signals_df_sorted = signals_df.sort_values(by=['confidence_score'], ascending=False)
-        top_signal = signals_df_sorted.iloc[0].to_dict()
-        advisor_data = generate_advisor_output(top_signal)
-        batch.set(advisor_ref, advisor_data)
+        # 2. Write signals to JSON
+        if not signals_df.empty:
+            save_dataframe_to_json(signals_df, "signals")
+            logger.info(f"✅ Saved {len(signals_df)} signals to JSON.")
+            
+            # Generate and save advisor output
+            signals_df_sorted = signals_df.sort_values(by=['confidence_score'], ascending=False)
+            top_signal = signals_df_sorted.iloc[0].to_dict()
+            advisor_data = generate_advisor_output(top_signal)
+            
+            # Save advisor output
+            save_to_json("advisor_output", advisor_data)
+            logger.info(f"✅ Saved top signal to advisor_output: {advisor_data['recommendation']}")
+            
+            # Send Telegram Notification for the top signal
+            batch.set(advisor_ref, advisor_data)
         logger.info(f"Staged top signal to Advisor_Output: {advisor_data['recommendation']}")
-        # --- Send Telegram Notification for the top signal ---
-        notification_message = (
-            f"📈 *New Trading Signal*\n\n"
-            f"*Action:* {advisor_data['recommendation']}\n"
-            f"*Confidence:* {advisor_data['confidence']}\n\n"
-            f"Entry: `{advisor_data['entry_price']}`\n"
-            f"Stop Loss: `{advisor_data['stop_loss']}`\n"
-            f"Take Profit: `{advisor_data['take_profit']}`\n\n"
-            f"*Reason:* {advisor_data['reasons']}\n"
-            f"_{advisor_data['timestamp']} UTC_"
-        )
-        send_telegram_notification(notification_message)
     else:
         logger.info("No signals to generate advice. Updating Advisor_Output with status.")
         no_signal_data = {
@@ -1176,157 +906,109 @@ def write_to_firestore(db, price_df, signals_df):
             "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         }
         batch.set(advisor_ref, no_signal_data)
-        # --- Send a status update to Telegram if no signal is found ---
-        # This only runs on the first 15 minutes of the hour to avoid spam.
-        if datetime.now().minute < 15:
-            notification_message = (
-                f"✅ *Bot Status Update*\n\nNo new high-confidence signals were found that met all criteria."
-            )
-            send_telegram_notification(notification_message)
 
-    # 4. Update Bot Control Timestamp
-    bot_control_ref = db.collection('bot_control').document('status')
-    batch.update(bot_control_ref, {'last_updated': firestore.SERVER_TIMESTAMP})
+        # 3. Update bot control timestamp in JSON
+        bot_status_data = {
+            "status": "running",
+            "last_updated": datetime.now().isoformat()
+        }
+        save_to_json("bot_control", bot_status_data)
 
-    # 5. Commit all batched writes to Firestore
-    batch.commit()
-    logger.info("--- Firestore Update Process Completed ---")
-
-def should_run():
-    """
-    Checks if the Indian stock market is open, considering weekends and holidays.
-    (Mon-Fri, 9:15 AM - 3:30 PM IST, excluding holidays from config)
-    """
-    ist = pytz.timezone('Asia/Kolkata')
-    now = datetime.now(ist)
-    today_str = now.strftime('%Y-%m-%d')
-    
-    # Check if today is a market holiday
-    if today_str in config.MARKET_HOLIDAYS:
-        logger.info(f"Market is closed today for a holiday: {today_str}")
+        logger.info("--- JSON Storage Update Process Completed ---")
+        return True
+        
+    except Exception as e:
+        logger.error(f"Error writing to JSON storage: {e}", exc_info=True)
         return False
 
-    # Check if it's a weekday (Monday=0, Sunday=6)
-    if now.weekday() >= 5:
-        return False
-    
-    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
-    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
-    
-    return market_open <= now <= market_close
 
-def fetch_economic_events():
-    """
-    Fetches high-impact economic events for the day.
-    (Placeholder function - can be replaced with a real API call)
-    """
-    logger.info("Fetching economic calendar events...")
-    # In a real implementation, you would call an API here.
-    # Example: return requests.get("https://api.economiccalendar.com/events").json()
-
-    today_str = datetime.now(pytz.timezone('Asia/Kolkata')).strftime('%Y-%m-%d')
-    
-    # Example: High-impact US inflation data release at 6 PM IST.
-    example_events = [{'date': today_str, 'time': '18:00', 'currency': 'USD', 'event': 'CPI m/m', 'impact': 'high'}]
-    return example_events
 
 def main(force_run=False):
     """Main function that runs the entire process."""
-    try:
-        from .firestore_utils import get_firestore_client # LAZY IMPORT
-        logger.info("--- Trading Signal Process Started ---")
-        
-        is_market_open = should_run()
 
-        # Determine which data source to use.
-        # If force_run is true, we ALWAYS use yfinance for testing purposes.
-        # If force_run is false (a scheduled run), we only proceed if the market is open, and we use Kite.
-        use_yfinance = force_run
+    # 1. Check market status
+    market_status = should_run_trading_bot()
+    
+    if market_status == "holiday" and not force_run:
+        print(" Market holiday - no operations")
+        return {"status": "holiday"}
+    
+    # 2. Always run data collection (if trading day)
+    if market_status != "holiday" or force_run:
+        data_collector = DataCollector()
+        data_collector.collect_training_data([
+            '^NSEI', '^NSEBANK', 'RELIANCE.NS', 'TCS.NS'
+        ])
+    
+    # 3. Run AI training weekly
+    if datetime.now().weekday() == 0 and (market_status != "holiday" or force_run):  # Monday
+        training_pipeline = AITrainingPipeline()
+        training_pipeline.retrain_model()
 
-        if not use_yfinance: # This is a normal, scheduled run
-            if not is_market_open:
-                logger.info("Market is closed. Normal run skipped.")
-                return {"status": "success", "message": "Market is closed. Bot did not run."}
-            logger.info("Market is open. Proceeding with Kite data source.")
-        else: # This is a forced run
-            logger.warning("Forced run detected. Using yfinance data source for this run.")
-        
-        # Step 1: Connect to Firestore
-        db = get_firestore_client()
-        
-        # Check if the bot is enabled in Firestore before proceeding.
-        if not check_bot_status(db):
-            # This is the critical fix: Do not use sys.exit() in a web server. Instead,
+    # 4. Only run trading during market hours
+    if market_status == "full_trading" or force_run:
+        try:
+            from .firestore_utils import init_json_storage, get_db # LAZY IMPORT
+            logger.info("--- Trading Signal Process Started ---")
+            
+            # Step 1: Connect to Firestore
+            init_json_storage()
+            db = get_db()  # This returns our dummy DB object for compatibility
+            
+            # Check if the bot is enabled in Firestore before proceeding.
+            if not check_bot_status(db) and not force_run:
+                raise BotHaltedException("Bot execution halted by user control in 'Bot_Control' sheet.")
 
-            # raise a custom exception to be handled gracefully by the web endpoint.
-            raise BotHaltedException("Bot execution halted by user control in 'Bot_Control' sheet.")
+            # Step 2: Conditionally connect to Kite and fetch instrument data
+            kite = None
+            if market_status == "full_trading":
+                kite = connect_to_kite()
 
-        # Step 2: Conditionally connect to Kite and fetch instrument data
-        # This is the critical fix: Do not attempt to connect to Kite if we are using yfinance.
-        kite = None
-        instrument_map = {}
-        option_chain_df = None
-        if not use_yfinance:
-            kite = connect_to_kite() # This can raise an exception, which is fine for a live run.
-            instrument_map = get_instrument_map(kite)
-            # The option chain is fetched but not currently used in signal generation.
-            # To save API calls, this is commented out. It can be re-enabled if a strategy requires it.
-            # option_chain_df = fetch_option_chain(kite, 'NIFTY')
-        # Step 2: Read supporting data from Firestore
-        manual_controls_df = read_manual_controls(db)
+            # Step 4: Collect external data (market data, events)
+            price_data_dict = run_data_collection()
+            
+            if price_data_dict.get("15m") is None or price_data_dict["15m"].empty:
+                logger.warning("No data was collected from the source. Skipping indicator calculation, signal generation, and sheet writing.")
+                return {"status": "success", "message": "No data collected from source."}
 
-        # Step 3: Read historical trade log to calculate performance stats
-        trade_log_df = read_trade_log(db)
-        
-        # Sentiment analysis model is no longer needed.
+            # Step 5: Calculate all indicators for all instruments and timeframes
+            if not price_data_dict["15m"].empty:
+                price_data_dict["15m"] = calculate_indicators(price_data_dict["15m"])
+                price_data_dict["15m"] = price_data_dict["15m"].groupby('instrument', group_keys=False).apply(apply_price_action_indicators)
+            if not price_data_dict["30m"].empty:
+                price_data_dict["30m"] = calculate_indicators(price_data_dict["30m"])
+                price_data_dict["30m"] = price_data_dict["30m"].groupby('instrument', group_keys=False).apply(apply_price_action_indicators)
+            if not price_data_dict["1h"].empty:
+                price_data_dict["1h"] = calculate_indicators(price_data_dict["1h"])
+                price_data_dict["1h"] = price_data_dict["1h"].groupby('instrument', group_keys=False).apply(apply_price_action_indicators)
+            
+            # Step 5.5: Analyze Market Internals
+            market_context = analyze_market_internals(price_data_dict)
+            
+            # Step 6: Generate signals using data, controls, performance, sentiment, and the new market context
+            signals_df = generate_intelligent_signals(price_data_dict, market_context, news_data={})
+            
+            # Step 7: Write both data and signals to the sheets
+            write_to_firestore(db, price_data_dict["15m"], signals_df)
+            
+            if not price_data_dict["15m"].empty:
+                save_dataframe_to_json(price_data_dict["15m"], "price_data")
+            else:
+                logger.info("Price data is empty. Skipping JSON backup for price data.")
+            if signals_df is not None and not signals_df.empty:
+                save_dataframe_to_json(pd.DataFrame([signals_df]), "signals")
+            else:
+                logger.info("Signals data is empty. Skipping JSON backup for signals.")
 
-        # Step 4: Collect external data (market data, events)
-        economic_events = fetch_economic_events()
-        price_data_dict = run_data_collection(kite, instrument_map, use_yfinance=use_yfinance)
-        
-        # CRITICAL FIX: Check if data collection was successful. If not, exit gracefully.
-        # This prevents a crash when no data is fetched, which causes the 500 error.
-        if price_data_dict.get("15m") is None or price_data_dict["15m"].empty:
-            logger.warning("No data was collected from the source. Skipping indicator calculation, signal generation, and sheet writing.")
-            # Even if no data, we should update the 'last_updated' timestamp to show the bot ran.
-            bot_control_ref = db.collection('bot_control').document('status')
-            bot_control_ref.update({'last_updated': firestore.SERVER_TIMESTAMP})
-            logger.info("Successfully updated 'last_updated' timestamp in Firestore.")
-            logger.info("--- Trading Signal Process Completed (No Data) ---")
-            return {"status": "success", "message": "No data collected from source."}
 
-        # Step 5: Calculate all indicators for all instruments and timeframes
-        if not price_data_dict["15m"].empty:
-            price_data_dict["15m"] = calculate_indicators(price_data_dict["15m"])
-            # Apply price action indicators after main indicators are calculated
-            price_data_dict["15m"] = price_data_dict["15m"].groupby('instrument', group_keys=False).apply(apply_price_action_indicators)
-        if not price_data_dict["30m"].empty:
-            price_data_dict["30m"] = calculate_indicators(price_data_dict["30m"])
-            price_data_dict["30m"] = price_data_dict["30m"].groupby('instrument', group_keys=False).apply(apply_price_action_indicators)
-        if not price_data_dict["1h"].empty:
-            price_data_dict["1h"] = calculate_indicators(price_data_dict["1h"])
-            # Also apply to 1h data for completeness, though we primarily use it for trend context
-            price_data_dict["1h"] = price_data_dict["1h"].groupby('instrument', group_keys=False).apply(apply_price_action_indicators)
-        
-        # Step 5.5: Analyze Market Internals
-        market_context = analyze_market_internals(price_data_dict)
-        
-        # Step 6: Generate signals using data, controls, performance, sentiment, and the new market context
-        signals_df = generate_signals(price_data_dict, manual_controls_df, trade_log_df, market_context, economic_events)
-        
-        # Step 7: Write both data and signals to the sheets
-        write_to_firestore(db, price_data_dict["15m"], signals_df)
-        write_to_google_sheets(price_data_dict["15m"], signals_df)
+            logger.info("--- Trading Signal Process Completed Successfully ---")
+            return {"status": "success", "message": "Trading bot executed successfully."}
 
-        logger.info("--- Trading Signal Process Completed Successfully ---")
-        return {"status": "success", "message": "Trading bot executed successfully."}
-
-    except Exception as e:
-        # This will catch any error and log it, preventing a silent crash.
-        logger.error("A critical error occurred in the main process:", exc_info=True)
-        # Re-raise the exception so it's caught by the Flask endpoint,
-        # which will return a 500 error and cause the GitHub Actions job to fail.
-        raise
+        except Exception as e:
+            logger.error(f"A critical error occurred in the main process:", exc_info=True)
+            raise
+    else:
+        return {"status": "data_collection_only", "message": "Market closed - data collected"}
 
 
 
@@ -1364,111 +1046,65 @@ def run_bot():
 
 # --- NEW: API Endpoint for Frontend Dashboard ---
 @process_data_bp.route("/dashboard", methods=["GET"])
-def get_dashboard_data():
+def get_dashboard_data_endpoint():
     """
-    Provides a single endpoint for the frontend to fetch all necessary dashboard data.
-    Includes in-memory caching to reduce Firestore reads and improve performance.
+    Provides dashboard data from JSON files instead of Firestore.
     """
-    # Check for a refresh request from the frontend to bypass the cache
     force_refresh = request.args.get('refresh', 'false').lower() == 'true'
-    if force_refresh:
-        logger.info("Cache bypass requested via ?refresh=true. Fetching fresh data.")
-
-    # --- Caching Logic: Check 1 (no lock) ---
+    
     if not force_refresh and dashboard_cache["timestamp"] and \
        (datetime.now() - dashboard_cache["timestamp"]).total_seconds() < CACHE_LIFETIME_SECONDS:
         logger.info("Returning dashboard data from cache.")
         return jsonify(dashboard_cache["data"])
 
     with cache_lock:
-        # --- Caching Logic: Check 2 (with lock) ---
         if not force_refresh and dashboard_cache["timestamp"] and \
            (datetime.now() - dashboard_cache["timestamp"]).total_seconds() < CACHE_LIFETIME_SECONDS:
             logger.info("Returning dashboard data from cache (after lock).")
             return jsonify(dashboard_cache["data"])
 
-        logger.info("Fetching fresh dashboard data from Firestore (cache stale or bypassed).")
-        from .firestore_utils import get_firestore_client # LAZY IMPORT
-
-        def sanitize_for_json(doc_data):
-            """
-            Recursively cleans data to make it JSON serializable.
-            Converts numpy types to native Python types and NaN to None.
-            """
-            if isinstance(doc_data, dict):
-                return {k: sanitize_for_json(v) for k, v in doc_data.items()}
-            if isinstance(doc_data, list):
-                return [sanitize_for_json(i) for i in doc_data]
-            # Handle numpy numeric types
-            if isinstance(doc_data, (np.int64, np.int32, np.int16, np.int8)):
-                return int(doc_data)
-            if isinstance(doc_data, (np.float64, np.float32, np.float16)):
-                return None if np.isnan(doc_data) else float(doc_data)
-            # Handle numpy bool type
-            if isinstance(doc_data, np.bool_):
-                return bool(doc_data)
-            # Handle standalone NaN float
-            if isinstance(doc_data, float) and np.isnan(doc_data):
-                return None
-            return doc_data
-
+        logger.info("Fetching fresh dashboard data from JSON files.")
+        
         try:
-            db = get_firestore_client()
+            def read_json_file(filename, default=[]):
+                """Helper function to read JSON files safely."""
+                filepath = f"data/{filename}.json"
+                try:
+                    with open(filepath, 'r') as f:
+                        return json.load(f)
+                except FileNotFoundError:
+                    return default
+                except Exception as e:
+                    logger.warning(f"Error reading {filename}: {e}")
+                    return default
 
-            # Fetch all data
-            advisor_doc = db.collection('advisor_output').document('latest_recommendation').get()
-            signals_docs = db.collection('signals').stream()
-            bot_control_doc = db.collection('bot_control').document('status').get()
-            trade_log_docs = db.collection('trade_log').stream()
-            
-            price_data = {}
-            doc_ids_to_fetch = [s.replace('.NS', '').replace('^', '') for s in config.WATCHLIST_SYMBOLS]
-            doc_id_to_symbol_map = {doc_id: symbol for doc_id, symbol in zip(doc_ids_to_fetch, config.WATCHLIST_SYMBOLS)}
-
-            if doc_ids_to_fetch:
-                price_docs = db.collection('price_data').where('__name__', 'in', doc_ids_to_fetch).stream()
-                for doc in price_docs:
-                    # --- DEFINITIVE FIX for 500 Error ---
-                    # If a document in Firestore is empty, doc.to_dict() returns None,
-                    # which would cause an AttributeError on .get('data', []). This check prevents that crash.
-                    doc_dict = doc.to_dict()
-                    if not doc_dict:
-                        logger.warning(f"Document '{doc.id}' in 'price_data' collection is empty. Skipping.")
-                        continue
-                    all_price_data = doc_dict.get('data', [])
-                    if all_price_data:
-                        valid_data = [dp for dp in all_price_data if isinstance(dp, dict) and dp.get('timestamp')]
-
-                        def get_sortable_timestamp(item):
-                            ts = item.get('timestamp')
-                            if not isinstance(ts, datetime):
-                                return datetime.min.replace(tzinfo=pytz.utc)
-                            if ts.tzinfo is None:
-                                return ts.replace(tzinfo=pytz.utc)
-                            return ts
-
-                        valid_data.sort(key=get_sortable_timestamp)
-                        price_data[doc_id_to_symbol_map[doc.id]] = valid_data[-200:]
-                    else:
-                        price_data[doc_id_to_symbol_map[doc.id]] = []
-
+            # Read all data from JSON files
             dashboard_data = {
-                "advisorOutput": [sanitize_for_json(advisor_doc.to_dict())] if advisor_doc.exists else [],
-                "signals": [sanitize_for_json(doc.to_dict()) for doc in signals_docs],
-                "botControl": [sanitize_for_json(bot_control_doc.to_dict())] if bot_control_doc.exists else [],
-                "priceData": sanitize_for_json(price_data),
-                "tradeLog": [sanitize_for_json(doc.to_dict()) for doc in trade_log_docs],
+                "advisorOutput": read_json_file("advisor_output", [{}]),
+                "signals": read_json_file("signals", []),
+                "botControl": read_json_file("bot_control", [{}]),
+                "priceData": {},
+                "tradeLog": read_json_file("trade_log", []),
                 "lastRefreshed": datetime.now(pytz.utc).isoformat(),
             }
-            
-            # --- Caching Logic: Update Cache ---
+
+            # Read price data for each symbol
+            for symbol in config.WATCHLIST_SYMBOLS:
+                # Use a simplified filename pattern
+                clean_symbol = symbol.replace('.NS', '').replace('^', '')
+                price_data = read_json_file(f"price_data_{clean_symbol}", [])
+                if price_data:
+                    # Get latest 200 records
+                    dashboard_data["priceData"][symbol] = price_data[-200:]
+
+            # Update cache
             dashboard_cache["data"] = dashboard_data
             dashboard_cache["timestamp"] = datetime.now()
-            logger.info("Dashboard cache updated.")
+            logger.info("Dashboard cache updated from JSON files.")
 
             return jsonify(dashboard_data), 200
 
         except Exception as e:
-            error_message = f"A backend error occurred while fetching dashboard data: {str(e)}"
-            logger.error(f"Error fetching dashboard data from Firestore: {e}", exc_info=True)
+            error_message = f"Error fetching dashboard data from JSON files: {str(e)}"
+            logger.error(f"Error in dashboard endpoint: {e}", exc_info=True)
             return jsonify({"status": "error", "message": error_message}), 500

@@ -1,0 +1,16 @@
+[
+  {
+    "instrument": "RELIANCE",
+    "action": "BUY", 
+    "underlying_price": "2450.50",
+    "P/L": "1250.00",
+    "timestamp": "2024-01-15T10:30:00Z"
+  },
+  {
+    "instrument": "TCS", 
+    "action": "SELL",
+    "underlying_price": "3215.75",
+    "P/L": "-450.00",
+    "timestamp": "2024-01-15T11:15:00Z"
+  }
+]

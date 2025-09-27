@@ -209,6 +209,33 @@ class AIAnalysisEngine:
             'targets': [1.1, 1.2]
         }
 
+    def _calculate_sma(self, data, window):
+        """Calculates the Simple Moving Average."""
+        if len(data) < window:
+            return None
+        return data[-window:].mean()
+
+    def get_simple_trend_signal(self, historical_data):
+        """Generates a simple trend signal based on SMA crossover."""
+        if historical_data is None or historical_data.empty:
+            return "NEUTRAL"
+
+        # Ensure we have enough data for SMAs
+        if len(historical_data) < 50:
+            return "NEUTRAL"
+
+        # Calculate short and long term SMAs
+        sma_20 = self._calculate_sma(historical_data['Close'], 20)
+        sma_50 = self._calculate_sma(historical_data['Close'], 50)
+
+        if sma_20 is None or sma_50 is None:
+            return "NEUTRAL"
+
+        if sma_20 > sma_50:
+            return "UP"
+        else:
+            return "DOWN"
+
 
 from .accurate_telegram_alerts import AccurateTelegramAlerts
 

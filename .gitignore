@@ -28,6 +28,7 @@ yarn-error.log*
 !package-lock.json
 !tsconfig.json
 !components.json
+!data/*.json
 *.pem
 
 # Other

@@ -27,6 +27,8 @@ jobs:
     - name: Test Authentication
       env:
         KITE_API_KEY: ${{ secrets.KITE_API_KEY }}
-        KITE_ACCESS_TOKEN: ${{ secrets.KITE_ACCESS_TOKEN }}
-        GOOGLE_SHEETS_CREDENTIALS: ${{ secrets.GOOGLE_SHEETS_CREDENTIALS }}
-      run: python test_auth.py
+        KITE_API_SECRET: ${{ secrets.KITE_API_SECRET }}
+        KITE_USER_ID: ${{ secrets.KITE_USER_ID }}
+        KITE_PASSWORD: ${{ secrets.KITE_PASSWORD }}
+        KITE_TOTP_SECRET: ${{ secrets.KITE_TOTP_SECRET }}
+      run: python -m test_auth

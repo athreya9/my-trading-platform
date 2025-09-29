@@ -23,6 +23,7 @@ app = FastAPI()
 origins = [
     "http://localhost:3000",  # For local Next.js development
     "https://trading-dashboard-app.vercel.app/",
+    "https://trading-platform-analysis-dashboard.vercel.app/",
 ]
 
 app.add_middleware(

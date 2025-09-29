@@ -52,11 +52,18 @@ class BacktestEngine:
     def _load_kite_data(self, symbol, start_date, end_date):
         """Placeholder for loading data from Kite Connect API."""
         print("Note: _load_kite_data is a placeholder. You need to implement your Kite API logic here.")
-        # Example: Load from a local CSV file
+        # from api.kite_connect import get_kite_connect_client
         # try:
-        #     df = pd.read_csv(f'{symbol}.csv', index_col='date', parse_dates=True)
-        #     return df[(df.index >= start_date) & (df.index <= end_date)]
-        # except FileNotFoundError:
+        #     kite = get_kite_connect_client()
+        #     # You will need to get the instrument token for the symbol
+        #     instrument_token = kite.ltp([symbol])[symbol]['instrument_token']
+        #     # Fetch historical data
+        #     records = kite.historical_data(instrument_token, from_date=start_date, to_date=end_date, interval='day')
+        #     df = pd.DataFrame(records)
+        #     df.set_index('date', inplace=True)
+        #     return df
+        # except Exception as e:
+        #     print(f"Error loading data from Kite: {e}")
         #     return None
         return None
 

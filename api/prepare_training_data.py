@@ -65,6 +65,16 @@ def main():
             print("Could not fetch historical data. Exiting.", file=sys.stderr)
             sys.exit(1)
 
+        # Reset index to make sure 'Date' or 'Datetime' becomes a column
+        price_df.reset_index(inplace=True)
+        # Rename the date column to 'timestamp'
+        if 'Date' in price_df.columns:
+            price_df.rename(columns={'Date': 'timestamp'}, inplace=True)
+        elif 'Datetime' in price_df.columns:
+            price_df.rename(columns={'Datetime': 'timestamp'}, inplace=True)
+        else:
+            raise ValueError("No 'Date' or 'Datetime' column found in the historical data.")
+
         # 2. Calculate all indicators to use as features
         print("Calculating features (technical indicators)...")
         features_df = calculate_indicators(price_df)

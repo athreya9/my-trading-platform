@@ -32,7 +32,7 @@ jobs:
           KITE_USER_ID: ${{ secrets.KITE_USER_ID }}
           KITE_PASSWORD: ${{ secrets.KITE_PASSWORD }}
           KITE_TOTP_SECRET: ${{ secrets.KITE_TOTP_SECRET }}
-        run: python api/run_live_bot.py
+        run: python -m api.run_live_bot
 
       - name: Commit and push changes
         uses: stefanzweifel/git-auto-commit-action@v4
@@ -60,10 +60,10 @@ jobs:
           pip install -r requirements-automation.txt # For backtesting
 
       - name: Prepare Training Data
-        run: python api/prepare_training_data.py
+        run: python -m api.prepare_training_data
 
       - name: Retrain AI Model
-        run: python api/train_model.py
+        run: python -m api.train_model
 
       - name: Validate New Model with Backtest
         run: python backtest.py

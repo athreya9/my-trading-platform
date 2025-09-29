@@ -2,7 +2,7 @@
 """
 This script prepares historical data for machine learning model training.
 
-It reads the price data from Google Sheets, calculates all relevant technical
+It reads the price data from the collected historical data, calculates all relevant technical
 indicators to use as features (X), and defines a target variable (y)
 that the model will learn to predict.
 """
@@ -11,12 +11,9 @@ import sys
 import pandas as pd
 import numpy as np
 
-# Add the parent directory to the path to allow imports from 'api'
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from api.process_data import calculate_indicators, apply_price_action_indicators
-from api.sheet_utils import connect_to_google_sheets, read_historical_data
+from api.data_processing import calculate_indicators, apply_price_action_indicators
 from api.config import ML_FEATURE_COLUMNS
+from api.data_collector import DataCollector
 
 
 # --- Configuration for the Target Variable ---
@@ -24,8 +21,6 @@ from api.config import ML_FEATURE_COLUMNS
 PREDICTION_HORIZON = 5
 # The minimum percentage move required to be considered a "win".
 TARGET_RETURN_THRESHOLD = 0.002 # 0.2%
-SHEET_NAME = "Algo Trading Dashboard"
-
 
 def create_target_variable(df):
     """
@@ -63,26 +58,14 @@ def main():
     """
     try:
         print("--- Starting ML Data Preparation ---")
-        try:
-            # 1. Read historical data from Google Sheets
-            spreadsheet = connect_to_google_sheets(SHEET_NAME)
-            # Use the new, dedicated function to read from the correct sheet.
-            price_df = read_historical_data(spreadsheet)
-        except ValueError as e:
-            # This catches the specific error from read_historical_data if the sheet is empty.
-            print(f"❌ Error: {e}", file=sys.stderr)
-            print("Cannot prepare training data. Please ensure a scheduled data collection job has run successfully first.", file=sys.stderr)
+        # 1. Read historical data
+        collector = DataCollector()
+        price_df = collector.fetch_historical_data("^NSEI", period="2y", interval="1d")
+        if price_df is None or price_df.empty:
+            print("Could not fetch historical data. Exiting.", file=sys.stderr)
             sys.exit(1)
 
-        # --- CRITICAL FIX: Standardize column names ---
-        # The sheet has 'Symbol' and 'Timestamp', but the processing functions expect 'instrument' and 'timestamp'.
-        price_df.rename(columns={
-            'Symbol': 'instrument',
-            'Timestamp': 'timestamp'
-        }, inplace=True)
-
         # 2. Calculate all indicators to use as features
-        # We reuse the robust functions from the main processing script.
         print("Calculating features (technical indicators)...")
         features_df = calculate_indicators(price_df)
         features_df = features_df.groupby('instrument', group_keys=False).apply(apply_price_action_indicators)
@@ -91,19 +74,12 @@ def main():
         labeled_df = create_target_variable(features_df)
 
         # 4. Select final features and clean the data
-        # We drop columns that are not useful for prediction (like future data or raw prices).
         final_columns = ML_FEATURE_COLUMNS + ['target']
 
-        # Select the final columns and handle missing values robustly.
         training_df = labeled_df[final_columns].copy()
 
-        # The `create_target_variable` function already drops rows where 'target' is NaN.
-        # Now, we fill any remaining NaNs in the *feature* columns. This is crucial
-        # for features like order blocks that might not appear in the initial data,
-        # preventing the entire row from being dropped. A value of 0 is a neutral default.
         training_df[ML_FEATURE_COLUMNS] = training_df[ML_FEATURE_COLUMNS].fillna(0)
 
-        # Final safety check to ensure no NaNs are passed to the model.
         training_df.dropna(inplace=True)
 
         # 5. Save the final dataset

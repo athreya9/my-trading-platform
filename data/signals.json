@@ -1,0 +1,10 @@
+[
+  {
+    "instrument": "NIFTY 50",
+    "trend": "UP",
+    "signal": "Buy CE",
+    "strikePrice": 18000,
+    "premium": 150,
+    "confidence": 85
+  }
+]

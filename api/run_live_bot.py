@@ -1,7 +1,7 @@
 import json
 from datetime import datetime
 from api.kite_connect import get_access_token_with_totp, get_kite_connect_client
-from api.ai_analysis_engine import AIAnalysisEngine
+from api.ai_analysis_engine import AIAnalysisEngine, send_ai_powered_alert
 from api.data_collector import DataCollector
 from api.technical_indicators import get_technical_indicators
 
@@ -53,9 +53,13 @@ def run_live_bot():
         if signal['action'] == 'BUY':
             trend = "UP"
         elif signal['action'] == 'AVOID':
-            trend = "DOWN" # Or some other representation for avoid
+            trend = "DOWN"
         else:
             trend = "NEUTRAL"
+
+        # Send Telegram alert
+        if signal['action'] != 'HOLD':
+            send_ai_powered_alert(signal, analysis)
 
         signals_to_save.append({
             "instrument": instrument_name,
@@ -63,7 +67,12 @@ def run_live_bot():
             "signal": signal['action'],
             "confidence": signal['confidence'],
             "reasoning": signal['reasoning'],
-            "technical_score": analysis['technical']['score']
+            "technical_score": analysis['technical']['score'],
+            "specific_instructions": signal['specific_instructions'],
+            "profit_targets": signal['profit_targets'],
+            "time_horizon": signal['time_horizon'],
+            "exit_conditions": signal['exit_conditions'],
+            "trail_stop_level": signal['trail_stop_level']
         })
 
     # --- 3. Update JSON Files ---

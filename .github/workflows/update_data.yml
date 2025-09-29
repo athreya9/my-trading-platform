@@ -1,10 +1,9 @@
-name: Live Data and AI Training
+name: Live Data Update
 
 on:
   workflow_dispatch:
   schedule:
-    - cron: '*/15 * * * *' # For live data updates
-    - cron: '0 0 * * 0' # For weekly model training
+    - cron: '*/15 * * * *'
 
 jobs:
   update-data:
@@ -40,45 +39,6 @@ jobs:
         with:
           commit_message: "chore: update live data"
           file_pattern: "data/*.json"
-          commit_user_name: "GitHub Actions Bot"
-          commit_user_email: "github-actions[bot]@users.noreply.github.com"
-          commit_author: "github-actions[bot] <github-actions[bot]@users.noreply.github.com>"
-
-  train-and-validate:
-    if: github.event.schedule == '0 0 * * 0' || github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v2
-
-      - name: Set up Python
-        uses: actions/setup-python@v2
-        with:
-          python-version: '3.12'
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r api/requirements.txt
-          pip install -r requirements-automation.txt # For backtesting
-
-      - name: Prepare Training Data
-        run: python -m api.prepare_training_data
-
-      - name: Retrain AI Model
-        run: python -m api.train_model
-
-      - name: Validate New Model with Backtest
-        run: python backtest.py
-
-      - name: Commit and Push Updated Model
-        uses: stefanzweifel/git-auto-commit-action@v5
-        with:
-          commit_message: "chore(AI): Automatically retrain and update AI model"
-          file_pattern: "api/trading_model.pkl api/confusion_matrix.png api/feature_importance.png"
           commit_user_name: "GitHub Actions Bot"
           commit_user_email: "github-actions[bot]@users.noreply.github.com"
           commit_author: "github-actions[bot] <github-actions[bot]@users.noreply.github.com>"

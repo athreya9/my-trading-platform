@@ -40,10 +40,15 @@ jobs:
         with:
           commit_message: "chore: update live data"
           file_pattern: "data/*.json"
+          commit_user_name: "GitHub Actions Bot"
+          commit_user_email: "github-actions[bot]@users.noreply.github.com"
+          commit_author: "github-actions[bot] <github-actions[bot]@users.noreply.github.com>"
 
   train-and-validate:
     if: github.event.schedule == '0 0 * * 0' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Check out repository
@@ -74,3 +79,6 @@ jobs:
         with:
           commit_message: "chore(AI): Automatically retrain and update AI model"
           file_pattern: "api/trading_model.pkl api/confusion_matrix.png api/feature_importance.png"
+          commit_user_name: "GitHub Actions Bot"
+          commit_user_email: "github-actions[bot]@users.noreply.github.com"
+          commit_author: "github-actions[bot] <github-actions[bot]@users.noreply.github.com>"

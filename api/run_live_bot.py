@@ -1,6 +1,8 @@
 import json
+import subprocess
+import sys
 from datetime import datetime
-from api.kite_connect import get_access_token_with_totp, get_kite_connect_client
+from api.kite_connect import get_kite_connect_client
 from api.ai_analysis_engine import AIAnalysisEngine, send_ai_powered_alert
 from api.data_collector import DataCollector
 from api.technical_indicators import get_technical_indicators
@@ -9,9 +11,9 @@ def get_instrument_token(kite, symbol):
     """Gets the instrument token for a given symbol."""
     # In a real application, you would fetch the full instrument list and find the token dynamically.
     # For now, we will hardcode the tokens for NIFTY 50 and Bank NIFTY.
-    if symbol == "^NSEI":
+    if symbol == "NIFTY 50":
         return 256265 # NIFTY 50
-    elif symbol == "^NSEBANK":
+    elif symbol == "NIFTY BANK":
         return 260105 # NIFTY BANK
     else:
         # Fallback to search for the instrument token
@@ -27,7 +29,14 @@ def run_live_bot():
 
     # --- 1. Authenticate with Kite ---
     try:
-        access_token = get_access_token_with_totp()
+        # Run the automate_token_generation.py script as a subprocess
+        result = subprocess.run(
+            [sys.executable, "automate_token_generation.py"],
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        access_token = result.stdout.strip()
         if not access_token:
             print("Could not get access token. Exiting.")
             return

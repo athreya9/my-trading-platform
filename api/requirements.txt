@@ -7,3 +7,4 @@ holidays
 yfinance
 scikit-learn
 kiteconnect
+pandas-ta

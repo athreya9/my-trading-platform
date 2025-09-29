@@ -8,7 +8,6 @@ on:
 
 jobs:
   update-data:
-    if: github.event.schedule != '0 0 * * 0' # Don't run on the training schedule
     runs-on: ubuntu-latest
 
     steps:

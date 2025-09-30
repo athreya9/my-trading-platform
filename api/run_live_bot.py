@@ -7,32 +7,19 @@ from api.ai_analysis_engine import AIAnalysisEngine, send_ai_powered_alert
 from api.data_collector import DataCollector
 from api.technical_indicators import get_technical_indicators
 from api.accurate_telegram_alerts import AccurateTelegramAlerts
-
-import json
-import subprocess
-import sys
-from datetime import datetime
-from api.kite_connect import get_kite_connect_client
-from api.ai_analysis_engine import AIAnalysisEngine, send_ai_powered_alert
-from api.data_collector import DataCollector
-from api.technical_indicators import get_technical_indicators
-from api.accurate_telegram_alerts import AccurateTelegramAlerts
 from api.news_sentiment import fetch_news_sentiment
 
 def get_instrument_token(kite, symbol):
     """Gets the instrument token for a given symbol."""
-    # In a real application, you would fetch the full instrument list and find the token dynamically.
-    # For now, we will hardcode the tokens for NIFTY 50 and Bank NIFTY.
     if symbol == "NIFTY 50":
-        return 256265 # NIFTY 50
+        return 256265
     elif symbol == "NIFTY BANK":
-        return 260105 # NIFTY BANK
+        return 260105
     elif symbol == "SENSEX":
-        return 273929 # SENSEX
+        return 273929
     elif symbol == "NIFTY FIN SERVICE":
-        return 257801 # FINNIFTY
+        return 257801
     else:
-        # Fallback to search for the instrument token
         instruments = kite.instruments("NSE")
         for instrument in instruments:
             if instrument['tradingsymbol'] == symbol:
@@ -43,14 +30,10 @@ def run_live_bot():
     """The main function to run the live trading bot."""
     print("Running live bot...")
 
-    # --- 1. Authenticate with Kite ---
     try:
-        # Run the automate_token_generation.py script as a subprocess
         result = subprocess.run(
             [sys.executable, "automate_token_generation.py"],
-            capture_output=True,
-            text=True,
-            check=True
+            capture_output=True, text=True, check=True
         )
         access_token = result.stdout.strip()
         if not access_token:
@@ -65,14 +48,9 @@ def run_live_bot():
         print(f"Authentication failed: {e}")
         return
 
-    # --- Initialize Telegram Bot ---
     telegram_bot = AccurateTelegramAlerts(kite=kite)
-
-    # --- 2. Fetch Live Data and Generate Signals ---
-    print("Fetching live data and generating signals...")
     ai_engine = AIAnalysisEngine()
     collector = DataCollector()
-
     signals_to_save = []
 
     instrument_list = [
@@ -98,49 +76,36 @@ def run_live_bot():
     ]
 
     for instrument_name, symbol, kite_symbol in instrument_list:
+        print(f"--- Processing {instrument_name} ---")
         historical_data = collector.fetch_historical_data(symbol, period="1y", interval="1d")
         if historical_data is None or historical_data.empty:
             print(f"Could not fetch historical data for {instrument_name}. Skipping.")
             continue
 
-        # Calculate technical indicators
         kite_data = get_technical_indicators(historical_data)
         kite_data['symbol'] = symbol
 
-        # Get live price from Kite
         instrument_token = get_instrument_token(kite, kite_symbol)
         if not instrument_token:
             print(f"Could not get instrument token for {instrument_name}. Skipping.")
             continue
+        
         ltp_data = kite.ltp(instrument_token)
         live_price = ltp_data[str(instrument_token)]['last_price']
-        kite_data['Close'] = live_price # Update the close price with the live price
+        kite_data['Close'] = live_price
 
-        # Fetch news sentiment
         sentiment = fetch_news_sentiment(instrument_name)
-
-        # Prepare dummy market context
         market_context = {}
 
-        # Get AI analysis and generate signal
         analysis = ai_engine.analyze_trading_opportunity(kite_data, market_context, sentiment)
         signal = ai_engine.generate_intelligent_signal(analysis)
 
-        # Determine trend for frontend display
-        if signal['action'] == 'BUY':
-            trend = "UP"
-        elif signal['action'] == 'AVOID':
-            trend = "DOWN"
-        else:
-            trend = "NEUTRAL"
-
-        # Send Telegram alert
         if signal['action'] != 'HOLD':
             send_ai_powered_alert(signal, analysis, telegram_bot)
 
         signals_to_save.append({
             "instrument": instrument_name,
-            "trend": trend,
+            "trend": "UP" if signal['action'] == 'BUY' else "DOWN" if signal['action'] == 'AVOID' else "NEUTRAL",
             "signal": signal['action'],
             "confidence": signal['confidence'],
             "reasoning": signal['reasoning'],
@@ -152,12 +117,16 @@ def run_live_bot():
             "trail_stop_level": signal['trail_stop_level']
         })
 
-    # --- 3. Update JSON Files ---
-    print("Updating signals.json...")
-    with open("data/signals.json", 'w') as f:
-        json.dump(signals_to_save, f, indent=2)
+    print("\n--- Generated Signals ---")
+    print(json.dumps(signals_to_save, indent=2))
 
-    print("signals.json updated successfully.")
+    try:
+        print("\nUpdating signals.json...")
+        with open("data/signals.json", 'w') as f:
+            json.dump(signals_to_save, f, indent=2)
+        print("signals.json updated successfully.")
+    except Exception as e:
+        print(f"❌ Error writing to signals.json: {e}")
 
 if __name__ == '__main__':
     run_live_bot()

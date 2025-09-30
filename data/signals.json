@@ -35,13 +35,13 @@
   },
   {
     "instrument": "SENSEX",
-    "trend": "NEUTRAL",
-    "signal": "HOLD",
-    "confidence": 0,
-    "reasoning": "Multi-factor technical analysis. News sentiment is bullish.\nRecent headlines:\n- Dar Global to launch a $1 billion project in Saudi Arabia in a deal with Trump Organization\n- Rupee falls 7 paise to all-time closing low of 88.79 against US dollar\n- Rupee falls 7 paise to all-time closing low of 88.79 against US dollar",
+    "trend": "DOWN",
+    "signal": "AVOID",
+    "confidence": 80.0,
+    "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
     "technical_score": 25,
     "specific_instructions": [
-      "No clear signal based on current analysis."
+      "Market conditions unfavorable for a new position."
     ],
     "profit_targets": {
       "description": "N/A"
@@ -54,7 +54,7 @@
     "instrument": "FINNIFTY",
     "trend": "DOWN",
     "signal": "AVOID",
-    "confidence": 90.0,
+    "confidence": 100.0,
     "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
     "technical_score": 0,
     "specific_instructions": [
@@ -71,7 +71,7 @@
     "instrument": "Reliance Industries",
     "trend": "DOWN",
     "signal": "AVOID",
-    "confidence": 98.0,
+    "confidence": 88.0,
     "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
     "technical_score": 15,
     "specific_instructions": [
@@ -86,13 +86,13 @@
   },
   {
     "instrument": "HDFC Bank",
-    "trend": "NEUTRAL",
-    "signal": "HOLD",
-    "confidence": 0,
-    "reasoning": "Multi-factor technical analysis. News sentiment is neutral.\nRecent headlines:\n- Dar Global to launch a $1 billion project in Saudi Arabia in a deal with Trump Organization\n- Market Wrap: D-Street logs 7th straight loss on auto, IT sell-off; Sensex falls 61 points, Nifty below 24,700\n- Indo-MIM Files For IPO To Raise Rs 1,000 Crore Via Fresh Issue",
+    "trend": "DOWN",
+    "signal": "AVOID",
+    "confidence": 88.0,
+    "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
     "technical_score": 15,
     "specific_instructions": [
-      "No clear signal based on current analysis."
+      "Market conditions unfavorable for a new position."
     ],
     "profit_targets": {
       "description": "N/A"
@@ -105,7 +105,7 @@
     "instrument": "ICICI Bank",
     "trend": "DOWN",
     "signal": "AVOID",
-    "confidence": 82.0,
+    "confidence": 72.0,
     "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
     "technical_score": 35,
     "specific_instructions": [
@@ -120,13 +120,13 @@
   },
   {
     "instrument": "Infosys",
-    "trend": "NEUTRAL",
-    "signal": "HOLD",
-    "confidence": 0,
-    "reasoning": "Multi-factor technical analysis. News sentiment is neutral.\nRecent headlines:\n- Dar Global to launch a $1 billion project in Saudi Arabia in a deal with Trump Organization\n- $75 billion gone from Tata stocks in 2025 so far. What\u2019s ailing India\u2019s top conglomerate?\n- India\u2019s Economy Is Stronger Than Trump Thinks",
+    "trend": "DOWN",
+    "signal": "AVOID",
+    "confidence": 80.0,
+    "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
     "technical_score": 25,
     "specific_instructions": [
-      "No clear signal based on current analysis."
+      "Market conditions unfavorable for a new position."
     ],
     "profit_targets": {
       "description": "N/A"
@@ -157,7 +157,7 @@
     "trend": "NEUTRAL",
     "signal": "HOLD",
     "confidence": 0,
-    "reasoning": "Multi-factor technical analysis. News sentiment is neutral.\nRecent headlines:\n- L&T secures USD 700 mn Sustainability-Linked Trade Facility from Standard Chartered\n- 3,731 Shares in Williams Companies, Inc. (The) $WMB Acquired by Patton Fund Management Inc.\n- 45/2025\u30fbTrifork Group: Reporting of transactions made by persons discharging managerial responsibilities",
+    "reasoning": "Multi-factor technical analysis. News sentiment is neutral.\nRecent headlines:\nError fetching news.",
     "technical_score": 45,
     "specific_instructions": [
       "No clear signal based on current analysis."
@@ -174,7 +174,7 @@
     "trend": "NEUTRAL",
     "signal": "HOLD",
     "confidence": 0,
-    "reasoning": "Multi-factor technical analysis. News sentiment is bullish.\nRecent headlines:\n- Sensex, Nifty erase early gains amid RBI meet, US tariff pressure\n- Stock Market Today: All You Need To Know Going Into Trade On Sept. 29\n- Delhi HC orders status quo on removal of Adani content posted by Ravish Kumar and Newslaundry",
+    "reasoning": "Multi-factor technical analysis. News sentiment is neutral.\nRecent headlines:\nError fetching news.",
     "technical_score": 45,
     "specific_instructions": [
       "No clear signal based on current analysis."
@@ -188,30 +188,26 @@
   },
   {
     "instrument": "Adani Ports",
-    "trend": "UP",
-    "signal": "BUY",
+    "trend": "DOWN",
+    "signal": "AVOID",
     "confidence": 80.0,
-    "reasoning": "Multi-factor technical analysis. News sentiment is bullish.\nRecent headlines:\n- HSBC picks 11 stocks to ride FII return after 12-month absence. Do you own any?\n- FIIs set to return to India after 12-month absence, says HSBC; picks 11 stocks\n- Hindenburg\u2019s target was not just Adani Group but India Inc's audacity, Gautam Adani says in this letter",
+    "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
     "technical_score": 25,
     "specific_instructions": [
-      "Enter at current market price."
+      "Market conditions unfavorable for a new position."
     ],
     "profit_targets": {
-      "description": "Target 1: 10%, Target 2: 20%",
-      "targets": [
-        1.1,
-        1.2
-      ]
+      "description": "N/A"
     },
-    "time_horizon": "1-3 days",
-    "exit_conditions": "Price crosses below 20-period moving average",
-    "trail_stop_level": "Entry price after Target 1 is hit"
+    "time_horizon": "N/A",
+    "exit_conditions": "N/A",
+    "trail_stop_level": "N/A"
   },
   {
     "instrument": "Bajaj Finance",
     "trend": "DOWN",
     "signal": "AVOID",
-    "confidence": 140.0,
+    "confidence": 80.0,
     "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
     "technical_score": 25,
     "specific_instructions": [
@@ -228,7 +224,7 @@
     "instrument": "Maruti Suzuki",
     "trend": "DOWN",
     "signal": "AVOID",
-    "confidence": 110.0,
+    "confidence": 80.0,
     "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
     "technical_score": 25,
     "specific_instructions": [
@@ -245,7 +241,7 @@
     "instrument": "Tata Motors",
     "trend": "DOWN",
     "signal": "AVOID",
-    "confidence": 110.0,
+    "confidence": 80.0,
     "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
     "technical_score": 25,
     "specific_instructions": [
@@ -260,13 +256,13 @@
   },
   {
     "instrument": "Hindustan Unilever",
-    "trend": "NEUTRAL",
-    "signal": "HOLD",
-    "confidence": 0,
-    "reasoning": "Multi-factor technical analysis. News sentiment is bullish.\nRecent headlines:\n- HUL shares slide as company warns of flat growth amid GST transition disruption\n- Market correction opens opportunities in domestic sectors: Pankaj Pandey\n- HUL shares fall 3% on muted Q2 business update as GST 2.0 delays spending",
+    "trend": "DOWN",
+    "signal": "AVOID",
+    "confidence": 80.0,
+    "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
     "technical_score": 25,
     "specific_instructions": [
-      "No clear signal based on current analysis."
+      "Market conditions unfavorable for a new position."
     ],
     "profit_targets": {
       "description": "N/A"
@@ -277,13 +273,13 @@
   },
   {
     "instrument": "State Bank of India",
-    "trend": "DOWN",
-    "signal": "AVOID",
-    "confidence": 84.0,
-    "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
+    "trend": "NEUTRAL",
+    "signal": "HOLD",
+    "confidence": 0,
+    "reasoning": "Multi-factor technical analysis. News sentiment is neutral.\nRecent headlines:\nError fetching news.",
     "technical_score": 45,
     "specific_instructions": [
-      "Market conditions unfavorable for a new position."
+      "No clear signal based on current analysis."
     ],
     "profit_targets": {
       "description": "N/A"
@@ -297,7 +293,7 @@
     "trend": "NEUTRAL",
     "signal": "HOLD",
     "confidence": 0,
-    "reasoning": "Multi-factor technical analysis. News sentiment is neutral.\nRecent headlines:\n- Dar Global to launch a $1 billion project in Saudi Arabia in a deal with Trump Organization\n- Market Wrap: D-Street logs 7th straight loss on auto, IT sell-off; Sensex falls 61 points, Nifty below 24,700\n- Indo-MIM Files For IPO To Raise Rs 1,000 Crore Via Fresh Issue",
+    "reasoning": "Multi-factor technical analysis. News sentiment is neutral.\nRecent headlines:\nError fetching news.",
     "technical_score": 45,
     "specific_instructions": [
       "No clear signal based on current analysis."
@@ -314,7 +310,7 @@
     "trend": "NEUTRAL",
     "signal": "HOLD",
     "confidence": 0,
-    "reasoning": "Multi-factor technical analysis. News sentiment is neutral.\nRecent headlines:\n- Steel giants turn cautious on iron ore mine bids amid high premiums, remote locations\n- Sensex jumps over 100 pts, Nifty tops 24,700 as D-St snaps 6-day losing streak ahead of RBI MPC meet\n- Mint Explainer | How JSW Steel won back Bhushan Power and why it matters",
+    "reasoning": "Multi-factor technical analysis. News sentiment is neutral.\nRecent headlines:\nError fetching news.",
     "technical_score": 60,
     "specific_instructions": [
       "No clear signal based on current analysis."

@@ -1,10 +1,329 @@
 [
   {
     "instrument": "NIFTY 50",
+    "trend": "NEUTRAL",
+    "signal": "HOLD",
+    "confidence": 0,
+    "reasoning": "Multi-factor technical analysis. News sentiment is neutral.\nRecent headlines:\n- Rupee anchored near record low on outflows, corporate dollar demand\n- Sensex, Nifty sustain morning gains in afternoon trade on selective buying\n- What Taylor Swift taught RBC CEO Dave McKay",
+    "technical_score": 25,
+    "specific_instructions": [
+      "No clear signal based on current analysis."
+    ],
+    "profit_targets": {
+      "description": "N/A"
+    },
+    "time_horizon": "N/A",
+    "exit_conditions": "N/A",
+    "trail_stop_level": "N/A"
+  },
+  {
+    "instrument": "Bank NIFTY",
+    "trend": "NEUTRAL",
+    "signal": "HOLD",
+    "confidence": 0,
+    "reasoning": "Multi-factor technical analysis. News sentiment is bullish.\nRecent headlines:\n- Rupee anchored near record low on outflows, corporate dollar demand\n- Market Wrap: D-Street logs 7th straight loss on auto, IT sell-off; Sensex falls 61 points, Nifty below 24,700\n- Nifty support at 24,500, resistance at 24,900; buy Indian Bank, Titan, Hindalco: Rajesh Bhosale",
+    "technical_score": 0,
+    "specific_instructions": [
+      "No clear signal based on current analysis."
+    ],
+    "profit_targets": {
+      "description": "N/A"
+    },
+    "time_horizon": "N/A",
+    "exit_conditions": "N/A",
+    "trail_stop_level": "N/A"
+  },
+  {
+    "instrument": "SENSEX",
+    "trend": "NEUTRAL",
+    "signal": "HOLD",
+    "confidence": 0,
+    "reasoning": "Multi-factor technical analysis. News sentiment is neutral.\nRecent headlines:\n- Rupee anchored near record low on outflows, corporate dollar demand\n- Market Wrap: D-Street logs 7th straight loss on auto, IT sell-off; Sensex falls 61 points, Nifty below 24,700\n- Nifty support at 24,500, resistance at 24,900; buy Indian Bank, Titan, Hindalco: Rajesh Bhosale",
+    "technical_score": 25,
+    "specific_instructions": [
+      "No clear signal based on current analysis."
+    ],
+    "profit_targets": {
+      "description": "N/A"
+    },
+    "time_horizon": "N/A",
+    "exit_conditions": "N/A",
+    "trail_stop_level": "N/A"
+  },
+  {
+    "instrument": "FINNIFTY",
+    "trend": "DOWN",
+    "signal": "AVOID",
+    "confidence": 90.0,
+    "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
+    "technical_score": 0,
+    "specific_instructions": [
+      "Market conditions unfavorable for a new position."
+    ],
+    "profit_targets": {
+      "description": "N/A"
+    },
+    "time_horizon": "N/A",
+    "exit_conditions": "N/A",
+    "trail_stop_level": "N/A"
+  },
+  {
+    "instrument": "Reliance Industries",
+    "trend": "DOWN",
+    "signal": "AVOID",
+    "confidence": 98.0,
+    "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
+    "technical_score": 15,
+    "specific_instructions": [
+      "Market conditions unfavorable for a new position."
+    ],
+    "profit_targets": {
+      "description": "N/A"
+    },
+    "time_horizon": "N/A",
+    "exit_conditions": "N/A",
+    "trail_stop_level": "N/A"
+  },
+  {
+    "instrument": "HDFC Bank",
+    "trend": "NEUTRAL",
+    "signal": "HOLD",
+    "confidence": 0,
+    "reasoning": "Multi-factor technical analysis. News sentiment is bullish.\nRecent headlines:\n- Market Wrap: D-Street logs 7th straight loss on auto, IT sell-off; Sensex falls 61 points, Nifty below 24,700\n- Indo-MIM Files For IPO To Raise Rs 1,000 Crore Via Fresh Issue\n- Jinkushal Industries\u00a0\u00a0IPO sees strong demand led by NIIs, subscribed 44.45x so far",
+    "technical_score": 15,
+    "specific_instructions": [
+      "No clear signal based on current analysis."
+    ],
+    "profit_targets": {
+      "description": "N/A"
+    },
+    "time_horizon": "N/A",
+    "exit_conditions": "N/A",
+    "trail_stop_level": "N/A"
+  },
+  {
+    "instrument": "ICICI Bank",
+    "trend": "DOWN",
+    "signal": "AVOID",
+    "confidence": 82.0,
+    "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
+    "technical_score": 35,
+    "specific_instructions": [
+      "Market conditions unfavorable for a new position."
+    ],
+    "profit_targets": {
+      "description": "N/A"
+    },
+    "time_horizon": "N/A",
+    "exit_conditions": "N/A",
+    "trail_stop_level": "N/A"
+  },
+  {
+    "instrument": "Infosys",
+    "trend": "NEUTRAL",
+    "signal": "HOLD",
+    "confidence": 0,
+    "reasoning": "Multi-factor technical analysis. News sentiment is bullish.\nRecent headlines:\n- India\u2019s Economy Is Stronger Than Trump Thinks\n- Beyond the classroom: How eVidyaloka is rewiring rural education\n- Nifty support at 24,500, resistance at 24,900; buy Indian Bank, Titan, Hindalco: Rajesh Bhosale",
+    "technical_score": 25,
+    "specific_instructions": [
+      "No clear signal based on current analysis."
+    ],
+    "profit_targets": {
+      "description": "N/A"
+    },
+    "time_horizon": "N/A",
+    "exit_conditions": "N/A",
+    "trail_stop_level": "N/A"
+  },
+  {
+    "instrument": "Tata Consultancy",
+    "trend": "NEUTRAL",
+    "signal": "HOLD",
+    "confidence": 0,
+    "reasoning": "Multi-factor technical analysis. News sentiment is bullish.\nRecent headlines:\n- Tata Motor's JLR begins phased return to UK manufacturing after cyber attack\n- India\u2019s Economy Is Stronger Than Trump Thinks\n- Tata Group loses $75 Billion in market cap as risks grow",
+    "technical_score": 20,
+    "specific_instructions": [
+      "No clear signal based on current analysis."
+    ],
+    "profit_targets": {
+      "description": "N/A"
+    },
+    "time_horizon": "N/A",
+    "exit_conditions": "N/A",
+    "trail_stop_level": "N/A"
+  },
+  {
+    "instrument": "Larsen & Toubro",
+    "trend": "NEUTRAL",
+    "signal": "HOLD",
+    "confidence": 0,
+    "reasoning": "Multi-factor technical analysis. News sentiment is neutral.\nRecent headlines:\n- L&T secures USD 700 mn Sustainability-Linked Trade Facility from Standard Chartered\n- 3,731 Shares in Williams Companies, Inc. (The) $WMB Acquired by Patton Fund Management Inc.\n- 45/2025\u30fbTrifork Group: Reporting of transactions made by persons discharging managerial responsibilities",
+    "technical_score": 45,
+    "specific_instructions": [
+      "No clear signal based on current analysis."
+    ],
+    "profit_targets": {
+      "description": "N/A"
+    },
+    "time_horizon": "N/A",
+    "exit_conditions": "N/A",
+    "trail_stop_level": "N/A"
+  },
+  {
+    "instrument": "Adani Enterprises",
+    "trend": "NEUTRAL",
+    "signal": "HOLD",
+    "confidence": 0,
+    "reasoning": "Multi-factor technical analysis. News sentiment is bullish.\nRecent headlines:\n- Sensex, Nifty erase early gains amid RBI meet, US tariff pressure\n- Stock Market Today: All You Need To Know Going Into Trade On Sept. 29\n- Delhi HC orders status quo on removal of Adani content posted by Ravish Kumar and Newslaundry",
+    "technical_score": 45,
+    "specific_instructions": [
+      "No clear signal based on current analysis."
+    ],
+    "profit_targets": {
+      "description": "N/A"
+    },
+    "time_horizon": "N/A",
+    "exit_conditions": "N/A",
+    "trail_stop_level": "N/A"
+  },
+  {
+    "instrument": "Adani Ports",
     "trend": "UP",
-    "signal": "Buy CE",
-    "strikePrice": 18000,
-    "premium": 150,
-    "confidence": 85
+    "signal": "BUY",
+    "confidence": 80.0,
+    "reasoning": "Multi-factor technical analysis. News sentiment is bullish.\nRecent headlines:\n- HSBC picks 11 stocks to ride FII return after 12-month absence. Do you own any?\n- FIIs set to return to India after 12-month absence, says HSBC; picks 11 stocks\n- Hindenburg\u2019s target was not just Adani Group but India Inc's audacity, Gautam Adani says in this letter",
+    "technical_score": 25,
+    "specific_instructions": [
+      "Enter at current market price."
+    ],
+    "profit_targets": {
+      "description": "Target 1: 10%, Target 2: 20%",
+      "targets": [
+        1.1,
+        1.2
+      ]
+    },
+    "time_horizon": "1-3 days",
+    "exit_conditions": "Price crosses below 20-period moving average",
+    "trail_stop_level": "Entry price after Target 1 is hit"
+  },
+  {
+    "instrument": "Bajaj Finance",
+    "trend": "DOWN",
+    "signal": "AVOID",
+    "confidence": 140.0,
+    "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
+    "technical_score": 25,
+    "specific_instructions": [
+      "Market conditions unfavorable for a new position."
+    ],
+    "profit_targets": {
+      "description": "N/A"
+    },
+    "time_horizon": "N/A",
+    "exit_conditions": "N/A",
+    "trail_stop_level": "N/A"
+  },
+  {
+    "instrument": "Maruti Suzuki",
+    "trend": "DOWN",
+    "signal": "AVOID",
+    "confidence": 110.0,
+    "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
+    "technical_score": 25,
+    "specific_instructions": [
+      "Market conditions unfavorable for a new position."
+    ],
+    "profit_targets": {
+      "description": "N/A"
+    },
+    "time_horizon": "N/A",
+    "exit_conditions": "N/A",
+    "trail_stop_level": "N/A"
+  },
+  {
+    "instrument": "Tata Motors",
+    "trend": "DOWN",
+    "signal": "AVOID",
+    "confidence": 100.0,
+    "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
+    "technical_score": 25,
+    "specific_instructions": [
+      "Market conditions unfavorable for a new position."
+    ],
+    "profit_targets": {
+      "description": "N/A"
+    },
+    "time_horizon": "N/A",
+    "exit_conditions": "N/A",
+    "trail_stop_level": "N/A"
+  },
+  {
+    "instrument": "Hindustan Unilever",
+    "trend": "NEUTRAL",
+    "signal": "HOLD",
+    "confidence": 0,
+    "reasoning": "Multi-factor technical analysis. News sentiment is neutral.\nRecent headlines:\n- Market correction opens opportunities in domestic sectors: Pankaj Pandey\n- HUL shares fall 3% on muted Q2 business update as GST 2.0 delays spending\n- Hindustan Unilever shares down 2.7% on sales impact forecast",
+    "technical_score": 25,
+    "specific_instructions": [
+      "No clear signal based on current analysis."
+    ],
+    "profit_targets": {
+      "description": "N/A"
+    },
+    "time_horizon": "N/A",
+    "exit_conditions": "N/A",
+    "trail_stop_level": "N/A"
+  },
+  {
+    "instrument": "State Bank of India",
+    "trend": "DOWN",
+    "signal": "AVOID",
+    "confidence": 84.0,
+    "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
+    "technical_score": 45,
+    "specific_instructions": [
+      "Market conditions unfavorable for a new position."
+    ],
+    "profit_targets": {
+      "description": "N/A"
+    },
+    "time_horizon": "N/A",
+    "exit_conditions": "N/A",
+    "trail_stop_level": "N/A"
+  },
+  {
+    "instrument": "Axis Bank",
+    "trend": "NEUTRAL",
+    "signal": "HOLD",
+    "confidence": 0,
+    "reasoning": "Multi-factor technical analysis. News sentiment is neutral.\nRecent headlines:\n- Market Wrap: D-Street logs 7th straight loss on auto, IT sell-off; Sensex falls 61 points, Nifty below 24,700\n- Indo-MIM Files For IPO To Raise Rs 1,000 Crore Via Fresh Issue\n- Nifty support at 24,500, resistance at 24,900; buy Indian Bank, Titan, Hindalco: Rajesh Bhosale",
+    "technical_score": 45,
+    "specific_instructions": [
+      "No clear signal based on current analysis."
+    ],
+    "profit_targets": {
+      "description": "N/A"
+    },
+    "time_horizon": "N/A",
+    "exit_conditions": "N/A",
+    "trail_stop_level": "N/A"
+  },
+  {
+    "instrument": "JSW Steel",
+    "trend": "NEUTRAL",
+    "signal": "HOLD",
+    "confidence": 0,
+    "reasoning": "Multi-factor technical analysis. News sentiment is neutral.\nRecent headlines:\n- Steel giants turn cautious on iron ore mine bids amid high premiums, remote locations\n- Sensex jumps over 100 pts, Nifty tops 24,700 as D-St snaps 6-day losing streak ahead of RBI MPC meet\n- Mint Explainer | How JSW Steel won back Bhushan Power and why it matters",
+    "technical_score": 60,
+    "specific_instructions": [
+      "No clear signal based on current analysis."
+    ],
+    "profit_targets": {
+      "description": "N/A"
+    },
+    "time_horizon": "N/A",
+    "exit_conditions": "N/A",
+    "trail_stop_level": "N/A"
   }
 ]

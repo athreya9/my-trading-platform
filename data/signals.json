@@ -21,7 +21,7 @@
     "trend": "NEUTRAL",
     "signal": "HOLD",
     "confidence": 0,
-    "reasoning": "Multi-factor technical analysis. News sentiment is bullish.\nRecent headlines:\n- Rupee falls 7 paise to all-time closing low of 88.79 against US dollar\n- Rupee falls 7 paise to all-time closing low of 88.79 against US dollar\n- Rupee anchored near record low on outflows, corporate dollar demand",
+    "reasoning": "Multi-factor technical analysis. News sentiment is bullish.\nRecent headlines:\n- Dar Global to launch a $1 billion project in Saudi Arabia in a deal with Trump Organization\n- Rupee falls 7 paise to all-time closing low of 88.79 against US dollar\n- Rupee falls 7 paise to all-time closing low of 88.79 against US dollar",
     "technical_score": 0,
     "specific_instructions": [
       "No clear signal based on current analysis."
@@ -38,7 +38,7 @@
     "trend": "NEUTRAL",
     "signal": "HOLD",
     "confidence": 0,
-    "reasoning": "Multi-factor technical analysis. News sentiment is bullish.\nRecent headlines:\n- Rupee falls 7 paise to all-time closing low of 88.79 against US dollar\n- Rupee falls 7 paise to all-time closing low of 88.79 against US dollar\n- Rupee anchored near record low on outflows, corporate dollar demand",
+    "reasoning": "Multi-factor technical analysis. News sentiment is bullish.\nRecent headlines:\n- Dar Global to launch a $1 billion project in Saudi Arabia in a deal with Trump Organization\n- Rupee falls 7 paise to all-time closing low of 88.79 against US dollar\n- Rupee falls 7 paise to all-time closing low of 88.79 against US dollar",
     "technical_score": 25,
     "specific_instructions": [
       "No clear signal based on current analysis."
@@ -89,7 +89,7 @@
     "trend": "NEUTRAL",
     "signal": "HOLD",
     "confidence": 0,
-    "reasoning": "Multi-factor technical analysis. News sentiment is bullish.\nRecent headlines:\n- Market Wrap: D-Street logs 7th straight loss on auto, IT sell-off; Sensex falls 61 points, Nifty below 24,700\n- Indo-MIM Files For IPO To Raise Rs 1,000 Crore Via Fresh Issue\n- Jinkushal Industries\u00a0\u00a0IPO sees strong demand led by NIIs, subscribed 44.45x so far",
+    "reasoning": "Multi-factor technical analysis. News sentiment is neutral.\nRecent headlines:\n- Dar Global to launch a $1 billion project in Saudi Arabia in a deal with Trump Organization\n- Market Wrap: D-Street logs 7th straight loss on auto, IT sell-off; Sensex falls 61 points, Nifty below 24,700\n- Indo-MIM Files For IPO To Raise Rs 1,000 Crore Via Fresh Issue",
     "technical_score": 15,
     "specific_instructions": [
       "No clear signal based on current analysis."
@@ -123,7 +123,7 @@
     "trend": "NEUTRAL",
     "signal": "HOLD",
     "confidence": 0,
-    "reasoning": "Multi-factor technical analysis. News sentiment is bullish.\nRecent headlines:\n- India\u2019s Economy Is Stronger Than Trump Thinks\n- Beyond the classroom: How eVidyaloka is rewiring rural education\n- Nifty support at 24,500, resistance at 24,900; buy Indian Bank, Titan, Hindalco: Rajesh Bhosale",
+    "reasoning": "Multi-factor technical analysis. News sentiment is neutral.\nRecent headlines:\n- Dar Global to launch a $1 billion project in Saudi Arabia in a deal with Trump Organization\n- $75 billion gone from Tata stocks in 2025 so far. What\u2019s ailing India\u2019s top conglomerate?\n- India\u2019s Economy Is Stronger Than Trump Thinks",
     "technical_score": 25,
     "specific_instructions": [
       "No clear signal based on current analysis."
@@ -137,13 +137,13 @@
   },
   {
     "instrument": "Tata Consultancy",
-    "trend": "NEUTRAL",
-    "signal": "HOLD",
-    "confidence": 0,
-    "reasoning": "Multi-factor technical analysis. News sentiment is bullish.\nRecent headlines:\n- Tata Capital To Raise $1.7 Billion In What Could Be India\u2019s Biggest IPO This Year\n- Tata Motor's JLR begins phased return to UK manufacturing after cyber attack\n- India\u2019s Economy Is Stronger Than Trump Thinks",
+    "trend": "DOWN",
+    "signal": "AVOID",
+    "confidence": 84.0,
+    "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
     "technical_score": 20,
     "specific_instructions": [
-      "No clear signal based on current analysis."
+      "Market conditions unfavorable for a new position."
     ],
     "profit_targets": {
       "description": "N/A"
@@ -245,7 +245,7 @@
     "instrument": "Tata Motors",
     "trend": "DOWN",
     "signal": "AVOID",
-    "confidence": 90.0,
+    "confidence": 110.0,
     "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
     "technical_score": 25,
     "specific_instructions": [
@@ -297,7 +297,7 @@
     "trend": "NEUTRAL",
     "signal": "HOLD",
     "confidence": 0,
-    "reasoning": "Multi-factor technical analysis. News sentiment is neutral.\nRecent headlines:\n- Market Wrap: D-Street logs 7th straight loss on auto, IT sell-off; Sensex falls 61 points, Nifty below 24,700\n- Indo-MIM Files For IPO To Raise Rs 1,000 Crore Via Fresh Issue\n- Nifty support at 24,500, resistance at 24,900; buy Indian Bank, Titan, Hindalco: Rajesh Bhosale",
+    "reasoning": "Multi-factor technical analysis. News sentiment is neutral.\nRecent headlines:\n- Dar Global to launch a $1 billion project in Saudi Arabia in a deal with Trump Organization\n- Market Wrap: D-Street logs 7th straight loss on auto, IT sell-off; Sensex falls 61 points, Nifty below 24,700\n- Indo-MIM Files For IPO To Raise Rs 1,000 Crore Via Fresh Issue",
     "technical_score": 45,
     "specific_instructions": [
       "No clear signal based on current analysis."

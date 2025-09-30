@@ -8,6 +8,17 @@ from api.data_collector import DataCollector
 from api.technical_indicators import get_technical_indicators
 from api.accurate_telegram_alerts import AccurateTelegramAlerts
 
+import json
+import subprocess
+import sys
+from datetime import datetime
+from api.kite_connect import get_kite_connect_client
+from api.ai_analysis_engine import AIAnalysisEngine, send_ai_powered_alert
+from api.data_collector import DataCollector
+from api.technical_indicators import get_technical_indicators
+from api.accurate_telegram_alerts import AccurateTelegramAlerts
+from api.news_sentiment import fetch_news_sentiment
+
 def get_instrument_token(kite, symbol):
     """Gets the instrument token for a given symbol."""
     # In a real application, you would fetch the full instrument list and find the token dynamically.
@@ -64,12 +75,29 @@ def run_live_bot():
 
     signals_to_save = []
 
-    for instrument_name, symbol, kite_symbol in [
+    instrument_list = [
         ("NIFTY 50", "^NSEI", "NIFTY 50"), 
         ("Bank NIFTY", "^NSEBANK", "NIFTY BANK"),
         ("SENSEX", "^BSESN", "SENSEX"),
-        ("FINNIFTY", "^CNXFIN", "NIFTY FIN SERVICE")
-    ]:
+        ("FINNIFTY", "^CNXFIN", "NIFTY FIN SERVICE"),
+        ("Reliance Industries", "RELIANCE.NS", "RELIANCE"),
+        ("HDFC Bank", "HDFCBANK.NS", "HDFCBANK"),
+        ("ICICI Bank", "ICICIBANK.NS", "ICICIBANK"),
+        ("Infosys", "INFY.NS", "INFY"),
+        ("Tata Consultancy", "TCS.NS", "TCS"),
+        ("Larsen & Toubro", "LT.NS", "LT"),
+        ("Adani Enterprises", "ADANIENT.NS", "ADANIENT"),
+        ("Adani Ports", "ADANIPORTS.NS", "ADANIPORTS"),
+        ("Bajaj Finance", "BAJFINANCE.NS", "BAJFINANCE"),
+        ("Maruti Suzuki", "MARUTI.NS", "MARUTI"),
+        ("Tata Motors", "TATAMOTORS.NS", "TATAMOTORS"),
+        ("Hindustan Unilever", "HINDUNILVR.NS", "HINDUNILVR"),
+        ("State Bank of India", "SBIN.NS", "SBIN"),
+        ("Axis Bank", "AXISBANK.NS", "AXISBANK"),
+        ("JSW Steel", "JSWSTEEL.NS", "JSWSTEEL"),
+    ]
+
+    for instrument_name, symbol, kite_symbol in instrument_list:
         historical_data = collector.fetch_historical_data(symbol, period="1y", interval="1d")
         if historical_data is None or historical_data.empty:
             print(f"Could not fetch historical data for {instrument_name}. Skipping.")
@@ -88,12 +116,14 @@ def run_live_bot():
         live_price = ltp_data[str(instrument_token)]['last_price']
         kite_data['Close'] = live_price # Update the close price with the live price
 
-        # Prepare dummy market context and news sentiment
+        # Fetch news sentiment
+        sentiment = fetch_news_sentiment(instrument_name)
+
+        # Prepare dummy market context
         market_context = {}
-        news_sentiment = {}
 
         # Get AI analysis and generate signal
-        analysis = ai_engine.analyze_trading_opportunity(kite_data, market_context, news_sentiment)
+        analysis = ai_engine.analyze_trading_opportunity(kite_data, market_context, sentiment)
         signal = ai_engine.generate_intelligent_signal(analysis)
 
         # Determine trend for frontend display

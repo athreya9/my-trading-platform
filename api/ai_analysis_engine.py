@@ -85,10 +85,21 @@ class AIAnalysisEngine:
         return analysis
 
     def _sentiment_analysis(self, news_sentiment):
-        """Placeholder for sentiment analysis"""
+        """Processes the sentiment data from the news fetcher."""
+        score = news_sentiment.get('score', 0)
+        summary = news_sentiment.get('summary', 'No recent news found.')
+        
+        if score > 2:
+            overall = "Bullish"
+        elif score < -2:
+            overall = "Bearish"
+        else:
+            overall = "Neutral"
+            
         return {
-            'overall': 'Neutral',
-            'key_drivers': []
+            'overall': overall,
+            'score': score,
+            'summary': summary
         }
 
     def _risk_analysis(self, data):
@@ -117,17 +128,21 @@ class AIAnalysisEngine:
         # Simple mapping from technical score to a pseudo-prediction
         return [0.0, technical_score / 100.0]
 
-    def _combine_analysis(self, technical_analysis, market_score, sentiment_score, risk_analysis, ai_prediction):
+    def _combine_analysis(self, technical_analysis, market_score, sentiment_analysis, risk_analysis, ai_prediction):
         """Combine all analysis into a single recommendation"""
-        composite_score = (technical_analysis['score'] * 0.4) + (ai_prediction[1] * 100 * 0.6)
+        composite_score = (technical_analysis['score'] * 0.4) + (ai_prediction[1] * 100 * 0.4) + (sentiment_analysis['score'] * 10) # Added sentiment to score
         
+        reasoning = f"{technical_analysis['reason']}. News sentiment is {sentiment_analysis['overall'].lower()}.
+Recent headlines:
+{sentiment_analysis['summary']}"
+
         return {
             'composite_score': composite_score,
             'technical': technical_analysis,
             'market': market_score,
-            'sentiment': sentiment_score,
+            'sentiment': sentiment_analysis,
             'risk': risk_analysis,
-            'reasoning': "Rule-based analysis suggests a potential trading opportunity."
+            'reasoning': reasoning
         }
 
     def generate_intelligent_signal(self, analysis_result):
@@ -264,8 +279,7 @@ def send_ai_powered_alert(signal, analysis, telegram_bot):
 • Breadth: {analysis['market']['market_breadth']}
 • Volatility: {analysis['market']['volatility_regime']}
 
- **News Sentiment:** {analysis['sentiment']['overall']}
-• Key Factors: {', '.join(analysis['sentiment']['key_drivers'][:3])}
+ **News Sentiment:** {analysis['sentiment']['overall']} (Score: {analysis['sentiment']['score']})
 
 ️ **RISK MANAGEMENT:**
 • Kelly Criterion: {analysis['risk']['kelly_fraction']*100:.2f}% position

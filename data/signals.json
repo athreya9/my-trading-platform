@@ -1,13 +1,13 @@
 [
   {
     "instrument": "NIFTY 50",
-    "trend": "NEUTRAL",
-    "signal": "HOLD",
-    "confidence": 0,
-    "reasoning": "Multi-factor technical analysis. News sentiment is bullish.\nRecent headlines:\n- Rupee falls 7 paise to all-time closing low of 88.79 against US dollar\n- Rupee falls 7 paise to all-time closing low of 88.79 against US dollar\n- Rupee anchored near record low on outflows, corporate dollar demand",
+    "trend": "DOWN",
+    "signal": "AVOID",
+    "confidence": 80.0,
+    "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
     "technical_score": 25,
     "specific_instructions": [
-      "No clear signal based on current analysis."
+      "Market conditions unfavorable for a new position."
     ],
     "profit_targets": {
       "description": "N/A"
@@ -18,13 +18,13 @@
   },
   {
     "instrument": "Bank NIFTY",
-    "trend": "NEUTRAL",
-    "signal": "HOLD",
-    "confidence": 0,
-    "reasoning": "Multi-factor technical analysis. News sentiment is bullish.\nRecent headlines:\n- Dar Global to launch a $1 billion project in Saudi Arabia in a deal with Trump Organization\n- Rupee falls 7 paise to all-time closing low of 88.79 against US dollar\n- Rupee falls 7 paise to all-time closing low of 88.79 against US dollar",
+    "trend": "DOWN",
+    "signal": "AVOID",
+    "confidence": 100.0,
+    "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
     "technical_score": 0,
     "specific_instructions": [
-      "No clear signal based on current analysis."
+      "Market conditions unfavorable for a new position."
     ],
     "profit_targets": {
       "description": "N/A"

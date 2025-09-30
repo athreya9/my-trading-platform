@@ -24,6 +24,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r api/requirements.txt
+          pip install -r requirements-automation.txt
 
       - name: Run live bot
         run: python -m api.run_live_bot

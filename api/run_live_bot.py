@@ -1,6 +1,4 @@
 import json
-import subprocess
-import sys
 from datetime import datetime
 from api.kite_connect import get_kite_connect_client
 from api.ai_analysis_engine import AIAnalysisEngine, send_ai_powered_alert
@@ -8,6 +6,7 @@ from api.data_collector import DataCollector
 from api.technical_indicators import get_technical_indicators
 from api.accurate_telegram_alerts import AccurateTelegramAlerts
 from api.news_sentiment import fetch_news_sentiment
+from automate_token_generation import get_automated_access_token
 
 def get_instrument_token(kite, symbol):
     """Gets the instrument token for a given symbol."""
@@ -31,11 +30,7 @@ def run_live_bot():
     print("Running live bot...")
 
     try:
-        result = subprocess.run(
-            [sys.executable, "automate_token_generation.py"],
-            capture_output=True, text=True, check=True
-        )
-        access_token = result.stdout.strip()
+        access_token = get_automated_access_token()
         if not access_token:
             print("Could not get access token. Exiting.")
             return

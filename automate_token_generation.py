@@ -1,18 +1,4 @@
-#!/usr/bin/env python3
-"""
-Automates the Kite Connect login process to generate a daily access token.
 
-This script uses Selenium to perform a headless browser login, handles 2FA using
-pyotp, captures the `request_token` from the redirect, and then generates the
-final `access_token`.
-
-Required Environment Variables:
-- KITE_API_KEY: Your Kite application API key.
-- KITE_API_SECRET: Your Kite application API secret.
-- KITE_USER_ID: Your Zerodha user ID.
-- KITE_PASSWORD: Your Zerodha password.
-- KITE_TOTP_SECRET: The secret key from your 2FA authenticator app.
-"""
 import os
 import sys
 import hashlib
@@ -27,11 +13,8 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
 from webdriver_manager.chrome import ChromeDriverManager
 from urllib.parse import urlparse, parse_qs
-from pathlib import Path
-from dotenv import load_dotenv # Import load_dotenv
 
 # --- Centralized Logging Setup ---
-# This is a best practice to manage diagnostic output.
 import logging
 logger = logging.getLogger(__name__)
 handler = logging.StreamHandler(sys.stderr)
@@ -60,21 +43,14 @@ def generate_access_token(api_key, api_secret, request_token):
     else:
         raise Exception(f"Failed to generate access token: {result.get('message', 'Unknown error')}")
 
-def main():
+def get_automated_access_token():
     """
     Automates the Kite login process to fetch a request_token and then
-    generates and prints the daily access_token.
+    generates and returns the daily access_token.
     """
     driver = None
     try:
-        # Construct the path to the .env file relative to this script and load it.
-        script_dir = Path(__file__).resolve().parent
-        dotenv_path = script_dir / '.env'
-        load_dotenv(dotenv_path=dotenv_path)
-        logger.info(f"Loading environment variables from {dotenv_path}")
-        # --- Get Credentials from Environment Variables ---
         api_key = os.environ['KITE_API_KEY']
-        logger.info(f"DEBUG: KITE_API_KEY loaded: {api_key}")
         api_secret = os.environ['KITE_API_SECRET']
         user_id = os.environ['KITE_USER_ID']
         password = os.environ['KITE_PASSWORD']
@@ -113,45 +89,34 @@ def main():
 
         time.sleep(0.5) # Small delay to mimic human behavior
 
-        # Use a more robust, flexible selector for the password field to handle page changes.
         password_selector = (By.XPATH, "//input[@type='password' or @name='password' or @id='password']")
         password_input = wait.until(EC.visibility_of_element_located(password_selector))
         password_input.clear()
-        password_input.send_keys(password) # Use send_keys for a more "human-like" interaction.
+        password_input.send_keys(password)
 
-        # Wait for the submit button to be clickable before clicking
         wait.until(EC.element_to_be_clickable((By.XPATH, "//button[@type='submit']"))).click()
         
-        # --- Add a check for immediate login errors on the first page ---
         try:
-            # Wait for a very short time to see if an error message appears on the same page
             error_element = WebDriverWait(driver, 3).until(
                 EC.visibility_of_element_located((By.CSS_SELECTOR, "p.error, span.error"))
             )
             error_text = error_element.text.strip()
             raise Exception(f"Login failed on the first page. The website returned the error: '{error_text}'. This almost always means your KITE_USER_ID or KITE_PASSWORD secrets are incorrect. Please double-check them in your GitHub repository settings.")
         except TimeoutException:
-            # No immediate error found, which is the expected good path. Continue.
             pass
         
-        # --- Step 2: Handle 2FA/PIN/TOTP (with iframe detection) ---
-        # The 2FA page can be a PIN or TOTP page, and it might be inside an iframe.
-        # This logic attempts to handle these variations robustly.
         logger.info("Login submitted. Waiting for 2FA/PIN page...")
         pin_input = None
         switched_to_iframe = False
 
         try:
-            # Use a flexible XPath to find the 2FA/PIN input field by common IDs/names.
             twofa_input_selector = (By.XPATH, "//input[@id='userid' or @id='pin' or @name='totp' or @id='totp']")
 
-            # First, try to find the input field in the main document with a short timeout.
             pin_input = WebDriverWait(driver, 5).until(
                 EC.visibility_of_element_located(twofa_input_selector)
             )
             logger.info("2FA input found in main document.")
         except TimeoutException:
-            # If not found, assume it's inside an iframe.
             logger.info("2FA input not in main document. Waiting for iframe...")
             try:
                 iframe = WebDriverWait(driver, 15).until(
@@ -161,14 +126,11 @@ def main():
                 switched_to_iframe = True
                 logger.info("Successfully switched to 2FA iframe.")
                 
-                # Now find the input field inside the iframe.
                 pin_input = wait.until(EC.visibility_of_element_located(twofa_input_selector))
                 logger.info("2FA input found in iframe.")
             except TimeoutException:
-                # If it's still not found, then we have a problem.
                 raise Exception("Login failed: Could not find 2FA/PIN input in main document or inside an iframe.")
 
-        # We found the input field, now enter the TOTP.
         logger.info("Generating and entering TOTP...")
         totp = pyotp.TOTP(totp_secret)
         pin_input.send_keys(totp.now())
@@ -177,11 +139,8 @@ def main():
         if switched_to_iframe:
             driver.switch_to.default_content()
 
-        # --- Step 3: Capture the Request Token ---
         logger.info("Waiting for redirect to capture request_token or for an error message...")
 
-        # Wait for either the successful redirect OR a visible error message on the page.
-        # This prevents the script from timing out silently on a login failure.
         wait.until(
             EC.any_of(
                 EC.url_contains("request_token"),
@@ -189,9 +148,7 @@ def main():
             )
         )
 
-        # After the wait, check which condition was met.
         if "request_token" not in driver.current_url:
-            # If the URL doesn't have the token, it means an error message appeared.
             error_element = driver.find_element(By.CSS_SELECTOR, "p.error, span.error")
             error_text = error_element.text.strip()
             raise Exception(f"Login failed after 2FA. The website returned the error: '{error_text}'. This often means your KITE_TOTP_SECRET is incorrect or your Zerodha account is set to use a PIN instead of TOTP.")
@@ -207,7 +164,6 @@ def main():
         request_token = query_params['request_token'][0]
         logger.info(f"Successfully captured request_token.")
 
-        # --- Step 4: Generate the Access Token ---
         logger.info("Generating access_token...")
         access_token = generate_access_token(api_key, api_secret, request_token)
         
@@ -215,8 +171,7 @@ def main():
         logger.info("✅ SUCCESS! NEW ACCESS TOKEN GENERATED")
         logger.info("="*60)
         
-        # Print the token to stdout so it can be captured by the GitHub Action
-        print(access_token)
+        return access_token
         
     except Exception as e:
         logger.error(f"An error occurred during automated token generation: {e}", exc_info=True)
@@ -226,10 +181,14 @@ def main():
             with open('error_page_source.html', 'w', encoding='utf-8') as f:
                 f.write(driver.page_source)
             logger.info("Saved page source to 'error_page_source.html' for debugging.")
-        sys.exit(1)
+        raise e
     finally:
         if driver:
             driver.quit()
 
 if __name__ == "__main__":
-    main()
+    access_token = get_automated_access_token()
+    if access_token:
+        print(access_token)
+    else:
+        sys.exit(1)

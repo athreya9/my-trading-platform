@@ -26,12 +26,6 @@ jobs:
           pip install -r api/requirements.txt
 
       - name: Run live bot
-        env:
-          KITE_API_KEY: ${{ secrets.KITE_API_KEY }}
-          KITE_API_SECRET: ${{ secrets.KITE_API_SECRET }}
-          KITE_USER_ID: ${{ secrets.KITE_USER_ID }}
-          KITE_PASSWORD: ${{ secrets.KITE_PASSWORD }}
-          KITE_TOTP_SECRET: ${{ secrets.KITE_TOTP_SECRET }}
         run: python -m api.run_live_bot
 
       - name: Commit and push changes

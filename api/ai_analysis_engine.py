@@ -132,9 +132,9 @@ class AIAnalysisEngine:
         """Combine all analysis into a single recommendation"""
         composite_score = (technical_analysis['score'] * 0.4) + (ai_prediction[1] * 100 * 0.4) + (sentiment_analysis['score'] * 10) # Added sentiment to score
         
-        reasoning = f"{technical_analysis['reason']}. News sentiment is {sentiment_analysis['overall'].lower()}.
+        reasoning = f"""{technical_analysis['reason']}. News sentiment is {sentiment_analysis['overall'].lower()}.
 Recent headlines:
-{sentiment_analysis['summary']}"
+{sentiment_analysis['summary']}"""
 
         return {
             'composite_score': composite_score,

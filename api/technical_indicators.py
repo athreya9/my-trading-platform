@@ -32,14 +32,45 @@ def calculate_atr(high, low, close, period=14):
 def get_technical_indicators(data):
     """Calculates all the technical indicators needed by the AI engine."""
     indicators = {}
-    indicators['rsi'] = calculate_rsi(data['Close']).iloc[-1]
-    indicators['sma_20'] = calculate_sma(data['Close'], 20).iloc[-1]
-    indicators['sma_50'] = calculate_sma(data['Close'], 50).iloc[-1]
-    indicators['volume'] = data['Volume'].iloc[-1]
-    indicators['volume_avg'] = data['Volume'].rolling(window=20).mean().iloc[-1]
-    macd, signal_line = calculate_macd(data['Close'])
-    indicators['macd'] = macd.iloc[-1]
-    indicators['macd_signal'] = signal_line.iloc[-1]
-    indicators['atr'] = calculate_atr(data['High'], data['Low'], data['Close']).iloc[-1]
-    indicators['atr_avg'] = indicators['atr'] # Placeholder for average ATR
+    try:
+        if len(data) > 14:
+            indicators['rsi'] = calculate_rsi(data['Close']).iloc[-1]
+        else:
+            indicators['rsi'] = 50 # Neutral RSI
+
+        if len(data) > 20:
+            indicators['sma_20'] = calculate_sma(data['Close'], 20).iloc[-1]
+            indicators['volume_avg'] = data['Volume'].rolling(window=20).mean().iloc[-1]
+        else:
+            indicators['sma_20'] = data['Close'].iloc[-1]
+            indicators['volume_avg'] = data['Volume'].mean()
+
+        if len(data) > 50:
+            indicators['sma_50'] = calculate_sma(data['Close'], 50).iloc[-1]
+        else:
+            indicators['sma_50'] = data['Close'].iloc[-1]
+
+        indicators['volume'] = data['Volume'].iloc[-1]
+        
+        macd, signal_line = calculate_macd(data['Close'])
+        indicators['macd'] = macd.iloc[-1]
+        indicators['macd_signal'] = signal_line.iloc[-1]
+        
+        indicators['atr'] = calculate_atr(data['High'], data['Low'], data['Close']).iloc[-1]
+        indicators['atr_avg'] = indicators['atr'] # Placeholder for average ATR
+
+    except Exception as e:
+        print(f"Error calculating technical indicators: {e}")
+        # Return default values if calculation fails
+        return {
+            'rsi': 50,
+            'sma_20': data['Close'].iloc[-1] if not data.empty else 0,
+            'sma_50': data['Close'].iloc[-1] if not data.empty else 0,
+            'volume': 0,
+            'volume_avg': 0,
+            'macd': 0,
+            'macd_signal': 0,
+            'atr': 0,
+            'atr_avg': 0
+        }
     return indicators

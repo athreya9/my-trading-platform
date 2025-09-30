@@ -4,7 +4,7 @@
     "trend": "NEUTRAL",
     "signal": "HOLD",
     "confidence": 0,
-    "reasoning": "Multi-factor technical analysis. News sentiment is bullish.\nRecent headlines:\n- Rupee falls 7 paise to all-time closing low of 88.79 against US dollar\n- Rupee anchored near record low on outflows, corporate dollar demand\n- Sensex, Nifty sustain morning gains in afternoon trade on selective buying",
+    "reasoning": "Multi-factor technical analysis. News sentiment is bullish.\nRecent headlines:\n- Rupee falls 7 paise to all-time closing low of 88.79 against US dollar\n- Rupee falls 7 paise to all-time closing low of 88.79 against US dollar\n- Rupee anchored near record low on outflows, corporate dollar demand",
     "technical_score": 25,
     "specific_instructions": [
       "No clear signal based on current analysis."
@@ -21,7 +21,7 @@
     "trend": "NEUTRAL",
     "signal": "HOLD",
     "confidence": 0,
-    "reasoning": "Multi-factor technical analysis. News sentiment is bullish.\nRecent headlines:\n- Rupee falls 7 paise to all-time closing low of 88.79 against US dollar\n- Rupee anchored near record low on outflows, corporate dollar demand\n- Market Wrap: D-Street logs 7th straight loss on auto, IT sell-off; Sensex falls 61 points, Nifty below 24,700",
+    "reasoning": "Multi-factor technical analysis. News sentiment is bullish.\nRecent headlines:\n- Rupee falls 7 paise to all-time closing low of 88.79 against US dollar\n- Rupee falls 7 paise to all-time closing low of 88.79 against US dollar\n- Rupee anchored near record low on outflows, corporate dollar demand",
     "technical_score": 0,
     "specific_instructions": [
       "No clear signal based on current analysis."
@@ -38,7 +38,7 @@
     "trend": "NEUTRAL",
     "signal": "HOLD",
     "confidence": 0,
-    "reasoning": "Multi-factor technical analysis. News sentiment is neutral.\nRecent headlines:\n- Rupee falls 7 paise to all-time closing low of 88.79 against US dollar\n- Rupee anchored near record low on outflows, corporate dollar demand\n- Market Wrap: D-Street logs 7th straight loss on auto, IT sell-off; Sensex falls 61 points, Nifty below 24,700",
+    "reasoning": "Multi-factor technical analysis. News sentiment is bullish.\nRecent headlines:\n- Rupee falls 7 paise to all-time closing low of 88.79 against US dollar\n- Rupee falls 7 paise to all-time closing low of 88.79 against US dollar\n- Rupee anchored near record low on outflows, corporate dollar demand",
     "technical_score": 25,
     "specific_instructions": [
       "No clear signal based on current analysis."

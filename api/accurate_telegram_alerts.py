@@ -14,31 +14,12 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class AccurateTelegramAlerts:
-    def __init__(self):
+    def __init__(self, kite=None):
         self.bot_token = os.getenv('TELEGRAM_BOT_TOKEN', '')
         self.chat_id = os.getenv('TELEGRAM_CHAT_ID', '')
-        self.kite = self._connect_to_kite()
+        self.kite = kite
         
-    def _connect_to_kite(self):
-        """Connect to Kite API for REAL market data"""
-        try:
-            api_key = os.getenv('KITE_API_KEY', '')
-            access_token = os.getenv('KITE_ACCESS_TOKEN', '')
-            
-            if not api_key or not access_token:
-                logger.error("Kite API credentials not found")
-                return None
-                
-            kite = KiteConnect(api_key=api_key)
-            kite.set_access_token(access_token)
-            
-            # Verify connection with real data
-            profile = kite.profile()
-            logger.info(f"✅ Connected to Kite API as {profile.get('user_name', 'User')}")
-            return kite
-        except Exception as e:
-            logger.error(f"❌ Kite connection failed: {e}")
-            return None
+    
     
     def get_real_option_data(self, symbol="BANKNIFTY", strike=48000, option_type="CE"):
         """Get REAL option data from Kite with correct pricing"""

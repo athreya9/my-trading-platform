@@ -6,6 +6,7 @@ from api.kite_connect import get_kite_connect_client
 from api.ai_analysis_engine import AIAnalysisEngine, send_ai_powered_alert
 from api.data_collector import DataCollector
 from api.technical_indicators import get_technical_indicators
+from api.accurate_telegram_alerts import AccurateTelegramAlerts
 
 def get_instrument_token(kite, symbol):
     """Gets the instrument token for a given symbol."""
@@ -15,6 +16,10 @@ def get_instrument_token(kite, symbol):
         return 256265 # NIFTY 50
     elif symbol == "NIFTY BANK":
         return 260105 # NIFTY BANK
+    elif symbol == "SENSEX":
+        return 273929 # SENSEX
+    elif symbol == "NIFTY FIN SERVICE":
+        return 257801 # FINNIFTY
     else:
         # Fallback to search for the instrument token
         instruments = kite.instruments("NSE")
@@ -49,6 +54,9 @@ def run_live_bot():
         print(f"Authentication failed: {e}")
         return
 
+    # --- Initialize Telegram Bot ---
+    telegram_bot = AccurateTelegramAlerts(kite=kite)
+
     # --- 2. Fetch Live Data and Generate Signals ---
     print("Fetching live data and generating signals...")
     ai_engine = AIAnalysisEngine()
@@ -56,7 +64,12 @@ def run_live_bot():
 
     signals_to_save = []
 
-    for instrument_name, symbol, kite_symbol in [("NIFTY 50", "^NSEI", "NIFTY 50"), ("Bank NIFTY", "^NSEBANK", "NIFTY BANK")]:
+    for instrument_name, symbol, kite_symbol in [
+        ("NIFTY 50", "^NSEI", "NIFTY 50"), 
+        ("Bank NIFTY", "^NSEBANK", "NIFTY BANK"),
+        ("SENSEX", "^BSESN", "SENSEX"),
+        ("FINNIFTY", "^CNXFIN", "NIFTY FIN SERVICE")
+    ]:
         historical_data = collector.fetch_historical_data(symbol, period="1y", interval="1d")
         if historical_data is None or historical_data.empty:
             print(f"Could not fetch historical data for {instrument_name}. Skipping.")
@@ -93,7 +106,7 @@ def run_live_bot():
 
         # Send Telegram alert
         if signal['action'] != 'HOLD':
-            send_ai_powered_alert(signal, analysis)
+            send_ai_powered_alert(signal, analysis, telegram_bot)
 
         signals_to_save.append({
             "instrument": instrument_name,

@@ -8,7 +8,10 @@ def fetch_news_sentiment(stock_name):
     url = f"https://newsapi.org/v2/everything?q={stock_name}&language=en&sortBy=publishedAt&pageSize=10&apiKey={NEWS_API_KEY}"
     try:
         response = requests.get(url)
-        response.raise_for_status() # Raise an exception for bad status codes
+        if response.status_code == 429:
+            print("News API rate limit exceeded. Returning neutral sentiment.")
+            return {"score": 0, "summary": "News API rate limit exceeded."}
+        response.raise_for_status() # Raise an exception for other bad status codes
         articles = response.json().get("articles", [])
 
         if not articles:

@@ -10,17 +10,14 @@ def test_kite_automated_login():
         access_token = get_automated_access_token()
         
         if access_token:
-            print(f"""✅ SUCCESS: Successfully generated access token."""
-            )
+            print("✅ SUCCESS: Successfully generated access token.")
             return True
         else:
-            print("""❌ ERROR: The script ran but did not return an access token."""
-            )
+            print("❌ ERROR: The script ran but did not return an access token.")
             return False
 
     except Exception as e:
-        print(f"""❌ ERROR: An unexpected error occurred: {e}"""
-        )
+        print(f"❌ ERROR: An unexpected error occurred: {e}")
         return False
 
 if __name__ == "__main__":
@@ -29,12 +26,8 @@ if __name__ == "__main__":
     success = test_kite_automated_login()
 
     if success:
-        print("""
-🎉 All authentication tests passed!"""
-        )
+        print("\n🎉 All authentication tests passed!")
         sys.exit(0)
     else:
-        print("""
-🔥 One or more authentication tests failed."""
-        )
+        print("\n🔥 One or more authentication tests failed.")
         sys.exit(1)

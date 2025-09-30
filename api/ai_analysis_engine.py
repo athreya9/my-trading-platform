@@ -137,25 +137,28 @@ class AIAnalysisEngine:
         signal = {
             'action': 'HOLD',  # Default to safety
             'confidence': 0,
-            'specific_instructions': [],
+            'specific_instructions': ["No clear signal based on current analysis."],
             'risk_metrics': {},
-            'profit_targets': {},
-            'time_horizon': None,
-            'reasoning': analysis_result.get('reasoning', ''),
-            'exit_conditions': 'Price crosses below 20-period moving average',
-            'trail_stop_level': 'Entry price after Target 1 is hit'
+            'profit_targets': {'description': 'N/A'},
+            'time_horizon': 'N/A',
+            'reasoning': analysis_result.get('reasoning', 'Market conditions are neutral.'),
+            'exit_conditions': 'N/A',
+            'trail_stop_level': 'N/A'
         }
         
         # Only recommend trade if AI confidence is high
         if analysis_result['composite_score'] > 75:
             signal['action'] = 'BUY'
             signal['confidence'] = analysis_result['composite_score']
+            signal['time_horizon'] = '1-3 days'
+            signal['exit_conditions'] = 'Price crosses below 20-period moving average'
+            signal['trail_stop_level'] = 'Entry price after Target 1 is hit'
             
             # Specific instructions based on analysis
             if analysis_result['technical']['pattern'] == 'Breakout':
-                signal['specific_instructions'].append(
-                    "Enter on breakout confirmation above resistance"
-                )
+                signal['specific_instructions'] = ["Enter on breakout confirmation above resistance"]
+            else:
+                signal['specific_instructions'] = ["Enter at current market price."]
                 
             # Risk-managed profit targets
             signal['profit_targets'] = self._calculate_smart_targets(analysis_result)
@@ -165,7 +168,9 @@ class AIAnalysisEngine:
             
         elif analysis_result['composite_score'] < 30:
             signal['action'] = 'AVOID'
-            signal['specific_instructions'].append("Market conditions unfavorable")
+            signal['confidence'] = 100 - analysis_result['composite_score']
+            signal['specific_instructions'] = ["Market conditions unfavorable for a new position."]
+            signal['reasoning'] = "The AI model suggests avoiding new trades due to unfavorable market conditions."
             
         return signal
 

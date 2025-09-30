@@ -140,7 +140,7 @@
     "trend": "NEUTRAL",
     "signal": "HOLD",
     "confidence": 0,
-    "reasoning": "Multi-factor technical analysis. News sentiment is bullish.\nRecent headlines:\n- Tata Motor's JLR begins phased return to UK manufacturing after cyber attack\n- India\u2019s Economy Is Stronger Than Trump Thinks\n- Tata Group loses $75 Billion in market cap as risks grow",
+    "reasoning": "Multi-factor technical analysis. News sentiment is bullish.\nRecent headlines:\n- Tata Capital To Raise $1.7 Billion In What Could Be India\u2019s Biggest IPO This Year\n- Tata Motor's JLR begins phased return to UK manufacturing after cyber attack\n- India\u2019s Economy Is Stronger Than Trump Thinks",
     "technical_score": 20,
     "specific_instructions": [
       "No clear signal based on current analysis."
@@ -245,7 +245,7 @@
     "instrument": "Tata Motors",
     "trend": "DOWN",
     "signal": "AVOID",
-    "confidence": 100.0,
+    "confidence": 90.0,
     "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
     "technical_score": 25,
     "specific_instructions": [

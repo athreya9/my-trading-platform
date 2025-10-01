@@ -20,9 +20,9 @@
     "instrument": "Bank NIFTY",
     "trend": "DOWN",
     "signal": "AVOID",
-    "confidence": 88.0,
+    "confidence": 100.0,
     "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
-    "technical_score": 15,
+    "technical_score": 0,
     "specific_instructions": [
       "Market conditions unfavorable for a new position."
     ],
@@ -71,9 +71,9 @@
     "instrument": "Reliance Industries",
     "trend": "DOWN",
     "signal": "AVOID",
-    "confidence": 88.0,
+    "confidence": 100.0,
     "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
-    "technical_score": 15,
+    "technical_score": 0,
     "specific_instructions": [
       "Market conditions unfavorable for a new position."
     ],
@@ -88,9 +88,9 @@
     "instrument": "HDFC Bank",
     "trend": "DOWN",
     "signal": "AVOID",
-    "confidence": 88.0,
+    "confidence": 100.0,
     "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
-    "technical_score": 15,
+    "technical_score": 0,
     "specific_instructions": [
       "Market conditions unfavorable for a new position."
     ],
@@ -105,9 +105,9 @@
     "instrument": "ICICI Bank",
     "trend": "DOWN",
     "signal": "AVOID",
-    "confidence": 72.0,
+    "confidence": 84.0,
     "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
-    "technical_score": 35,
+    "technical_score": 20,
     "specific_instructions": [
       "Market conditions unfavorable for a new position."
     ],
@@ -311,7 +311,7 @@
     "signal": "HOLD",
     "confidence": 0,
     "reasoning": "Multi-factor technical analysis. News sentiment is neutral.\nRecent headlines:\nNews API rate limit exceeded.",
-    "technical_score": 60,
+    "technical_score": 45,
     "specific_instructions": [
       "No clear signal based on current analysis."
     ],

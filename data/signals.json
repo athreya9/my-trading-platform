@@ -1,13 +1,13 @@
 [
   {
     "instrument": "NIFTY 50",
-    "trend": "NEUTRAL",
-    "signal": "HOLD",
-    "confidence": 0,
-    "reasoning": "Multi-factor technical analysis. News sentiment is neutral.\nRecent headlines:\n- Rupee falls 4 paise to fresh low of 88.79 against US dollar\n- Nifty support at 24,400, SBI top pick as PSU banks shine: Dharmesh Shah\n- Why Lyft CEO David Risher still drives customers once a month",
+    "trend": "DOWN",
+    "signal": "AVOID",
+    "confidence": 80.0,
+    "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
     "technical_score": 25,
     "specific_instructions": [
-      "No clear signal based on current analysis."
+      "Market conditions unfavorable for a new position."
     ],
     "profit_targets": {
       "description": "N/A"
@@ -20,7 +20,7 @@
     "instrument": "Bank NIFTY",
     "trend": "DOWN",
     "signal": "AVOID",
-    "confidence": 94.0,
+    "confidence": 104.0,
     "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
     "technical_score": 20,
     "specific_instructions": [
@@ -88,7 +88,7 @@
     "instrument": "HDFC Bank",
     "trend": "DOWN",
     "signal": "AVOID",
-    "confidence": 74.0,
+    "confidence": 84.0,
     "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
     "technical_score": 20,
     "specific_instructions": [
@@ -122,7 +122,7 @@
     "instrument": "Infosys",
     "trend": "DOWN",
     "signal": "AVOID",
-    "confidence": 90.0,
+    "confidence": 100.0,
     "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
     "technical_score": 25,
     "specific_instructions": [
@@ -276,7 +276,7 @@
     "trend": "UP",
     "signal": "BUY",
     "confidence": 76.0,
-    "reasoning": "Multi-factor technical analysis. News sentiment is bullish.\nRecent headlines:\n- Here's JPMorgan Chase's blueprint to become the world\u2019s first fully AI-powered megabank\n- UPSC Engineering Services Examination 2026\n- India's gold, silver imports nearly double despite record prices ahead of festivals, sources say",
+    "reasoning": "Multi-factor technical analysis. News sentiment is bullish.\nRecent headlines:\n- PSBs should consider shared technology to achieve economies of scale: RBI Dy Guv\n- Links 9/30/2025\n- Here's JPMorgan Chase's blueprint to become the world\u2019s first fully AI-powered megabank",
     "technical_score": 45,
     "specific_instructions": [
       "Enter at current market price."

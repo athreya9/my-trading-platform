@@ -273,30 +273,26 @@
   },
   {
     "instrument": "State Bank of India",
-    "trend": "UP",
-    "signal": "BUY",
-    "confidence": 76.0,
-    "reasoning": "Multi-factor technical analysis. News sentiment is bullish.\nRecent headlines:\n- Free State Creatives Shine at Brazil International Arts and Health Festival - Free State World\n- PSBs should consider shared technology to achieve economies of scale: RBI Dy Guv\n- Links 9/30/2025",
+    "trend": "NEUTRAL",
+    "signal": "HOLD",
+    "confidence": 0,
+    "reasoning": "Multi-factor technical analysis. News sentiment is bullish.\nRecent headlines:\n- Jindal Power gets CCI nod to acquire debt-ridden Jaiprakash Associates\n- Free State Creatives Shine at Brazil International Arts and Health Festival - Free State World\n- PSBs should consider shared technology to achieve economies of scale: RBI Dy Guv",
     "technical_score": 45,
     "specific_instructions": [
-      "Enter at current market price."
+      "No clear signal based on current analysis."
     ],
     "profit_targets": {
-      "description": "Target 1: 10%, Target 2: 20%",
-      "targets": [
-        1.1,
-        1.2
-      ]
+      "description": "N/A"
     },
-    "time_horizon": "1-3 days",
-    "exit_conditions": "Price crosses below 20-period moving average",
-    "trail_stop_level": "Entry price after Target 1 is hit"
+    "time_horizon": "N/A",
+    "exit_conditions": "N/A",
+    "trail_stop_level": "N/A"
   },
   {
     "instrument": "Axis Bank",
     "trend": "DOWN",
     "signal": "AVOID",
-    "confidence": 84.0,
+    "confidence": 74.0,
     "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
     "technical_score": 45,
     "specific_instructions": [

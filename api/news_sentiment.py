@@ -2,7 +2,7 @@ import requests
 import os
 
 # It is recommended to store the API key as an environment variable or a GitHub secret.
-NEWS_API_KEY = os.environ.get("NEWS_API_KEY", "45eebbb8eb014827bb5102a15aa813d4")
+NEWS_API_KEY = os.environ.get("NEWS_API_KEY")
 
 def fetch_news_sentiment(stock_name):
     url = f"https://newsapi.org/v2/everything?q={stock_name}&language=en&sortBy=publishedAt&pageSize=10&apiKey={NEWS_API_KEY}"

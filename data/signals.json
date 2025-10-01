@@ -3,7 +3,7 @@
     "instrument": "NIFTY 50",
     "trend": "DOWN",
     "signal": "AVOID",
-    "confidence": 120.0,
+    "confidence": 80.0,
     "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
     "technical_score": 25,
     "specific_instructions": [
@@ -20,7 +20,7 @@
     "instrument": "Bank NIFTY",
     "trend": "DOWN",
     "signal": "AVOID",
-    "confidence": 134.0,
+    "confidence": 84.0,
     "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
     "technical_score": 20,
     "specific_instructions": [
@@ -37,7 +37,7 @@
     "instrument": "SENSEX",
     "trend": "DOWN",
     "signal": "AVOID",
-    "confidence": 140.0,
+    "confidence": 80.0,
     "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
     "technical_score": 25,
     "specific_instructions": [

@@ -1,13 +1,13 @@
 [
   {
     "instrument": "NIFTY 50",
-    "trend": "DOWN",
-    "signal": "AVOID",
-    "confidence": 80.0,
-    "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
+    "trend": "NEUTRAL",
+    "signal": "HOLD",
+    "confidence": 0,
+    "reasoning": "Multi-factor technical analysis. News sentiment is neutral.\nRecent headlines:\n- Nifty support at 24,400, SBI top pick as PSU banks shine: Dharmesh Shah\n- Why Lyft CEO David Risher still drives customers once a month\n- PVR Inox, Ranbir Kapoor-backed firm's shares slide 5% as Trump slaps 100% tariff on foreign films",
     "technical_score": 25,
     "specific_instructions": [
-      "Market conditions unfavorable for a new position."
+      "No clear signal based on current analysis."
     ],
     "profit_targets": {
       "description": "N/A"
@@ -37,7 +37,7 @@
     "instrument": "SENSEX",
     "trend": "DOWN",
     "signal": "AVOID",
-    "confidence": 80.0,
+    "confidence": 120.0,
     "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
     "technical_score": 25,
     "specific_instructions": [
@@ -71,7 +71,7 @@
     "instrument": "Reliance Industries",
     "trend": "DOWN",
     "signal": "AVOID",
-    "confidence": 100.0,
+    "confidence": 120.0,
     "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
     "technical_score": 0,
     "specific_instructions": [
@@ -88,7 +88,7 @@
     "instrument": "HDFC Bank",
     "trend": "DOWN",
     "signal": "AVOID",
-    "confidence": 84.0,
+    "confidence": 94.0,
     "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
     "technical_score": 20,
     "specific_instructions": [
@@ -105,7 +105,7 @@
     "instrument": "ICICI Bank",
     "trend": "DOWN",
     "signal": "AVOID",
-    "confidence": 88.0,
+    "confidence": 98.0,
     "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
     "technical_score": 15,
     "specific_instructions": [
@@ -122,7 +122,7 @@
     "instrument": "Infosys",
     "trend": "DOWN",
     "signal": "AVOID",
-    "confidence": 80.0,
+    "confidence": 90.0,
     "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
     "technical_score": 25,
     "specific_instructions": [
@@ -154,13 +154,13 @@
   },
   {
     "instrument": "Larsen & Toubro",
-    "trend": "NEUTRAL",
-    "signal": "HOLD",
-    "confidence": 0,
-    "reasoning": "Multi-factor technical analysis. News sentiment is neutral.\nRecent headlines:\nNews API rate limit exceeded.",
+    "trend": "DOWN",
+    "signal": "AVOID",
+    "confidence": 74.0,
+    "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
     "technical_score": 45,
     "specific_instructions": [
-      "No clear signal based on current analysis."
+      "Market conditions unfavorable for a new position."
     ],
     "profit_targets": {
       "description": "N/A"
@@ -174,7 +174,7 @@
     "trend": "NEUTRAL",
     "signal": "HOLD",
     "confidence": 0,
-    "reasoning": "Multi-factor technical analysis. News sentiment is neutral.\nRecent headlines:\nNews API rate limit exceeded.",
+    "reasoning": "Multi-factor technical analysis. News sentiment is bullish.\nRecent headlines:\n- Sensex, Nifty erase early gains amid RBI meet, US tariff pressure\n- Stock Market Today: All You Need To Know Going Into Trade On Sept. 29\n- Delhi HC orders status quo on removal of Adani content posted by Ravish Kumar and Newslaundry",
     "technical_score": 45,
     "specific_instructions": [
       "No clear signal based on current analysis."
@@ -190,7 +190,7 @@
     "instrument": "Adani Ports",
     "trend": "DOWN",
     "signal": "AVOID",
-    "confidence": 80.0,
+    "confidence": 90.0,
     "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
     "technical_score": 25,
     "specific_instructions": [
@@ -239,13 +239,13 @@
   },
   {
     "instrument": "Tata Motors",
-    "trend": "NEUTRAL",
-    "signal": "HOLD",
-    "confidence": 0,
-    "reasoning": "Multi-factor technical analysis. News sentiment is neutral.\nRecent headlines:\nNews API rate limit exceeded.",
+    "trend": "DOWN",
+    "signal": "AVOID",
+    "confidence": 108.0,
+    "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
     "technical_score": 40,
     "specific_instructions": [
-      "No clear signal based on current analysis."
+      "Market conditions unfavorable for a new position."
     ],
     "profit_targets": {
       "description": "N/A"
@@ -256,13 +256,13 @@
   },
   {
     "instrument": "Hindustan Unilever",
-    "trend": "DOWN",
-    "signal": "AVOID",
-    "confidence": 80.0,
-    "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
+    "trend": "NEUTRAL",
+    "signal": "HOLD",
+    "confidence": 0,
+    "reasoning": "Multi-factor technical analysis. News sentiment is neutral.\nRecent headlines:\n- Lumina Datamatics Recognized as One of the Most Preferred Workplaces for Women 2025\u201326 by Marksmen Daily\n- FMCG sales to be hit in September quarter due to low demand, GST 2.0\n- HUL shares slide as company warns of flat growth amid GST transition disruption",
     "technical_score": 25,
     "specific_instructions": [
-      "Market conditions unfavorable for a new position."
+      "No clear signal based on current analysis."
     ],
     "profit_targets": {
       "description": "N/A"
@@ -276,7 +276,7 @@
     "trend": "NEUTRAL",
     "signal": "HOLD",
     "confidence": 0,
-    "reasoning": "Multi-factor technical analysis. News sentiment is neutral.\nRecent headlines:\nNews API rate limit exceeded.",
+    "reasoning": "Multi-factor technical analysis. News sentiment is bullish.\nRecent headlines:\n- India's gold, silver imports nearly double despite record prices ahead of festivals, sources say\n- Rupee hits all-time low on US-India policy friction; RBI continues support\n- Pankaj Tripathi of Mirzapur fame, family buy two apartments worth Rs 10.85 crore in Mumbai",
     "technical_score": 45,
     "specific_instructions": [
       "No clear signal based on current analysis."
@@ -290,13 +290,13 @@
   },
   {
     "instrument": "Axis Bank",
-    "trend": "NEUTRAL",
-    "signal": "HOLD",
-    "confidence": 0,
-    "reasoning": "Multi-factor technical analysis. News sentiment is neutral.\nRecent headlines:\nNews API rate limit exceeded.",
+    "trend": "DOWN",
+    "signal": "AVOID",
+    "confidence": 84.0,
+    "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
     "technical_score": 45,
     "specific_instructions": [
-      "No clear signal based on current analysis."
+      "Market conditions unfavorable for a new position."
     ],
     "profit_targets": {
       "description": "N/A"
@@ -310,7 +310,7 @@
     "trend": "NEUTRAL",
     "signal": "HOLD",
     "confidence": 0,
-    "reasoning": "Multi-factor technical analysis. News sentiment is neutral.\nRecent headlines:\nNews API rate limit exceeded.",
+    "reasoning": "Multi-factor technical analysis. News sentiment is bullish.\nRecent headlines:\n- Market Wrap: D-Street falls for 8th straight session on FMCG, IT sell-off; Sensex drops 97 points, Nifty below 24,650\n- Sensex, Nifty hold steady, banking, IT & metal stocks offer support\n- Sensex, Nifty hold morning gains at mid-day despite mixed sectoral performance",
     "technical_score": 45,
     "specific_instructions": [
       "No clear signal based on current analysis."

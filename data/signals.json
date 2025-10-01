@@ -4,7 +4,7 @@
     "trend": "NEUTRAL",
     "signal": "HOLD",
     "confidence": 0,
-    "reasoning": "Multi-factor technical analysis. News sentiment is neutral.\nRecent headlines:\n- Nifty support at 24,400, SBI top pick as PSU banks shine: Dharmesh Shah\n- Why Lyft CEO David Risher still drives customers once a month\n- PVR Inox, Ranbir Kapoor-backed firm's shares slide 5% as Trump slaps 100% tariff on foreign films",
+    "reasoning": "Multi-factor technical analysis. News sentiment is neutral.\nRecent headlines:\n- Rupee falls 4 paise to fresh low of 88.79 against US dollar\n- Nifty support at 24,400, SBI top pick as PSU banks shine: Dharmesh Shah\n- Why Lyft CEO David Risher still drives customers once a month",
     "technical_score": 25,
     "specific_instructions": [
       "No clear signal based on current analysis."
@@ -20,7 +20,7 @@
     "instrument": "Bank NIFTY",
     "trend": "DOWN",
     "signal": "AVOID",
-    "confidence": 84.0,
+    "confidence": 94.0,
     "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
     "technical_score": 20,
     "specific_instructions": [
@@ -88,7 +88,7 @@
     "instrument": "HDFC Bank",
     "trend": "DOWN",
     "signal": "AVOID",
-    "confidence": 94.0,
+    "confidence": 74.0,
     "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
     "technical_score": 20,
     "specific_instructions": [
@@ -273,20 +273,24 @@
   },
   {
     "instrument": "State Bank of India",
-    "trend": "NEUTRAL",
-    "signal": "HOLD",
-    "confidence": 0,
-    "reasoning": "Multi-factor technical analysis. News sentiment is bullish.\nRecent headlines:\n- India's gold, silver imports nearly double despite record prices ahead of festivals, sources say\n- Rupee hits all-time low on US-India policy friction; RBI continues support\n- Pankaj Tripathi of Mirzapur fame, family buy two apartments worth Rs 10.85 crore in Mumbai",
+    "trend": "UP",
+    "signal": "BUY",
+    "confidence": 76.0,
+    "reasoning": "Multi-factor technical analysis. News sentiment is bullish.\nRecent headlines:\n- Here's JPMorgan Chase's blueprint to become the world\u2019s first fully AI-powered megabank\n- UPSC Engineering Services Examination 2026\n- India's gold, silver imports nearly double despite record prices ahead of festivals, sources say",
     "technical_score": 45,
     "specific_instructions": [
-      "No clear signal based on current analysis."
+      "Enter at current market price."
     ],
     "profit_targets": {
-      "description": "N/A"
+      "description": "Target 1: 10%, Target 2: 20%",
+      "targets": [
+        1.1,
+        1.2
+      ]
     },
-    "time_horizon": "N/A",
-    "exit_conditions": "N/A",
-    "trail_stop_level": "N/A"
+    "time_horizon": "1-3 days",
+    "exit_conditions": "Price crosses below 20-period moving average",
+    "trail_stop_level": "Entry price after Target 1 is hit"
   },
   {
     "instrument": "Axis Bank",

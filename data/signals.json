@@ -105,9 +105,9 @@
     "instrument": "ICICI Bank",
     "trend": "DOWN",
     "signal": "AVOID",
-    "confidence": 100.0,
+    "confidence": 88.0,
     "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
-    "technical_score": 0,
+    "technical_score": 15,
     "specific_instructions": [
       "Market conditions unfavorable for a new position."
     ],

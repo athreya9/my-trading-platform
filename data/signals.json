@@ -3,7 +3,7 @@
     "instrument": "NIFTY 50",
     "trend": "DOWN",
     "signal": "AVOID",
-    "confidence": 110.0,
+    "confidence": 120.0,
     "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
     "technical_score": 25,
     "specific_instructions": [

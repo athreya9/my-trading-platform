@@ -3,7 +3,7 @@
     "instrument": "NIFTY 50",
     "trend": "DOWN",
     "signal": "AVOID",
-    "confidence": 90.0,
+    "confidence": 110.0,
     "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
     "technical_score": 25,
     "specific_instructions": [
@@ -20,7 +20,7 @@
     "instrument": "Bank NIFTY",
     "trend": "DOWN",
     "signal": "AVOID",
-    "confidence": 104.0,
+    "confidence": 134.0,
     "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
     "technical_score": 20,
     "specific_instructions": [
@@ -37,7 +37,7 @@
     "instrument": "SENSEX",
     "trend": "DOWN",
     "signal": "AVOID",
-    "confidence": 110.0,
+    "confidence": 140.0,
     "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
     "technical_score": 25,
     "specific_instructions": [
@@ -71,7 +71,7 @@
     "instrument": "Reliance Industries",
     "trend": "DOWN",
     "signal": "AVOID",
-    "confidence": 130.0,
+    "confidence": 100.0,
     "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
     "technical_score": 0,
     "specific_instructions": [
@@ -241,7 +241,7 @@
     "instrument": "Tata Motors",
     "trend": "DOWN",
     "signal": "AVOID",
-    "confidence": 108.0,
+    "confidence": 98.0,
     "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
     "technical_score": 40,
     "specific_instructions": [
@@ -276,7 +276,7 @@
     "trend": "UP",
     "signal": "BUY",
     "confidence": 76.0,
-    "reasoning": "Multi-factor technical analysis. News sentiment is bullish.\nRecent headlines:\n- PSBs should consider shared technology to achieve economies of scale: RBI Dy Guv\n- Links 9/30/2025\n- Here's JPMorgan Chase's blueprint to become the world\u2019s first fully AI-powered megabank",
+    "reasoning": "Multi-factor technical analysis. News sentiment is bullish.\nRecent headlines:\n- Free State Creatives Shine at Brazil International Arts and Health Festival - Free State World\n- PSBs should consider shared technology to achieve economies of scale: RBI Dy Guv\n- Links 9/30/2025",
     "technical_score": 45,
     "specific_instructions": [
       "Enter at current market price."
@@ -314,7 +314,7 @@
     "trend": "NEUTRAL",
     "signal": "HOLD",
     "confidence": 0,
-    "reasoning": "Multi-factor technical analysis. News sentiment is bullish.\nRecent headlines:\n- Market Wrap: D-Street falls for 8th straight session on FMCG, IT sell-off; Sensex drops 97 points, Nifty below 24,650\n- Sensex, Nifty hold steady, banking, IT & metal stocks offer support\n- Sensex, Nifty hold morning gains at mid-day despite mixed sectoral performance",
+    "reasoning": "Multi-factor technical analysis. News sentiment is neutral.\nRecent headlines:\n- Nifty\u2019s eight-session losing streak continues as markets await RBI policy decision\n- Nifty\u2019s eight-session losing streak continues as markets await RBI policy decision\n- Market Wrap: D-Street falls for 8th straight session on FMCG, IT sell-off; Sensex drops 97 points, Nifty below 24,650",
     "technical_score": 45,
     "specific_instructions": [
       "No clear signal based on current analysis."

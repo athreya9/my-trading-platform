@@ -148,7 +148,7 @@
     "trend": "NEUTRAL",
     "signal": "HOLD",
     "confidence": 0,
-    "reasoning": "Multi-factor technical analysis. News sentiment is bullish.\nRecent headlines:\n- TCS 'Forced' Around 2,500 Employees To Resign, Alleges IT Staff Union\n- TCS allegedly forced around 2,500 employees in Pune to resign: NITES\n- TCS layoffs 2025: IT firm allegedly asks 2,500 Pune employees to resign: Report",
+    "reasoning": "Multi-factor technical analysis. News sentiment is bullish.\nRecent headlines:\n- Grassley, Durbin Take Aim at Tech, Finance and Retail Sectors for Favoring H-1B Visa Holders over American Workers\n- TCS 'Forced' Around 2,500 Employees To Resign, Alleges IT Staff Union\n- TCS allegedly forced around 2,500 employees in Pune to resign: NITES",
     "technical_score": 0,
     "specific_instructions": [
       "No clear signal based on current analysis."
@@ -291,7 +291,7 @@
     "instrument": "State Bank of India",
     "trend": "DOWN",
     "signal": "AVOID",
-    "confidence": 104.0,
+    "confidence": 94.0,
     "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
     "technical_score": 45,
     "specific_instructions": [

@@ -1,66 +1,54 @@
 [
   {
     "instrument": "NIFTY 50",
-    "trend": "UP",
-    "signal": "BUY",
-    "confidence": 90.0,
-    "reasoning": "Multi-factor technical analysis. News sentiment is bullish.\nRecent headlines:\n- Markets rebound after 8-day slump; Sensex jumps over 700 points post RBI policy\n- Animal Spirits: Why Retail is Outperforming\n- Gold Prices Touch Record Levels: Here Are Five Alternative Investment Options",
+    "trend": "DOWN",
+    "signal": "AVOID",
+    "confidence": 80.0,
+    "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
     "technical_score": 25,
     "specific_instructions": [
-      "Enter at current market price."
+      "Market conditions unfavorable for a new position."
     ],
     "profit_targets": {
-      "description": "Target 1: 10%, Target 2: 20%",
-      "targets": [
-        1.1,
-        1.2
-      ]
+      "description": "N/A"
     },
-    "time_horizon": "1-3 days",
-    "exit_conditions": "Price crosses below 20-period moving average",
-    "trail_stop_level": "Entry price after Target 1 is hit"
+    "time_horizon": "N/A",
+    "exit_conditions": "N/A",
+    "trail_stop_level": "N/A"
   },
   {
     "instrument": "Bank NIFTY",
-    "trend": "UP",
-    "signal": "BUY",
-    "confidence": 76.0,
-    "reasoning": "Multi-factor technical analysis. News sentiment is bullish.\nRecent headlines:\n- Gainers & Losers: Sun TV, Tata Motors, Hyundai among 7 stocks that moved most on Wednesday\n- Markets rebound after 8-day slump; Sensex jumps over 700 points post RBI policy\n- Gold Prices Touch Record Levels: Here Are Five Alternative Investment Options",
+    "trend": "DOWN",
+    "signal": "AVOID",
+    "confidence": 84.0,
+    "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
     "technical_score": 20,
     "specific_instructions": [
-      "Enter at current market price."
+      "Market conditions unfavorable for a new position."
     ],
     "profit_targets": {
-      "description": "Target 1: 10%, Target 2: 20%",
-      "targets": [
-        1.1,
-        1.2
-      ]
+      "description": "N/A"
     },
-    "time_horizon": "1-3 days",
-    "exit_conditions": "Price crosses below 20-period moving average",
-    "trail_stop_level": "Entry price after Target 1 is hit"
+    "time_horizon": "N/A",
+    "exit_conditions": "N/A",
+    "trail_stop_level": "N/A"
   },
   {
     "instrument": "SENSEX",
-    "trend": "UP",
-    "signal": "BUY",
-    "confidence": 82.0,
-    "reasoning": "Multi-factor technical analysis. News sentiment is bullish.\nRecent headlines:\n- ET Market Watch: Sensex surges over 700 points on RBI policy boost\n- Gainers & Losers: Sun TV, Tata Motors, Hyundai among 7 stocks that moved most on Wednesday\n- Tata Investment, RBL Bank and 4 other stocks hit 52-week high; rally up to 55% in a month",
+    "trend": "NEUTRAL",
+    "signal": "HOLD",
+    "confidence": 0,
+    "reasoning": "Multi-factor technical analysis. News sentiment is neutral.\nRecent headlines:\nNews API rate limit exceeded.",
     "technical_score": 40,
     "specific_instructions": [
-      "Enter at current market price."
+      "No clear signal based on current analysis."
     ],
     "profit_targets": {
-      "description": "Target 1: 10%, Target 2: 20%",
-      "targets": [
-        1.1,
-        1.2
-      ]
+      "description": "N/A"
     },
-    "time_horizon": "1-3 days",
-    "exit_conditions": "Price crosses below 20-period moving average",
-    "trail_stop_level": "Entry price after Target 1 is hit"
+    "time_horizon": "N/A",
+    "exit_conditions": "N/A",
+    "trail_stop_level": "N/A"
   },
   {
     "instrument": "FINNIFTY",
@@ -83,7 +71,7 @@
     "instrument": "Reliance Industries",
     "trend": "DOWN",
     "signal": "AVOID",
-    "confidence": 110.0,
+    "confidence": 100.0,
     "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
     "technical_score": 0,
     "specific_instructions": [

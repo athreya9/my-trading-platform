@@ -83,7 +83,7 @@
     "instrument": "Reliance Industries",
     "trend": "DOWN",
     "signal": "AVOID",
-    "confidence": 120.0,
+    "confidence": 130.0,
     "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
     "technical_score": 0,
     "specific_instructions": [
@@ -257,8 +257,8 @@
     "instrument": "Tata Motors",
     "trend": "UP",
     "signal": "BUY",
-    "confidence": 152.0,
-    "reasoning": "Multi-factor technical analysis. News sentiment is bullish.\nRecent headlines:\n- Gainers & Losers: Sun TV, Tata Motors, Hyundai among 7 stocks that moved most on Wednesday\n- Markets rebound after 8-day slump; Sensex jumps over 700 points post RBI policy\n- Tata Motors posts record 60,907 September sales, up 47% on GST cut and Navratri demand",
+    "confidence": 172.0,
+    "reasoning": "Multi-factor technical analysis. News sentiment is bullish.\nRecent headlines:\n- Tata Motors Rides GST 2.0, Festive Demand To Deliver Record September Sales\n- Gainers & Losers: Sun TV, Tata Motors, Hyundai among 7 stocks that moved most on Wednesday\n- Markets rebound after 8-day slump; Sensex jumps over 700 points post RBI policy",
     "technical_score": 40,
     "specific_instructions": [
       "Enter at current market price."

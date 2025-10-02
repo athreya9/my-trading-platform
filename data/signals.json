@@ -1,24 +1,20 @@
 [
   {
     "instrument": "NIFTY 50",
-    "trend": "UP",
-    "signal": "BUY",
-    "confidence": 80.0,
-    "reasoning": "Multi-factor technical analysis. News sentiment is bullish.\nRecent headlines:\n- India\u2019s IPO market set to raise $8 billion in record year-end rush\n- Markets rebound after 8-day slump; Sensex jumps over 700 points post RBI policy\n- Animal Spirits: Why Retail is Outperforming",
+    "trend": "NEUTRAL",
+    "signal": "HOLD",
+    "confidence": 0,
+    "reasoning": "Multi-factor technical analysis. News sentiment is bullish.\nRecent headlines:\n- FPIs Remain Net Sellers For Eighth Consecutive Day Even As Markets Rebound\n- India\u2019s IPO market set to raise $8 billion in record year-end rush\n- Markets rebound after 8-day slump; Sensex jumps over 700 points post RBI policy",
     "technical_score": 25,
     "specific_instructions": [
-      "Enter at current market price."
+      "No clear signal based on current analysis."
     ],
     "profit_targets": {
-      "description": "Target 1: 10%, Target 2: 20%",
-      "targets": [
-        1.1,
-        1.2
-      ]
+      "description": "N/A"
     },
-    "time_horizon": "1-3 days",
-    "exit_conditions": "Price crosses below 20-period moving average",
-    "trail_stop_level": "Entry price after Target 1 is hit"
+    "time_horizon": "N/A",
+    "exit_conditions": "N/A",
+    "trail_stop_level": "N/A"
   },
   {
     "instrument": "Bank NIFTY",
@@ -46,7 +42,7 @@
     "trend": "NEUTRAL",
     "signal": "HOLD",
     "confidence": 0,
-    "reasoning": "Multi-factor technical analysis. News sentiment is bullish.\nRecent headlines:\n- Central Asia's maiden crypto fund launched in Kazakhstan\n- Infra.Market files IPO papers via confidential route; seeks to raise up to Rs 5,500-cr\n- ET Market Watch: Sensex surges over 700 points on RBI policy boost",
+    "reasoning": "Multi-factor technical analysis. News sentiment is neutral.\nRecent headlines:\n- FPIs Remain Net Sellers For Eighth Consecutive Day Even As Markets Rebound\n- Central Asia's maiden crypto fund launched in Kazakhstan\n- Infra.Market files IPO papers via confidential route; seeks to raise up to Rs 5,500-cr",
     "technical_score": 40,
     "specific_instructions": [
       "No clear signal based on current analysis."
@@ -79,7 +75,7 @@
     "instrument": "Reliance Industries",
     "trend": "DOWN",
     "signal": "AVOID",
-    "confidence": 110.0,
+    "confidence": 120.0,
     "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
     "technical_score": 0,
     "specific_instructions": [
@@ -148,7 +144,7 @@
     "trend": "NEUTRAL",
     "signal": "HOLD",
     "confidence": 0,
-    "reasoning": "Multi-factor technical analysis. News sentiment is bullish.\nRecent headlines:\n- Grassley, Durbin Take Aim at Tech, Finance and Retail Sectors for Favoring H-1B Visa Holders over American Workers\n- TCS 'Forced' Around 2,500 Employees To Resign, Alleges IT Staff Union\n- TCS allegedly forced around 2,500 employees in Pune to resign: NITES",
+    "reasoning": "Multi-factor technical analysis. News sentiment is bullish.\nRecent headlines:\n- TCS drags SpiceJet to court over unpaid tech bills of Rs 2.34 crore\n- Grassley, Durbin Take Aim at Tech, Finance and Retail Sectors for Favoring H-1B Visa Holders over American Workers\n- TCS 'Forced' Around 2,500 Employees To Resign, Alleges IT Staff Union",
     "technical_score": 0,
     "specific_instructions": [
       "No clear signal based on current analysis."
@@ -306,24 +302,20 @@
   },
   {
     "instrument": "Axis Bank",
-    "trend": "UP",
-    "signal": "BUY",
-    "confidence": 76.0,
-    "reasoning": "Multi-factor technical analysis. News sentiment is bullish.\nRecent headlines:\n- Central Asia's maiden crypto fund launched in Kazakhstan\n- India\u2019s IPO market set to raise $8 billion in record year-end rush\n- Infra.Market files IPO papers via confidential route; seeks to raise up to Rs 5,500-cr",
+    "trend": "NEUTRAL",
+    "signal": "HOLD",
+    "confidence": 0,
+    "reasoning": "Multi-factor technical analysis. News sentiment is neutral.\nRecent headlines:\n- View: DBTs are redefining women\u2019s empowerment and welfare, now its time to test it in fertiliser subsidies\n- Central Asia's maiden crypto fund launched in Kazakhstan\n- India\u2019s IPO market set to raise $8 billion in record year-end rush",
     "technical_score": 45,
     "specific_instructions": [
-      "Enter at current market price."
+      "No clear signal based on current analysis."
     ],
     "profit_targets": {
-      "description": "Target 1: 10%, Target 2: 20%",
-      "targets": [
-        1.1,
-        1.2
-      ]
+      "description": "N/A"
     },
-    "time_horizon": "1-3 days",
-    "exit_conditions": "Price crosses below 20-period moving average",
-    "trail_stop_level": "Entry price after Target 1 is hit"
+    "time_horizon": "N/A",
+    "exit_conditions": "N/A",
+    "trail_stop_level": "N/A"
   },
   {
     "instrument": "JSW Steel",

@@ -43,20 +43,24 @@
   },
   {
     "instrument": "SENSEX",
-    "trend": "NEUTRAL",
-    "signal": "HOLD",
-    "confidence": 0,
-    "reasoning": "Multi-factor technical analysis. News sentiment is bullish.\nRecent headlines:\n- Gainers & Losers: Sun TV, Tata Motors, Hyundai among 7 stocks that moved most on Wednesday\n- Tata Investment, RBL Bank and 4 other stocks hit 52-week high; rally up to 55% in a month\n- Markets rebound after 8-day slump; Sensex jumps over 700 points post RBI policy",
+    "trend": "UP",
+    "signal": "BUY",
+    "confidence": 82.0,
+    "reasoning": "Multi-factor technical analysis. News sentiment is bullish.\nRecent headlines:\n- ET Market Watch: Sensex surges over 700 points on RBI policy boost\n- Gainers & Losers: Sun TV, Tata Motors, Hyundai among 7 stocks that moved most on Wednesday\n- Tata Investment, RBL Bank and 4 other stocks hit 52-week high; rally up to 55% in a month",
     "technical_score": 40,
     "specific_instructions": [
-      "No clear signal based on current analysis."
+      "Enter at current market price."
     ],
     "profit_targets": {
-      "description": "N/A"
+      "description": "Target 1: 10%, Target 2: 20%",
+      "targets": [
+        1.1,
+        1.2
+      ]
     },
-    "time_horizon": "N/A",
-    "exit_conditions": "N/A",
-    "trail_stop_level": "N/A"
+    "time_horizon": "1-3 days",
+    "exit_conditions": "Price crosses below 20-period moving average",
+    "trail_stop_level": "Entry price after Target 1 is hit"
   },
   {
     "instrument": "FINNIFTY",
@@ -79,7 +83,7 @@
     "instrument": "Reliance Industries",
     "trend": "DOWN",
     "signal": "AVOID",
-    "confidence": 120.0,
+    "confidence": 110.0,
     "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
     "technical_score": 0,
     "specific_instructions": [
@@ -148,7 +152,7 @@
     "trend": "NEUTRAL",
     "signal": "HOLD",
     "confidence": 0,
-    "reasoning": "Multi-factor technical analysis. News sentiment is bullish.\nRecent headlines:\n- Tata Investment Corp shares surge over 45% in 7 sessions. Should you book profit or accumulate?\n- Stock Market Highlights 1 October 2025: Sensex, Nifty rebound from 8-day slump after RBI holds repo rate steady at 5.5%\n- Warehouse Group sales and margins expected to be under pressure in full-year results",
+    "reasoning": "Multi-factor technical analysis. News sentiment is bullish.\nRecent headlines:\n- Real World Evidence Solutions Research and Forecast Report 2025-2030: Growth Opportunities in Emerging Markets and Increased Focus on End-To-End Rwe Services, & Personalized and Precision Medicine\n- Tata Investment Corp shares surge over 45% in 7 sessions. Should you book profit or accumulate?\n- Stock Market Highlights 1 October 2025: Sensex, Nifty rebound from 8-day slump after RBI holds repo rate steady at 5.5%",
     "technical_score": 0,
     "specific_instructions": [
       "No clear signal based on current analysis."
@@ -253,8 +257,8 @@
     "instrument": "Tata Motors",
     "trend": "UP",
     "signal": "BUY",
-    "confidence": 132.0,
-    "reasoning": "Multi-factor technical analysis. News sentiment is bullish.\nRecent headlines:\n- Car sales bounce back in September after four-month slump on new tax rates\n- Tata Motors Rides GST 2.0, Festive Demand To Deliver Record September Sales\n- Gainers & Losers: Sun TV, Tata Motors, Hyundai among 7 stocks that moved most on Wednesday",
+    "confidence": 122.0,
+    "reasoning": "Multi-factor technical analysis. News sentiment is bullish.\nRecent headlines:\n- ET Market Watch: Sensex surges over 700 points on RBI policy boost\n- Car sales bounce back in September after four-month slump on new tax rates\n- Tata Motors Rides GST 2.0, Festive Demand To Deliver Record September Sales",
     "technical_score": 40,
     "specific_instructions": [
       "Enter at current market price."
@@ -306,20 +310,24 @@
   },
   {
     "instrument": "Axis Bank",
-    "trend": "NEUTRAL",
-    "signal": "HOLD",
-    "confidence": 0,
-    "reasoning": "Multi-factor technical analysis. News sentiment is neutral.\nRecent headlines:\n- Markets rebound after 8-day slump; Sensex jumps over 700 points post RBI policy\n- RBI drops proposed restriction on bank-NBFC overlap\n- European shares flat as healthcare gains counter broader market weakness",
+    "trend": "UP",
+    "signal": "BUY",
+    "confidence": 96.0,
+    "reasoning": "Multi-factor technical analysis. News sentiment is bullish.\nRecent headlines:\n- Targeting vascular dementia: Molecular docking and dynamics of natural ligands against neuroprotective proteins\n- A blueprint of synergistic effect in Crataegus pinnatifida and obesity-related gut microbiota against obesity via systems biology concept\n- Markets rebound after 8-day slump; Sensex jumps over 700 points post RBI policy",
     "technical_score": 45,
     "specific_instructions": [
-      "No clear signal based on current analysis."
+      "Enter at current market price."
     ],
     "profit_targets": {
-      "description": "N/A"
+      "description": "Target 1: 10%, Target 2: 20%",
+      "targets": [
+        1.1,
+        1.2
+      ]
     },
-    "time_horizon": "N/A",
-    "exit_conditions": "N/A",
-    "trail_stop_level": "N/A"
+    "time_horizon": "1-3 days",
+    "exit_conditions": "Price crosses below 20-period moving average",
+    "trail_stop_level": "Entry price after Target 1 is hit"
   },
   {
     "instrument": "JSW Steel",

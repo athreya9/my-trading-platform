@@ -1,44 +1,52 @@
 [
   {
     "instrument": "NIFTY 50",
-    "trend": "DOWN",
-    "signal": "AVOID",
+    "trend": "UP",
+    "signal": "BUY",
     "confidence": 80.0,
-    "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
+    "reasoning": "Multi-factor technical analysis. News sentiment is bullish.\nRecent headlines:\n- India\u2019s IPO market set to raise $8 billion in record year-end rush\n- Markets rebound after 8-day slump; Sensex jumps over 700 points post RBI policy\n- Animal Spirits: Why Retail is Outperforming",
     "technical_score": 25,
     "specific_instructions": [
-      "Market conditions unfavorable for a new position."
+      "Enter at current market price."
     ],
     "profit_targets": {
-      "description": "N/A"
+      "description": "Target 1: 10%, Target 2: 20%",
+      "targets": [
+        1.1,
+        1.2
+      ]
     },
-    "time_horizon": "N/A",
-    "exit_conditions": "N/A",
-    "trail_stop_level": "N/A"
+    "time_horizon": "1-3 days",
+    "exit_conditions": "Price crosses below 20-period moving average",
+    "trail_stop_level": "Entry price after Target 1 is hit"
   },
   {
     "instrument": "Bank NIFTY",
-    "trend": "DOWN",
-    "signal": "AVOID",
-    "confidence": 84.0,
-    "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
+    "trend": "UP",
+    "signal": "BUY",
+    "confidence": 86.0,
+    "reasoning": "Multi-factor technical analysis. News sentiment is bullish.\nRecent headlines:\n- Central Asia's maiden crypto fund launched in Kazakhstan\n- India\u2019s IPO market set to raise $8 billion in record year-end rush\n- Infra.Market files IPO papers via confidential route; seeks to raise up to Rs 5,500-cr",
     "technical_score": 20,
     "specific_instructions": [
-      "Market conditions unfavorable for a new position."
+      "Enter at current market price."
     ],
     "profit_targets": {
-      "description": "N/A"
+      "description": "Target 1: 10%, Target 2: 20%",
+      "targets": [
+        1.1,
+        1.2
+      ]
     },
-    "time_horizon": "N/A",
-    "exit_conditions": "N/A",
-    "trail_stop_level": "N/A"
+    "time_horizon": "1-3 days",
+    "exit_conditions": "Price crosses below 20-period moving average",
+    "trail_stop_level": "Entry price after Target 1 is hit"
   },
   {
     "instrument": "SENSEX",
     "trend": "NEUTRAL",
     "signal": "HOLD",
     "confidence": 0,
-    "reasoning": "Multi-factor technical analysis. News sentiment is neutral.\nRecent headlines:\nNews API rate limit exceeded.",
+    "reasoning": "Multi-factor technical analysis. News sentiment is bullish.\nRecent headlines:\n- Central Asia's maiden crypto fund launched in Kazakhstan\n- Infra.Market files IPO papers via confidential route; seeks to raise up to Rs 5,500-cr\n- ET Market Watch: Sensex surges over 700 points on RBI policy boost",
     "technical_score": 40,
     "specific_instructions": [
       "No clear signal based on current analysis."
@@ -71,7 +79,7 @@
     "instrument": "Reliance Industries",
     "trend": "DOWN",
     "signal": "AVOID",
-    "confidence": 100.0,
+    "confidence": 110.0,
     "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
     "technical_score": 0,
     "specific_instructions": [
@@ -88,7 +96,7 @@
     "instrument": "HDFC Bank",
     "trend": "DOWN",
     "signal": "AVOID",
-    "confidence": 84.0,
+    "confidence": 94.0,
     "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
     "technical_score": 20,
     "specific_instructions": [
@@ -103,13 +111,13 @@
   },
   {
     "instrument": "ICICI Bank",
-    "trend": "DOWN",
-    "signal": "AVOID",
-    "confidence": 88.0,
-    "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
+    "trend": "NEUTRAL",
+    "signal": "HOLD",
+    "confidence": 0,
+    "reasoning": "Multi-factor technical analysis. News sentiment is neutral.\nRecent headlines:\n- India\u2019s IPO market set to raise $8 billion in record year-end rush\n- FD interest rates: These 7 banks offer highest rates on long-term deposits\n- Infra.Market takes IPO route; RBI Gov on free UPI",
     "technical_score": 15,
     "specific_instructions": [
-      "Market conditions unfavorable for a new position."
+      "No clear signal based on current analysis."
     ],
     "profit_targets": {
       "description": "N/A"
@@ -120,13 +128,13 @@
   },
   {
     "instrument": "Infosys",
-    "trend": "DOWN",
-    "signal": "AVOID",
-    "confidence": 80.0,
-    "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
+    "trend": "NEUTRAL",
+    "signal": "HOLD",
+    "confidence": 0,
+    "reasoning": "Multi-factor technical analysis. News sentiment is bullish.\nRecent headlines:\n- Central Asia's maiden crypto fund launched in Kazakhstan\n- Infra.Market files IPO papers via confidential route; seeks to raise up to Rs 5,500-cr\n- European shares flat as healthcare gains counter broader market weakness",
     "technical_score": 25,
     "specific_instructions": [
-      "Market conditions unfavorable for a new position."
+      "No clear signal based on current analysis."
     ],
     "profit_targets": {
       "description": "N/A"
@@ -137,13 +145,13 @@
   },
   {
     "instrument": "Tata Consultancy",
-    "trend": "DOWN",
-    "signal": "AVOID",
-    "confidence": 100.0,
-    "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
+    "trend": "NEUTRAL",
+    "signal": "HOLD",
+    "confidence": 0,
+    "reasoning": "Multi-factor technical analysis. News sentiment is bullish.\nRecent headlines:\n- TCS 'Forced' Around 2,500 Employees To Resign, Alleges IT Staff Union\n- TCS allegedly forced around 2,500 employees in Pune to resign: NITES\n- TCS layoffs 2025: IT firm allegedly asks 2,500 Pune employees to resign: Report",
     "technical_score": 0,
     "specific_instructions": [
-      "Market conditions unfavorable for a new position."
+      "No clear signal based on current analysis."
     ],
     "profit_targets": {
       "description": "N/A"
@@ -154,13 +162,13 @@
   },
   {
     "instrument": "Larsen & Toubro",
-    "trend": "NEUTRAL",
-    "signal": "HOLD",
-    "confidence": 0,
-    "reasoning": "Multi-factor technical analysis. News sentiment is neutral.\nRecent headlines:\nNews API rate limit exceeded.",
+    "trend": "DOWN",
+    "signal": "AVOID",
+    "confidence": 84.0,
+    "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
     "technical_score": 45,
     "specific_instructions": [
-      "No clear signal based on current analysis."
+      "Market conditions unfavorable for a new position."
     ],
     "profit_targets": {
       "description": "N/A"
@@ -174,7 +182,7 @@
     "trend": "NEUTRAL",
     "signal": "HOLD",
     "confidence": 0,
-    "reasoning": "Multi-factor technical analysis. News sentiment is neutral.\nRecent headlines:\nNews API rate limit exceeded.",
+    "reasoning": "Multi-factor technical analysis. News sentiment is neutral.\nRecent headlines:\n- Markets rebound after 8-day slump; Sensex jumps over 700 points post RBI policy\n- Adani\u2019s road-arm signs deal to acquire 100% stake in 2 highway companies\n- Top 100 Richest Indians 2025: Check full list of India\u2019s wealthiest tycoons and families",
     "technical_score": 45,
     "specific_instructions": [
       "No clear signal based on current analysis."
@@ -190,7 +198,7 @@
     "instrument": "Adani Ports",
     "trend": "DOWN",
     "signal": "AVOID",
-    "confidence": 80.0,
+    "confidence": 160.0,
     "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
     "technical_score": 25,
     "specific_instructions": [
@@ -205,13 +213,13 @@
   },
   {
     "instrument": "Bajaj Finance",
-    "trend": "DOWN",
-    "signal": "AVOID",
-    "confidence": 80.0,
-    "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
+    "trend": "NEUTRAL",
+    "signal": "HOLD",
+    "confidence": 0,
+    "reasoning": "Multi-factor technical analysis. News sentiment is neutral.\nRecent headlines:\n- Tata Sons listing: RBI keeps its options open\n- Markets rebound after 8-day slump; Sensex jumps over 700 points post RBI policy\n- Sensex, Nifty 50 edge higher after RBI holds rates steady; banking & financial stocks gain",
     "technical_score": 25,
     "specific_instructions": [
-      "Market conditions unfavorable for a new position."
+      "No clear signal based on current analysis."
     ],
     "profit_targets": {
       "description": "N/A"
@@ -222,47 +230,55 @@
   },
   {
     "instrument": "Maruti Suzuki",
-    "trend": "DOWN",
-    "signal": "AVOID",
-    "confidence": 80.0,
-    "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
+    "trend": "UP",
+    "signal": "BUY",
+    "confidence": 110.0,
+    "reasoning": "Multi-factor technical analysis. News sentiment is bullish.\nRecent headlines:\n- Car sales bounce back in September after four-month slump on new tax rates\n- Maruti Suzuki sales up 3% at 1.89 lakh units in Sept\n- GST 2.0, festive demand drive double-digit sales growth at M&M, Toyota in September",
     "technical_score": 25,
     "specific_instructions": [
-      "Market conditions unfavorable for a new position."
+      "Enter at current market price."
     ],
     "profit_targets": {
-      "description": "N/A"
+      "description": "Target 1: 10%, Target 2: 20%",
+      "targets": [
+        1.1,
+        1.2
+      ]
     },
-    "time_horizon": "N/A",
-    "exit_conditions": "N/A",
-    "trail_stop_level": "N/A"
+    "time_horizon": "1-3 days",
+    "exit_conditions": "Price crosses below 20-period moving average",
+    "trail_stop_level": "Entry price after Target 1 is hit"
   },
   {
     "instrument": "Tata Motors",
-    "trend": "NEUTRAL",
-    "signal": "HOLD",
-    "confidence": 0,
-    "reasoning": "Multi-factor technical analysis. News sentiment is neutral.\nRecent headlines:\nNews API rate limit exceeded.",
+    "trend": "UP",
+    "signal": "BUY",
+    "confidence": 122.0,
+    "reasoning": "Multi-factor technical analysis. News sentiment is bullish.\nRecent headlines:\n- ET Market Watch: Sensex surges over 700 points on RBI policy boost\n- Car sales bounce back in September after four-month slump on new tax rates\n- Tata Motors Rides GST 2.0, Festive Demand To Deliver Record September Sales",
     "technical_score": 40,
     "specific_instructions": [
-      "No clear signal based on current analysis."
+      "Enter at current market price."
     ],
     "profit_targets": {
-      "description": "N/A"
+      "description": "Target 1: 10%, Target 2: 20%",
+      "targets": [
+        1.1,
+        1.2
+      ]
     },
-    "time_horizon": "N/A",
-    "exit_conditions": "N/A",
-    "trail_stop_level": "N/A"
+    "time_horizon": "1-3 days",
+    "exit_conditions": "Price crosses below 20-period moving average",
+    "trail_stop_level": "Entry price after Target 1 is hit"
   },
   {
     "instrument": "Hindustan Unilever",
-    "trend": "DOWN",
-    "signal": "AVOID",
-    "confidence": 80.0,
-    "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
+    "trend": "NEUTRAL",
+    "signal": "HOLD",
+    "confidence": 0,
+    "reasoning": "Multi-factor technical analysis. News sentiment is neutral.\nRecent headlines:\n- Lumina Datamatics Recognized as One of the Most Preferred Workplaces for Women 2025\u201326 by Marksmen Daily\n- FMCG sales to be hit in September quarter due to low demand, GST 2.0\n- HUL shares slide as company warns of flat growth amid GST transition disruption",
     "technical_score": 25,
     "specific_instructions": [
-      "Market conditions unfavorable for a new position."
+      "No clear signal based on current analysis."
     ],
     "profit_targets": {
       "description": "N/A"
@@ -273,13 +289,13 @@
   },
   {
     "instrument": "State Bank of India",
-    "trend": "NEUTRAL",
-    "signal": "HOLD",
-    "confidence": 0,
-    "reasoning": "Multi-factor technical analysis. News sentiment is neutral.\nRecent headlines:\nNews API rate limit exceeded.",
+    "trend": "DOWN",
+    "signal": "AVOID",
+    "confidence": 104.0,
+    "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
     "technical_score": 45,
     "specific_instructions": [
-      "No clear signal based on current analysis."
+      "Market conditions unfavorable for a new position."
     ],
     "profit_targets": {
       "description": "N/A"
@@ -290,30 +306,34 @@
   },
   {
     "instrument": "Axis Bank",
-    "trend": "NEUTRAL",
-    "signal": "HOLD",
-    "confidence": 0,
-    "reasoning": "Multi-factor technical analysis. News sentiment is neutral.\nRecent headlines:\nNews API rate limit exceeded.",
+    "trend": "UP",
+    "signal": "BUY",
+    "confidence": 76.0,
+    "reasoning": "Multi-factor technical analysis. News sentiment is bullish.\nRecent headlines:\n- Central Asia's maiden crypto fund launched in Kazakhstan\n- India\u2019s IPO market set to raise $8 billion in record year-end rush\n- Infra.Market files IPO papers via confidential route; seeks to raise up to Rs 5,500-cr",
     "technical_score": 45,
     "specific_instructions": [
-      "No clear signal based on current analysis."
+      "Enter at current market price."
     ],
     "profit_targets": {
-      "description": "N/A"
+      "description": "Target 1: 10%, Target 2: 20%",
+      "targets": [
+        1.1,
+        1.2
+      ]
     },
-    "time_horizon": "N/A",
-    "exit_conditions": "N/A",
-    "trail_stop_level": "N/A"
+    "time_horizon": "1-3 days",
+    "exit_conditions": "Price crosses below 20-period moving average",
+    "trail_stop_level": "Entry price after Target 1 is hit"
   },
   {
     "instrument": "JSW Steel",
-    "trend": "NEUTRAL",
-    "signal": "HOLD",
-    "confidence": 0,
-    "reasoning": "Multi-factor technical analysis. News sentiment is neutral.\nRecent headlines:\nNews API rate limit exceeded.",
+    "trend": "DOWN",
+    "signal": "AVOID",
+    "confidence": 134.0,
+    "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
     "technical_score": 45,
     "specific_instructions": [
-      "No clear signal based on current analysis."
+      "Market conditions unfavorable for a new position."
     ],
     "profit_targets": {
       "description": "N/A"

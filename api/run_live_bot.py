@@ -81,7 +81,9 @@ def run_live_bot():
 
         for instrument_name, symbol, kite_symbol in instrument_list:
             print(f"--- Processing {instrument_name} ---")
-            sentiment = fetch_news_sentiment(instrument_name)
+            # Temporarily disable news sentiment fetching to bypass rate limit issues
+            # sentiment = fetch_news_sentiment(instrument_name)
+            sentiment = {"score": 0, "summary": "News sentiment temporarily disabled."} # Default neutral sentiment
 
             if "NIFTY" in instrument_name or "SENSEX" in instrument_name:
                 option_signal = generate_option_signal(kite, kite_symbol, sentiment['score'])

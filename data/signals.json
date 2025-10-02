@@ -75,7 +75,7 @@
     "instrument": "Reliance Industries",
     "trend": "DOWN",
     "signal": "AVOID",
-    "confidence": 120.0,
+    "confidence": 140.0,
     "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
     "technical_score": 0,
     "specific_instructions": [
@@ -144,7 +144,7 @@
     "trend": "NEUTRAL",
     "signal": "HOLD",
     "confidence": 0,
-    "reasoning": "Multi-factor technical analysis. News sentiment is bullish.\nRecent headlines:\n- TCS drags SpiceJet to court over unpaid tech bills of Rs 2.34 crore\n- Grassley, Durbin Take Aim at Tech, Finance and Retail Sectors for Favoring H-1B Visa Holders over American Workers\n- TCS 'Forced' Around 2,500 Employees To Resign, Alleges IT Staff Union",
+    "reasoning": "Multi-factor technical analysis. News sentiment is bullish.\nRecent headlines:\n- \u2018Misinformation, mischievous\u2019: TCS rejects NITES claims about IT major \u2018forcing\u2019 2,500 Pune employees to resign\n- TCS drags SpiceJet to court over unpaid tech bills of Rs 2.34 crore\n- Grassley, Durbin Take Aim at Tech, Finance and Retail Sectors for Favoring H-1B Visa Holders over American Workers",
     "technical_score": 0,
     "specific_instructions": [
       "No clear signal based on current analysis."
@@ -305,7 +305,7 @@
     "trend": "NEUTRAL",
     "signal": "HOLD",
     "confidence": 0,
-    "reasoning": "Multi-factor technical analysis. News sentiment is neutral.\nRecent headlines:\n- View: DBTs are redefining women\u2019s empowerment and welfare, now its time to test it in fertiliser subsidies\n- Central Asia's maiden crypto fund launched in Kazakhstan\n- India\u2019s IPO market set to raise $8 billion in record year-end rush",
+    "reasoning": "Multi-factor technical analysis. News sentiment is bullish.\nRecent headlines:\n- Do Employers Comply with Pay Transparency Requirements in Job Postings?\n- View: DBTs are redefining women\u2019s empowerment and welfare, now its time to test it in fertiliser subsidies\n- Central Asia's maiden crypto fund launched in Kazakhstan",
     "technical_score": 45,
     "specific_instructions": [
       "No clear signal based on current analysis."

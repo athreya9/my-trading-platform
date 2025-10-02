@@ -104,7 +104,7 @@ def generate_option_signal(kite, symbol, sentiment_score):
             "hold_till": (datetime.datetime.now() + datetime.timedelta(hours=2)).strftime("%Y-%m-%d %H:%M"),
             "kelly_position_size": position_size,
             "reasoning": f"Sentiment score: {sentiment_score}, premium: ₹{premium}",
-            "status": "Buy"
+            "action": "Buy"
         }
     except Exception as e:
         print(f"Error generating option signal for {symbol}: {e}")

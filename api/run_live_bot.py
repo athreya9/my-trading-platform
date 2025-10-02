@@ -115,7 +115,12 @@ def run_live_bot():
                 analysis = ai_engine.analyze_trading_opportunity(kite_data, market_context, sentiment)
                 signal = ai_engine.generate_intelligent_signal(analysis)
                 
-                signal["status"] = "live"
+                # Determine status based on action for stock signals
+                if signal['action'] == 'BUY' or signal['action'] == 'SELL':
+                    signal["status"] = "live"
+                else:
+                    signal["status"] = "inactive"
+
                 signal["generated_at"] = datetime.now().isoformat()
 
                 if signal['action'] != 'HOLD':
@@ -128,13 +133,13 @@ def run_live_bot():
                     "confidence": signal['confidence'],
                     "reasoning": signal['reasoning'],
                     "technical_score": analysis['technical']['score'],
-                    "specific_instructions": signal['specific_instructions'],
+                    "specific_instructions']: signal['specific_instructions'],
                     "profit_targets": signal['profit_targets'],
                     "time_horizon": signal['time_horizon'],
-                    "exit_conditions": signal['exit_conditions'],
-                    "trail_stop_level": signal['trail_stop_level'],
-                    "status": "live",
-                    "generated_at": datetime.now().isoformat()
+                    "exit_conditions']: signal['exit_conditions'],
+                    "trail_stop_level']: signal['trail_stop_level'],
+                    "status": signal["status"], # Use the determined status
+                    "generated_at": signal["generated_at"]
                 })
 
         print("\n--- Generated Signals ---")

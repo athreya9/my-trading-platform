@@ -37,7 +37,7 @@ def run_live_bot():
     """The main function to run the live trading bot."""
     print("Running live bot...")
 
-    if MODE == "live" and is_market_open():
+    if MODE == "live":
         try:
             access_token = get_automated_access_token()
             if not access_token:

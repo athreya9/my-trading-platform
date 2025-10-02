@@ -47,3 +47,5 @@ def fetch_news_sentiment(stock_name):
     except requests.exceptions.RequestException as e:
         print(f"Error fetching news for {stock_name}: {e}")
         return {"score": 0, "summary": "Error fetching news."}
+    finally:
+        time.sleep(1) # Sleep for 1 second after each call

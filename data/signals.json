@@ -43,24 +43,20 @@
   },
   {
     "instrument": "SENSEX",
-    "trend": "UP",
-    "signal": "BUY",
-    "confidence": 92.0,
+    "trend": "NEUTRAL",
+    "signal": "HOLD",
+    "confidence": 0,
     "reasoning": "Multi-factor technical analysis. News sentiment is bullish.\nRecent headlines:\n- Gainers & Losers: Sun TV, Tata Motors, Hyundai among 7 stocks that moved most on Wednesday\n- Tata Investment, RBL Bank and 4 other stocks hit 52-week high; rally up to 55% in a month\n- Markets rebound after 8-day slump; Sensex jumps over 700 points post RBI policy",
     "technical_score": 40,
     "specific_instructions": [
-      "Enter at current market price."
+      "No clear signal based on current analysis."
     ],
     "profit_targets": {
-      "description": "Target 1: 10%, Target 2: 20%",
-      "targets": [
-        1.1,
-        1.2
-      ]
+      "description": "N/A"
     },
-    "time_horizon": "1-3 days",
-    "exit_conditions": "Price crosses below 20-period moving average",
-    "trail_stop_level": "Entry price after Target 1 is hit"
+    "time_horizon": "N/A",
+    "exit_conditions": "N/A",
+    "trail_stop_level": "N/A"
   },
   {
     "instrument": "FINNIFTY",
@@ -83,7 +79,7 @@
     "instrument": "Reliance Industries",
     "trend": "DOWN",
     "signal": "AVOID",
-    "confidence": 130.0,
+    "confidence": 120.0,
     "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
     "technical_score": 0,
     "specific_instructions": [
@@ -100,7 +96,7 @@
     "instrument": "HDFC Bank",
     "trend": "DOWN",
     "signal": "AVOID",
-    "confidence": 114.0,
+    "confidence": 94.0,
     "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
     "technical_score": 20,
     "specific_instructions": [
@@ -115,13 +111,13 @@
   },
   {
     "instrument": "ICICI Bank",
-    "trend": "NEUTRAL",
-    "signal": "HOLD",
-    "confidence": 0,
-    "reasoning": "Multi-factor technical analysis. News sentiment is bullish.\nRecent headlines:\n- Markets rebound after 8-day slump; Sensex jumps over 700 points post RBI policy\n- RBI drops proposed restriction on bank-NBFC overlap\n- Markets bounce back on RBI dovish tone; Nifty Bank leads recovery: Rohit Srivastava",
+    "trend": "DOWN",
+    "signal": "AVOID",
+    "confidence": 78.0,
+    "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
     "technical_score": 15,
     "specific_instructions": [
-      "No clear signal based on current analysis."
+      "Market conditions unfavorable for a new position."
     ],
     "profit_targets": {
       "description": "N/A"
@@ -236,8 +232,8 @@
     "instrument": "Maruti Suzuki",
     "trend": "UP",
     "signal": "BUY",
-    "confidence": 100.0,
-    "reasoning": "Multi-factor technical analysis. News sentiment is bullish.\nRecent headlines:\n- Maruti Suzuki sales up 3% at 1.89 lakh units in Sept\n- GST 2.0, festive demand drive double-digit sales growth at M&M, Toyota in September\n- Hyundai Motor India shares fall 3% on muted domestic sales in September",
+    "confidence": 110.0,
+    "reasoning": "Multi-factor technical analysis. News sentiment is bullish.\nRecent headlines:\n- Car sales bounce back in September after four-month slump on new tax rates\n- Maruti Suzuki sales up 3% at 1.89 lakh units in Sept\n- GST 2.0, festive demand drive double-digit sales growth at M&M, Toyota in September",
     "technical_score": 25,
     "specific_instructions": [
       "Enter at current market price."
@@ -257,8 +253,8 @@
     "instrument": "Tata Motors",
     "trend": "UP",
     "signal": "BUY",
-    "confidence": 172.0,
-    "reasoning": "Multi-factor technical analysis. News sentiment is bullish.\nRecent headlines:\n- Tata Motors Rides GST 2.0, Festive Demand To Deliver Record September Sales\n- Gainers & Losers: Sun TV, Tata Motors, Hyundai among 7 stocks that moved most on Wednesday\n- Markets rebound after 8-day slump; Sensex jumps over 700 points post RBI policy",
+    "confidence": 132.0,
+    "reasoning": "Multi-factor technical analysis. News sentiment is bullish.\nRecent headlines:\n- Car sales bounce back in September after four-month slump on new tax rates\n- Tata Motors Rides GST 2.0, Festive Demand To Deliver Record September Sales\n- Gainers & Losers: Sun TV, Tata Motors, Hyundai among 7 stocks that moved most on Wednesday",
     "technical_score": 40,
     "specific_instructions": [
       "Enter at current market price."
@@ -293,13 +289,13 @@
   },
   {
     "instrument": "State Bank of India",
-    "trend": "NEUTRAL",
-    "signal": "HOLD",
-    "confidence": 0,
-    "reasoning": "Multi-factor technical analysis. News sentiment is neutral.\nRecent headlines:\n- Why TigerBeetle is the most interesting database in the world\n- Gold Prices Touch Record Levels: Here Are Five Alternative Investment Options\n- World shares are mixed as a US government shutdown adds to uncertainty",
+    "trend": "DOWN",
+    "signal": "AVOID",
+    "confidence": 74.0,
+    "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
     "technical_score": 45,
     "specific_instructions": [
-      "No clear signal based on current analysis."
+      "Market conditions unfavorable for a new position."
     ],
     "profit_targets": {
       "description": "N/A"

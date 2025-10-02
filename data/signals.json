@@ -17,6 +17,23 @@
     "trail_stop_level": "N/A"
   },
   {
+    "instrument": "Bank NIFTY",
+    "trend": "DOWN",
+    "signal": "AVOID",
+    "confidence": 84.0,
+    "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
+    "technical_score": 20,
+    "specific_instructions": [
+      "Market conditions unfavorable for a new position."
+    ],
+    "profit_targets": {
+      "description": "N/A"
+    },
+    "time_horizon": "N/A",
+    "exit_conditions": "N/A",
+    "trail_stop_level": "N/A"
+  },
+  {
     "instrument": "SENSEX",
     "trend": "NEUTRAL",
     "signal": "HOLD",
@@ -137,6 +154,23 @@
   },
   {
     "instrument": "Larsen & Toubro",
+    "trend": "NEUTRAL",
+    "signal": "HOLD",
+    "confidence": 0,
+    "reasoning": "Multi-factor technical analysis. News sentiment is neutral.\nRecent headlines:\nNews API rate limit exceeded.",
+    "technical_score": 45,
+    "specific_instructions": [
+      "No clear signal based on current analysis."
+    ],
+    "profit_targets": {
+      "description": "N/A"
+    },
+    "time_horizon": "N/A",
+    "exit_conditions": "N/A",
+    "trail_stop_level": "N/A"
+  },
+  {
+    "instrument": "Adani Enterprises",
     "trend": "NEUTRAL",
     "signal": "HOLD",
     "confidence": 0,

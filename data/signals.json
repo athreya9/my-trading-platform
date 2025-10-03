@@ -73,13 +73,13 @@
   },
   {
     "instrument": "Reliance Industries",
-    "trend": "NEUTRAL",
-    "signal": "HOLD",
-    "confidence": 0,
-    "reasoning": "Multi-factor technical analysis. News sentiment is bullish.\nRecent headlines:\n- MidCap Financial Investment Corporation Amends and Extends Its Senior Secured Revolving Credit Facility\n- The tariffs are harming national security, not just our economy\n- Proven Infringement, Zero Recovery: Federal Circuit Once Again Cancels a Jury Verdict for the Patentee",
+    "trend": "DOWN",
+    "signal": "AVOID",
+    "confidence": 80.0,
+    "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
     "technical_score": 0,
     "specific_instructions": [
-      "No clear signal based on current analysis."
+      "Market conditions unfavorable for a new position."
     ],
     "profit_targets": {
       "description": "N/A"

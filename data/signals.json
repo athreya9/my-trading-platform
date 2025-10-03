@@ -20,7 +20,7 @@
     "instrument": "Bank NIFTY",
     "trend": "DOWN",
     "signal": "AVOID",
-    "confidence": 84.0,
+    "confidence": 74.0,
     "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
     "technical_score": 20,
     "specific_instructions": [
@@ -35,20 +35,24 @@
   },
   {
     "instrument": "SENSEX",
-    "trend": "DOWN",
-    "signal": "AVOID",
-    "confidence": 80.0,
-    "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
+    "trend": "UP",
+    "signal": "BUY",
+    "confidence": 110.0,
+    "reasoning": "Multi-factor technical analysis. News sentiment is bullish.\nRecent headlines:\n- Ahead of Market: 10 things that will decide D-Street action on Friday\n- Mixed Bag for Gujarat PSU scrips in H1 FY 2026\n- Market trading guide: Buy Hindustan Zinc, Fortis Health and 2 more stocks for up to 9% gains",
     "technical_score": 25,
     "specific_instructions": [
-      "Market conditions unfavorable for a new position."
+      "Enter at current market price."
     ],
     "profit_targets": {
-      "description": "N/A"
+      "description": "Target 1: 10%, Target 2: 20%",
+      "targets": [
+        1.1,
+        1.2
+      ]
     },
-    "time_horizon": "N/A",
-    "exit_conditions": "N/A",
-    "trail_stop_level": "N/A"
+    "time_horizon": "1-3 days",
+    "exit_conditions": "Price crosses below 20-period moving average",
+    "trail_stop_level": "Entry price after Target 1 is hit"
   },
   {
     "instrument": "FINNIFTY",
@@ -69,13 +73,13 @@
   },
   {
     "instrument": "Reliance Industries",
-    "trend": "DOWN",
-    "signal": "AVOID",
-    "confidence": 100.0,
-    "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
+    "trend": "NEUTRAL",
+    "signal": "HOLD",
+    "confidence": 0,
+    "reasoning": "Multi-factor technical analysis. News sentiment is bullish.\nRecent headlines:\n- The state of the creative production industry 6 months on from the collapse of Technicolor\n- \u2018I\u2019m a converted guy already\u2019: Lawmakers from Africa find warmth in Siberia\n- Mobix Labs Delivers Breakout Year With Over 50% Revenue Growth in Fiscal 2025",
     "technical_score": 0,
     "specific_instructions": [
-      "Market conditions unfavorable for a new position."
+      "No clear signal based on current analysis."
     ],
     "profit_targets": {
       "description": "N/A"
@@ -86,13 +90,13 @@
   },
   {
     "instrument": "HDFC Bank",
-    "trend": "DOWN",
-    "signal": "AVOID",
-    "confidence": 84.0,
-    "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
+    "trend": "NEUTRAL",
+    "signal": "HOLD",
+    "confidence": 0,
+    "reasoning": "Multi-factor technical analysis. News sentiment is bullish.\nRecent headlines:\n- Not PPF or NSC \u2013 this small savings scheme offers the highest interest. Check the latest rate here\n- Ahead of Market: 10 things that will decide D-Street action on Friday\n- Bank charge THESE interest rates on personal loans in October 2025. Check the latest rates here",
     "technical_score": 20,
     "specific_instructions": [
-      "Market conditions unfavorable for a new position."
+      "No clear signal based on current analysis."
     ],
     "profit_targets": {
       "description": "N/A"
@@ -103,13 +107,13 @@
   },
   {
     "instrument": "ICICI Bank",
-    "trend": "DOWN",
-    "signal": "AVOID",
-    "confidence": 100.0,
-    "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
+    "trend": "NEUTRAL",
+    "signal": "HOLD",
+    "confidence": 0,
+    "reasoning": "Multi-factor technical analysis. News sentiment is bullish.\nRecent headlines:\n- Not PPF or NSC \u2013 this small savings scheme offers the highest interest. Check the latest rate here\n- Ahead of Market: 10 things that will decide D-Street action on Friday\n- Bank charge THESE interest rates on personal loans in October 2025. Check the latest rates here",
     "technical_score": 0,
     "specific_instructions": [
-      "Market conditions unfavorable for a new position."
+      "No clear signal based on current analysis."
     ],
     "profit_targets": {
       "description": "N/A"
@@ -120,13 +124,13 @@
   },
   {
     "instrument": "Infosys",
-    "trend": "DOWN",
-    "signal": "AVOID",
-    "confidence": 80.0,
-    "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
+    "trend": "NEUTRAL",
+    "signal": "HOLD",
+    "confidence": 0,
+    "reasoning": "Multi-factor technical analysis. News sentiment is bullish.\nRecent headlines:\n- Hexaware faces $500 million patent lawsuit\n- Core Banking Software Market\u00a0Size to Hit USD 38.21 Billion by 2032, Surging Mobile Banking and Omnichannel Platforms Aid Growth Globally | SNS Insider\n- Finance Ministry orders enquiry into Wintrack bribery allegations against Chennai customs",
     "technical_score": 25,
     "specific_instructions": [
-      "Market conditions unfavorable for a new position."
+      "No clear signal based on current analysis."
     ],
     "profit_targets": {
       "description": "N/A"
@@ -139,7 +143,7 @@
     "instrument": "Tata Consultancy",
     "trend": "DOWN",
     "signal": "AVOID",
-    "confidence": 100.0,
+    "confidence": 80.0,
     "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
     "technical_score": 0,
     "specific_instructions": [
@@ -154,27 +158,31 @@
   },
   {
     "instrument": "Larsen & Toubro",
-    "trend": "NEUTRAL",
-    "signal": "HOLD",
-    "confidence": 0,
-    "reasoning": "Multi-factor technical analysis. News sentiment is neutral.\nRecent headlines:\nNews API rate limit exceeded.",
+    "trend": "UP",
+    "signal": "BUY",
+    "confidence": 76.0,
+    "reasoning": "Multi-factor technical analysis. News sentiment is bullish.\nRecent headlines:\n- High school girls tennis: 5A state tournament brackets announced on Thursday\n- Cal Humanities Announces $395,000 In Funding For Documentary Projects, But Future Grants Uncertain After Trump-Ordered Cuts\n- The Prop and the Production Designer",
     "technical_score": 45,
     "specific_instructions": [
-      "No clear signal based on current analysis."
+      "Enter at current market price."
     ],
     "profit_targets": {
-      "description": "N/A"
+      "description": "Target 1: 10%, Target 2: 20%",
+      "targets": [
+        1.1,
+        1.2
+      ]
     },
-    "time_horizon": "N/A",
-    "exit_conditions": "N/A",
-    "trail_stop_level": "N/A"
+    "time_horizon": "1-3 days",
+    "exit_conditions": "Price crosses below 20-period moving average",
+    "trail_stop_level": "Entry price after Target 1 is hit"
   },
   {
     "instrument": "Adani Enterprises",
     "trend": "NEUTRAL",
     "signal": "HOLD",
     "confidence": 0,
-    "reasoning": "Multi-factor technical analysis. News sentiment is neutral.\nRecent headlines:\nNews API rate limit exceeded.",
+    "reasoning": "Multi-factor technical analysis. News sentiment is neutral.\nRecent headlines:\n- Ahead of Market: 10 things that will decide D-Street action on Friday\n- CNBC's Inside India newsletter: India\u2019s gigawatt gold rush\n- Markets rebound after 8-day slump; Sensex jumps over 700 points post RBI policy",
     "technical_score": 45,
     "specific_instructions": [
       "No clear signal based on current analysis."
@@ -190,7 +198,7 @@
     "instrument": "Adani Ports",
     "trend": "DOWN",
     "signal": "AVOID",
-    "confidence": 80.0,
+    "confidence": 160.0,
     "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
     "technical_score": 25,
     "specific_instructions": [
@@ -222,47 +230,55 @@
   },
   {
     "instrument": "Maruti Suzuki",
-    "trend": "DOWN",
-    "signal": "AVOID",
-    "confidence": 80.0,
-    "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
+    "trend": "UP",
+    "signal": "BUY",
+    "confidence": 90.0,
+    "reasoning": "Multi-factor technical analysis. News sentiment is bullish.\nRecent headlines:\n- Tata Motors speeds past Hyundai, M&M to 2nd spot in PV race, extends lead over JSW MG in EV registrations\n- Car sales bounce back in September after four-month slump on new tax rates\n- Maruti Suzuki sales up 3% at 1.89 lakh units in Sept",
     "technical_score": 25,
     "specific_instructions": [
-      "Market conditions unfavorable for a new position."
+      "Enter at current market price."
     ],
     "profit_targets": {
-      "description": "N/A"
+      "description": "Target 1: 10%, Target 2: 20%",
+      "targets": [
+        1.1,
+        1.2
+      ]
     },
-    "time_horizon": "N/A",
-    "exit_conditions": "N/A",
-    "trail_stop_level": "N/A"
+    "time_horizon": "1-3 days",
+    "exit_conditions": "Price crosses below 20-period moving average",
+    "trail_stop_level": "Entry price after Target 1 is hit"
   },
   {
     "instrument": "Tata Motors",
-    "trend": "NEUTRAL",
-    "signal": "HOLD",
-    "confidence": 0,
-    "reasoning": "Multi-factor technical analysis. News sentiment is neutral.\nRecent headlines:\nNews API rate limit exceeded.",
+    "trend": "UP",
+    "signal": "BUY",
+    "confidence": 148.0,
+    "reasoning": "Multi-factor technical analysis. News sentiment is bullish.\nRecent headlines:\n- Ahead of Market: 10 things that will decide D-Street action on Friday\n- Car sales jump 45% due to lower GST, festive season\n- United Kingdom $45+ Bn Electric Vehicle Market Trends, Competition, Opportunities & Forecast, 2030F",
     "technical_score": 60,
     "specific_instructions": [
-      "No clear signal based on current analysis."
+      "Enter at current market price."
     ],
     "profit_targets": {
-      "description": "N/A"
+      "description": "Target 1: 10%, Target 2: 20%",
+      "targets": [
+        1.1,
+        1.2
+      ]
     },
-    "time_horizon": "N/A",
-    "exit_conditions": "N/A",
-    "trail_stop_level": "N/A"
+    "time_horizon": "1-3 days",
+    "exit_conditions": "Price crosses below 20-period moving average",
+    "trail_stop_level": "Entry price after Target 1 is hit"
   },
   {
     "instrument": "Hindustan Unilever",
-    "trend": "DOWN",
-    "signal": "AVOID",
-    "confidence": 80.0,
-    "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
+    "trend": "NEUTRAL",
+    "signal": "HOLD",
+    "confidence": 0,
+    "reasoning": "Multi-factor technical analysis. News sentiment is neutral.\nRecent headlines:\n- Lumina Datamatics Recognized as One of the Most Preferred Workplaces for Women 2025\u201326 by Marksmen Daily\n- FMCG sales to be hit in September quarter due to low demand, GST 2.0\n- HUL shares slide as company warns of flat growth amid GST transition disruption",
     "technical_score": 25,
     "specific_instructions": [
-      "Market conditions unfavorable for a new position."
+      "No clear signal based on current analysis."
     ],
     "profit_targets": {
       "description": "N/A"
@@ -273,27 +289,31 @@
   },
   {
     "instrument": "State Bank of India",
-    "trend": "NEUTRAL",
-    "signal": "HOLD",
-    "confidence": 0,
-    "reasoning": "Multi-factor technical analysis. News sentiment is neutral.\nRecent headlines:\nNews API rate limit exceeded.",
+    "trend": "UP",
+    "signal": "BUY",
+    "confidence": 76.0,
+    "reasoning": "Multi-factor technical analysis. News sentiment is bullish.\nRecent headlines:\n- Not PPF or NSC \u2013 this small savings scheme offers the highest interest. Check the latest rate here\n- RBI\u2019s measures to improve flow of credit: Banks\u2019 may see healthy loan demand from India Inc\n- Brand Impact Awards 2025: all the winners revealed",
     "technical_score": 45,
     "specific_instructions": [
-      "No clear signal based on current analysis."
+      "Enter at current market price."
     ],
     "profit_targets": {
-      "description": "N/A"
+      "description": "Target 1: 10%, Target 2: 20%",
+      "targets": [
+        1.1,
+        1.2
+      ]
     },
-    "time_horizon": "N/A",
-    "exit_conditions": "N/A",
-    "trail_stop_level": "N/A"
+    "time_horizon": "1-3 days",
+    "exit_conditions": "Price crosses below 20-period moving average",
+    "trail_stop_level": "Entry price after Target 1 is hit"
   },
   {
     "instrument": "Axis Bank",
     "trend": "NEUTRAL",
     "signal": "HOLD",
     "confidence": 0,
-    "reasoning": "Multi-factor technical analysis. News sentiment is neutral.\nRecent headlines:\nNews API rate limit exceeded.",
+    "reasoning": "Multi-factor technical analysis. News sentiment is neutral.\nRecent headlines:\n- From the League of Nations to the United Nations to Trump Global?\n- Banks likely to report soft Q2 performance amid NIM pressures and higher credit costs: Axis Securities\n- Analysts Set Ceragon Networks Ltd. (NASDAQ:CRNT) Price Target at $5.30",
     "technical_score": 45,
     "specific_instructions": [
       "No clear signal based on current analysis."
@@ -307,13 +327,13 @@
   },
   {
     "instrument": "JSW Steel",
-    "trend": "NEUTRAL",
-    "signal": "HOLD",
-    "confidence": 0,
-    "reasoning": "Multi-factor technical analysis. News sentiment is neutral.\nRecent headlines:\nNews API rate limit exceeded.",
+    "trend": "DOWN",
+    "signal": "AVOID",
+    "confidence": 134.0,
+    "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
     "technical_score": 45,
     "specific_instructions": [
-      "No clear signal based on current analysis."
+      "Market conditions unfavorable for a new position."
     ],
     "profit_targets": {
       "description": "N/A"

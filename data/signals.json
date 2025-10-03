@@ -51,6 +51,23 @@
     "trail_stop_level": "N/A"
   },
   {
+    "instrument": "FINNIFTY",
+    "trend": "DOWN",
+    "signal": "AVOID",
+    "confidence": 100.0,
+    "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
+    "technical_score": 0,
+    "specific_instructions": [
+      "Market conditions unfavorable for a new position."
+    ],
+    "profit_targets": {
+      "description": "N/A"
+    },
+    "time_horizon": "N/A",
+    "exit_conditions": "N/A",
+    "trail_stop_level": "N/A"
+  },
+  {
     "instrument": "Reliance Industries",
     "trend": "DOWN",
     "signal": "AVOID",

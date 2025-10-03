@@ -1,13 +1,13 @@
 [
   {
     "instrument": "NIFTY 50",
-    "trend": "NEUTRAL",
-    "signal": "HOLD",
-    "confidence": 0,
-    "reasoning": "Multi-factor technical analysis. News sentiment is neutral.\nRecent headlines:\n- Fantasy Football: Jaxson Dart, Malik Washington among top sleepers off the waiver wire in Week 5\n- Fantasy Football: Jaxson Dart, Malik Washington among top sleeper candidates off the waiver wire for Week 5\n- Fantasy Football: Jaxson Dart, Malik Washington among top sleeper candidates off the waiver wire for Week 5",
+    "trend": "DOWN",
+    "signal": "AVOID",
+    "confidence": 80.0,
+    "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
     "technical_score": 25,
     "specific_instructions": [
-      "No clear signal based on current analysis."
+      "Market conditions unfavorable for a new position."
     ],
     "profit_targets": {
       "description": "N/A"
@@ -35,24 +35,20 @@
   },
   {
     "instrument": "SENSEX",
-    "trend": "UP",
-    "signal": "BUY",
-    "confidence": 110.0,
-    "reasoning": "Multi-factor technical analysis. News sentiment is bullish.\nRecent headlines:\n- Ahead of Market: 10 things that will decide D-Street action on Friday\n- Mixed Bag for Gujarat PSU scrips in H1 FY 2026\n- Market trading guide: Buy Hindustan Zinc, Fortis Health and 2 more stocks for up to 9% gains",
+    "trend": "DOWN",
+    "signal": "AVOID",
+    "confidence": 80.0,
+    "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
     "technical_score": 25,
     "specific_instructions": [
-      "Enter at current market price."
+      "Market conditions unfavorable for a new position."
     ],
     "profit_targets": {
-      "description": "Target 1: 10%, Target 2: 20%",
-      "targets": [
-        1.1,
-        1.2
-      ]
+      "description": "N/A"
     },
-    "time_horizon": "1-3 days",
-    "exit_conditions": "Price crosses below 20-period moving average",
-    "trail_stop_level": "Entry price after Target 1 is hit"
+    "time_horizon": "N/A",
+    "exit_conditions": "N/A",
+    "trail_stop_level": "N/A"
   },
   {
     "instrument": "FINNIFTY",
@@ -75,7 +71,7 @@
     "instrument": "Reliance Industries",
     "trend": "DOWN",
     "signal": "AVOID",
-    "confidence": 80.0,
+    "confidence": 100.0,
     "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
     "technical_score": 0,
     "specific_instructions": [

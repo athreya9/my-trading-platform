@@ -243,7 +243,7 @@
     "signal": "HOLD",
     "confidence": 0,
     "reasoning": "Multi-factor technical analysis. News sentiment is neutral.\nRecent headlines:\nNews API rate limit exceeded.",
-    "technical_score": 40,
+    "technical_score": 60,
     "specific_instructions": [
       "No clear signal based on current analysis."
     ],

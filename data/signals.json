@@ -258,9 +258,9 @@
     "instrument": "Hindustan Unilever",
     "trend": "DOWN",
     "signal": "AVOID",
-    "confidence": 80.0,
+    "confidence": 100.0,
     "reasoning": "The AI model suggests avoiding new trades due to unfavorable market conditions.",
-    "technical_score": 25,
+    "technical_score": 0,
     "specific_instructions": [
       "Market conditions unfavorable for a new position."
     ],
@@ -294,7 +294,7 @@
     "signal": "HOLD",
     "confidence": 0,
     "reasoning": "Multi-factor technical analysis. News sentiment is neutral.\nRecent headlines:\nNews API rate limit exceeded.",
-    "technical_score": 45,
+    "technical_score": 60,
     "specific_instructions": [
       "No clear signal based on current analysis."
     ],

@@ -1,23 +1,23 @@
 import datetime
 from api.accurate_telegram_alerts import AccurateTelegramAlerts
 
-def get_upcoming_expiries(kite, symbol):
+def get_upcoming_expiries(kite, symbol, exchange="NFO"):
     """Gets the upcoming expiry dates for a given symbol."""
-    instruments = kite.instruments("NFO")
-    expiries = sorted(list(set([i['expiry'] for i in instruments if i['name'] == symbol])))
+    instruments = kite.instruments(exchange)
+    expiries = sorted(list(set([i['expiry'] for i in instruments if i['name'] == symbol]))))
     return expiries
 
 def fetch_options_chain(kite, symbol):
     """Fetches the option chain for a given symbol."""
     try:
-        expiries = get_upcoming_expiries(kite, symbol)
+        exchange = "BFO" if symbol == "SENSEX" else "NFO"
+        expiries = get_upcoming_expiries(kite, symbol, exchange)
         if not expiries:
-            return None
+            return None, None
         # For simplicity, we'll use the first available expiry
         expiry_date = expiries[0]
         
-        # The get_option_chain method does not exist in kiteconnect, so we will get all instruments and filter
-        instruments = kite.instruments("NFO")
+        instruments = kite.instruments(exchange)
         option_chain = [i for i in instruments if i['name'] == symbol and i['expiry'] == expiry_date]
         return option_chain, expiry_date
     except Exception as e:
@@ -68,8 +68,10 @@ def estimate_confidence(sentiment_score, premium):
 def generate_option_signal(kite, symbol, sentiment_score):
     """Generates a complete option trading signal."""
     try:
-        ltp_data = kite.ltp(f"NSE:{symbol}")
-        spot_price = ltp_data[f"NSE:{symbol}"]['last_price']
+        exchange = "BSE" if symbol == "SENSEX" else "NSE"
+        ltp_data = kite.ltp(f"{exchange}:{symbol}")
+        spot_price = ltp_data[f"{exchange}:{symbol}"]['last_price']
+        
         chain, expiry = fetch_options_chain(kite, symbol)
         if not chain:
             return None

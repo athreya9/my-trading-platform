@@ -263,6 +263,8 @@ def send_ai_powered_alert(signal, analysis, telegram_bot):
     """
     Send alert that shows WHY the AI is recommending this trade
     """
+    if signal.get("status") != "live":
+        return
     message = f"""
  **AI-POWERED TRADING SIGNAL** 
 

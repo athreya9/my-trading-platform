@@ -28,6 +28,7 @@ jobs:
 
       - name: Run live bot
         env:
+          MODE: live
           KITE_API_KEY: ${{ secrets.KITE_API_KEY }}
           KITE_API_SECRET: ${{ secrets.KITE_API_SECRET }}
           KITE_USER_ID: ${{ secrets.KITE_USER_ID }}
@@ -41,5 +42,4 @@ jobs:
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
           git add data/
           git diff --staged --quiet || git commit -m "chore: update live data"
-          git pull --rebase origin main
-          git push origin main
+          git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git main

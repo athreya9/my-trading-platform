@@ -1,8 +1,6 @@
 
 import os
 import sys
-import hashlib
-import requests
 import pyotp
 import time
 from selenium import webdriver
@@ -13,35 +11,14 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
 from webdriver_manager.chrome import ChromeDriverManager
 from urllib.parse import urlparse, parse_qs
+from dotenv import load_dotenv
+from api.kite_connect import get_access_token as generate_kite_access_token
 
 # --- Centralized Logging Setup ---
 import logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
-handler = logging.StreamHandler(sys.stderr)
-formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-handler.setFormatter(formatter)
-logger.addHandler(handler)
-logger.setLevel(logging.INFO)
-
-def generate_access_token(api_key, api_secret, request_token):
-    """Generates an access token using the request token."""
-    data = api_key + request_token + api_secret
-    checksum = hashlib.sha256(data.encode("utf-8")).hexdigest()
-    
-    url = "https://api.kite.trade/session/token"
-    payload = {
-        "api_key": api_key,
-        "request_token": request_token,
-        "checksum": checksum
-    }
-    
-    response = requests.post(url, data=payload)
-    result = response.json()
-    
-    if response.status_code == 200 and "data" in result and "access_token" in result["data"]:
-        return result["data"]["access_token"]
-    else:
-        raise Exception(f"Failed to generate access token: {result.get('message', 'Unknown error')}")
+load_dotenv()
 
 def get_automated_access_token():
     """
@@ -51,7 +28,6 @@ def get_automated_access_token():
     driver = None
     try:
         api_key = os.environ['KITE_API_KEY']
-        api_secret = os.environ['KITE_API_SECRET']
         user_id = os.environ['KITE_USER_ID']
         password = os.environ['KITE_PASSWORD']
         totp_secret = os.environ['KITE_TOTP_SECRET']
@@ -165,7 +141,7 @@ def get_automated_access_token():
         logger.info(f"Successfully captured request_token.")
 
         logger.info("Generating access_token...")
-        access_token = generate_access_token(api_key, api_secret, request_token)
+        access_token = generate_kite_access_token(request_token)
         
         logger.info("\n" + "="*60)
         logger.info("✅ SUCCESS! NEW ACCESS TOKEN GENERATED")
@@ -192,4 +168,3 @@ if __name__ == "__main__":
         print(access_token)
     else:
         sys.exit(1)
-

@@ -2,9 +2,13 @@ import requests
 import os
 
 # It is recommended to store the API key as an environment variable or a GitHub secret.
-NEWS_API_KEY = os.environ.get("NEWS_API_KEY", "45eebbb8eb014827bb5102a15aa813d4")
+NEWS_API_KEY = os.environ.get("NEWS_API_KEY")
 
 def fetch_news_sentiment(stock_name):
+    if not NEWS_API_KEY: # Check if API key is actually available
+        print("NEWS_API_KEY is not set. Returning neutral sentiment.")
+        return {"score": 0, "summary": "NEWS_API_KEY is not set."}
+
     url = f"https://newsapi.org/v2/everything?q={stock_name}&language=en&sortBy=publishedAt&pageSize=10&apiKey={NEWS_API_KEY}"
     try:
         response = requests.get(url)
@@ -43,3 +47,5 @@ def fetch_news_sentiment(stock_name):
     except requests.exceptions.RequestException as e:
         print(f"Error fetching news for {stock_name}: {e}")
         return {"score": 0, "summary": "Error fetching news."}
+    finally:
+        time.sleep(1) # Sleep for 1 second after each call

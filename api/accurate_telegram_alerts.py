@@ -15,8 +15,9 @@ logger = logging.getLogger(__name__)
 
 class AccurateTelegramAlerts:
     def __init__(self, kite=None):
-        self.bot_token = os.getenv('TELEGRAM_BOT_TOKEN', '')
-        self.chat_id = os.getenv('TELEGRAM_CHAT_ID', '')
+        # Use the correct environment variable 'TELEGRAM_BOT_TOKEN'
+        self.bot_token = os.getenv('TELEGRAM_BOT_TOKEN', '').strip()
+        self.chat_id = os.getenv('TELEGRAM_CHAT_ID', '').strip()
         self.kite = kite
         
     

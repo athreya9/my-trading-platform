@@ -1,6 +1,8 @@
 import json
 from datetime import datetime, time
 import os
+from dotenv import load_dotenv
+import logging
 from api.kite_connect import get_kite_connect_client
 from api.ai_analysis_engine import AIAnalysisEngine, send_ai_powered_alert
 from api.data_collector import DataCollector
@@ -10,34 +12,43 @@ from api.news_sentiment import fetch_news_sentiment
 from automate_token_generation import get_automated_access_token
 from api.options_signal_engine import generate_option_signal, send_option_alert
 
+load_dotenv()  # Load environment variables from .env file
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+
 MODE = os.getenv("MODE", "dry_run")  # default to dry_run
 
 def is_market_open():
     now = datetime.now().time()
     return time(9, 15) <= now <= time(15, 30)
 
-def get_instrument_token(kite, symbol):
-    """Gets the instrument token for a given symbol."""
-    if symbol == "NIFTY 50":
-        return 256265
-    elif symbol == "NIFTY BANK":
-        return 260105
-    elif symbol == "SENSEX":
-        return 273929
-    elif symbol == "NIFTY FIN SERVICE":
-        return 257801
-    else:
-        instruments = kite.instruments("NSE")
-        for instrument in instruments:
-            if instrument['tradingsymbol'] == symbol:
-                return instrument['instrument_token']
-    return None
+def create_instrument_map(kite):
+    """Fetches all instruments and creates a map for quick lookups."""
+    logging.info("Fetching instrument list from Kite...")
+    instruments = kite.instruments("NSE")
+    instrument_map = {inst['tradingsymbol']: inst['instrument_token'] for inst in instruments}
+    # Add indices manually as they are not in NSE instruments
+    instrument_map["NIFTY 50"] = 256265
+    instrument_map["NIFTY BANK"] = 260105
+    instrument_map["SENSEX"] = 273929 # This is a BSE index, token might be different if using BSE exchange
+    instrument_map["NIFTY FIN SERVICE"] = 257801
+    logging.info("Instrument map created successfully.")
+    return instrument_map
+
+def get_instrument_token(instrument_map, symbol):
+    """Gets the instrument token for a given symbol from the map."""
+    return instrument_map.get(symbol)
 
 def run_live_bot():
     """The main function to run the live trading bot."""
-    print("Running live bot...")
+    logging.info("Starting live bot run...")
 
     if MODE == "live":
+        if not is_market_open():
+            logging.info("Market is closed. Skipping bot run.")
+            return
         try:
             access_token = get_automated_access_token()
             if not access_token:
@@ -46,10 +57,10 @@ def run_live_bot():
 
             kite = get_kite_connect_client()
             kite.set_access_token(access_token)
-            print("Successfully authenticated with Kite.")
+            logging.info("Successfully authenticated with Kite.")
 
         except Exception as e:
-            print(f"Authentication failed: {e}")
+            logging.error(f"Authentication failed: {e}")
             return
 
         telegram_bot = AccurateTelegramAlerts(kite=kite)
@@ -57,6 +68,8 @@ def run_live_bot():
         collector = DataCollector()
         signals_to_save = []
  
+        instrument_map = create_instrument_map(kite)
+
         instrument_list = [
             {"name": "NIFTY 50", "yahoo_symbol": "^NSEI", "kite_symbol": "NIFTY 50", "type": "index"},
             {"name": "Bank NIFTY", "yahoo_symbol": "^NSEBANK", "kite_symbol": "NIFTY BANK", "type": "index"},
@@ -80,7 +93,7 @@ def run_live_bot():
         ]
  
         for instrument in instrument_list:
-            print(f"--- Processing {instrument['name']} ---")
+            logging.info(f"--- Processing {instrument['name']} ---")
             # Temporarily disable news sentiment fetching to bypass rate limit issues
             # sentiment = fetch_news_sentiment(instrument['name'])
             sentiment = {"score": 0, "summary": "News sentiment temporarily disabled."} # Default neutral sentiment
@@ -95,21 +108,21 @@ def run_live_bot():
             else:
                 historical_data = collector.fetch_historical_data(instrument['yahoo_symbol'], period="1y", interval="1d")
                 if historical_data is None or historical_data.empty:
-                    print(f"Could not fetch historical data for {instrument['name']}. Skipping.")
+                    logging.warning(f"Could not fetch historical data for {instrument['name']}. Skipping.")
                     continue
  
                 kite_data = get_technical_indicators(historical_data)
                 kite_data['symbol'] = instrument['yahoo_symbol']
  
-                instrument_token = get_instrument_token(kite, instrument['kite_symbol'])
+                instrument_token = get_instrument_token(instrument_map, instrument['kite_symbol'])
                 if not instrument_token:
-                    print(f"Could not get instrument token for {instrument['name']}. Skipping.")
+                    logging.warning(f"Could not get instrument token for {instrument['name']}. Skipping.")
                     continue
                 
                 ltp_data = kite.ltp(instrument_token)
                 ltp_info = ltp_data.get(str(instrument_token))
                 if not ltp_info:
-                    print(f"Could not get LTP for {instrument['name']}. Skipping.")
+                    logging.warning(f"Could not get LTP for {instrument['name']}. Skipping.")
                     continue
                 live_price = ltp_info['last_price']
                 kite_data['Close'] = live_price
@@ -133,18 +146,18 @@ def run_live_bot():
                 signal['signal'] = signal.pop('action')
                 signals_to_save.append(signal)
  
-        print("\n--- Generated Signals ---")
-        print(json.dumps(signals_to_save, indent=2))
+        logging.info("\n--- Generated Signals ---")
+        logging.info(json.dumps(signals_to_save, indent=2))
 
         try:
-            print("\nUpdating signals.json...")
+            logging.info("\nUpdating signals.json...")
             with open("data/signals.json", 'w') as f:
                 json.dump(signals_to_save, f, indent=2)
-            print("signals.json updated successfully.")
+            logging.info("signals.json updated successfully.")
         except Exception as e:
-            print(f"❌ Error writing to signals.json: {e}")
+            logging.error(f"❌ Error writing to signals.json: {e}")
     else:
-        print(f"Skipping signal generation — MODE={MODE}, Market Open={is_market_open()}")
+        logging.info(f"Skipping signal generation — MODE={MODE}")
 
 if __name__ == '__main__':
     run_live_bot()

@@ -4,7 +4,7 @@ from api.accurate_telegram_alerts import AccurateTelegramAlerts
 def get_upcoming_expiries(kite, symbol, exchange="NFO"):
     """Gets the upcoming expiry dates for a given symbol."""
     instruments = kite.instruments(exchange)
-    expiries = sorted(list(set([i['expiry'] for i in instruments if i['name'] == symbol]))))
+    expiries = sorted(list(set([i['expiry'] for i in instruments if i['name'] == symbol])))
     return expiries
 
 def fetch_options_chain(kite, symbol):

@@ -20,9 +20,18 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 
 MODE = os.getenv("MODE", "dry_run")  # default to dry_run
 
+
 def is_market_open():
     now = datetime.now().time()
     return time(9, 15) <= now <= time(15, 30)
+
+def tag_signal(signal):
+    if signal.get("signal") in ["BUY", "SELL"] or signal.get("action") in ["BUY", "SELL"]:
+        signal["status"] = "live"
+    else:
+        signal["status"] = "inactive"
+    signal["generated_at"] = datetime.now().isoformat()
+    return signal
 
 def create_instrument_map(kite):
     """Fetches all instruments and creates a map for quick lookups."""
@@ -101,10 +110,10 @@ def run_live_bot():
             if instrument['type'] == 'index':
                 option_signal = generate_option_signal(kite, instrument['kite_symbol'], sentiment['score'])
                 if option_signal:
-                    option_signal["status"] = "live"
-                    option_signal["generated_at"] = datetime.now().isoformat()
+                    option_signal = tag_signal(option_signal)
                     signals_to_save.append(option_signal)
-                    send_option_alert(option_signal)
+                    if option_signal["status"] == "live":
+                        send_option_alert(option_signal)
             else:
                 historical_data = collector.fetch_historical_data(instrument['yahoo_symbol'], period="1y", interval="1d")
                 if historical_data is None or historical_data.empty:
@@ -132,27 +141,29 @@ def run_live_bot():
                 analysis = ai_engine.analyze_trading_opportunity(kite_data, market_context, sentiment)
                 signal = ai_engine.generate_intelligent_signal(analysis)
                 
-                # Determine status based on action for stock signals
-                signal["status"] = "live" if signal['action'] in ['BUY', 'SELL'] else "inactive"
-                signal["generated_at"] = datetime.now().isoformat()
+                signal = tag_signal(signal)
                 signal["instrument"] = instrument['name']
                 signal["technical_score"] = analysis['technical']['score']
-                signal["trend"] = "UP" if signal['action'] == 'BUY' else "DOWN" if signal['action'] == 'AVOID' else "NEUTRAL"
+                signal["trend"] = "UP" if signal.get('action') == 'BUY' else "DOWN" if signal.get('action') == 'AVOID' else "NEUTRAL"
  
-                if signal['action'] != 'HOLD':
+                if signal.get('action') != 'HOLD':
                     send_ai_powered_alert(signal, analysis, telegram_bot)
  
                 # Rename 'action' to 'signal' for consistency in the final JSON
-                signal['signal'] = signal.pop('action')
+                if 'action' in signal:
+                    signal['signal'] = signal.pop('action')
                 signals_to_save.append(signal)
  
         logging.info("\n--- Generated Signals ---")
         logging.info(json.dumps(signals_to_save, indent=2))
 
+        live_signals = [s for s in signals_to_save if s.get("status") == "live"]
+        logging.info(f"\nFound {len(live_signals)} live signals to save.")
+
         try:
             logging.info("\nUpdating signals.json...")
             with open("data/signals.json", 'w') as f:
-                json.dump(signals_to_save, f, indent=2)
+                json.dump(live_signals, f, indent=2)
             logging.info("signals.json updated successfully.")
         except Exception as e:
             logging.error(f"❌ Error writing to signals.json: {e}")

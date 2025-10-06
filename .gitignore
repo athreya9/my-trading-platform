@@ -30,6 +30,7 @@ yarn-error.log*
 !tsconfig.json
 !components.json
 !data/*.json
+data/bot_status.json
 *.pem
 
 # Other

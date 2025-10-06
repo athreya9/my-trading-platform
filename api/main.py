@@ -193,10 +193,46 @@ def start_bot():
     update_bot_status(db, "running", "Bot started via API")
     return {"message": "Bot started successfully."}
 
+import yfinance as yf # Added import
+
+# ... (rest of the file content) ...
+
 @app.post("/api/bot/stop")
 def stop_bot():
     """Stops the trading bot."""
-    logger.info("Received request to stop bot.") # Added logging
     db = get_db()
     update_bot_status(db, "paused", "Bot stopped via API")
     return {"message": "Bot stopped successfully."}
+
+@app.get("/api/chartData")
+async def get_chart_data(symbol: str):
+    """
+    Fetches historical chart data for a given symbol from Yahoo Finance.
+    """
+    try:
+        ticker = yf.Ticker(symbol)
+        # Fetch data for the last 7 days with 1-hour interval
+        data = ticker.history(period="7d", interval="1h")
+
+        if data.empty:
+            raise HTTPException(status_code=404, detail=f"No chart data found for {symbol}")
+
+        # Format data for Chart.js
+        timestamps = data.index.tolist()
+        prices = data['Close'].tolist()
+
+        chart_data = {
+            "labels": [t.strftime("%Y-%m-%d %H:%M") for t in timestamps],
+            "datasets": [
+                {
+                    "label": f"{symbol} Price",
+                    "data": prices,
+                    "borderColor": "#10b981",
+                    "backgroundColor": "rgba(16,185,129,0.1)",
+                },
+            ],
+        }
+        return chart_data
+    except Exception as e:
+        logger.error(f"Error fetching chart data for {symbol}: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch chart data for {symbol}")

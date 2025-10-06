@@ -3,6 +3,7 @@ from datetime import datetime, time
 import os
 from dotenv import load_dotenv
 import logging
+import pytz # Added import for pytz
 from api.kite_connect import get_kite_connect_client
 from api.ai_analysis_engine import AIAnalysisEngine, send_ai_powered_alert
 from api.data_collector import DataCollector
@@ -19,11 +20,21 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 
 
 MODE = os.getenv("MODE", "dry_run")  # default to dry_run
+print("MODE:", MODE) # Added debug print for MODE
 
 
 def is_market_open():
-    now = datetime.now().time()
-    return time(9, 15) <= now <= time(15, 30)
+    # Get current time in Asia/Kolkata timezone
+    kolkata_timezone = pytz.timezone("Asia/Kolkata")
+    now = datetime.now(kolkata_timezone)
+    
+    # Check if it's a weekday (Monday=0 to Friday=4)
+    is_weekday = now.weekday() < 5 # 0-4 for Monday-Friday
+    
+    # Check if current time is within market hours (9:15 to 15:30 IST)
+    is_within_market_hours = time(9, 15) <= now.time() <= time(15, 30)
+    
+    return is_weekday and is_within_market_hours
 
 def tag_signal(signal):
     if signal.get("signal") in ["BUY", "SELL"] or signal.get("action") in ["BUY", "SELL"]:

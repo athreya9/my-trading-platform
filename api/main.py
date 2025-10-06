@@ -204,6 +204,11 @@ def stop_bot():
     update_bot_status(db, "paused", "Bot stopped via API")
     return {"message": "Bot stopped successfully."}
 
+from backtesting.backtest_engine import run_backtest # Added import
+from backtesting.strategy_optimizer import optimize_strategy # Added import
+
+# ... (rest of the file content) ...
+
 @app.get("/api/chartData")
 async def get_chart_data(symbol: str):
     """
@@ -236,3 +241,28 @@ async def get_chart_data(symbol: str):
     except Exception as e:
         logger.error(f"Error fetching chart data for {symbol}: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to fetch chart data for {symbol}")
+
+@app.post("/api/backtest")
+async def trigger_backtest(symbol: str):
+    """
+    Triggers a backtest for a given symbol and returns the results.
+    """
+    logger.info(f"Received request to trigger backtest for {symbol}")
+    try:
+        trades = run_backtest(symbol)
+        if not trades:
+            raise HTTPException(status_code=404, detail=f"No trades generated during backtest for {symbol}")
+        
+        best_threshold, best_pnl = optimize_strategy(trades)
+
+        return {
+            "symbol": symbol,
+            "total_trades": len(trades),
+            "total_pnl": sum(t['pnl'] for t in trades),
+            "optimized_threshold": best_threshold,
+            "optimized_pnl": best_pnl,
+            "trades": trades
+        }
+    except Exception as e:
+        logger.error(f"Error during backtest for {symbol}: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to run backtest for {symbol}")

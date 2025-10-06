@@ -25,8 +25,7 @@ app = FastAPI()
 origins = [
     "http://localhost:3000",  # For local Next.js development
     "https://trading-dashboard-app.vercel.app/",
-    "https://trading-platform-analysis-dashboard.vercel.app/",
-    "https://my-trading-platform-471103.web.app/", # Added the live frontend URL from memory
+    "https://trading-platform-analysis-dashboard.vercel.app/", # Corrected live frontend URL
 ]
 
 app.add_middleware(

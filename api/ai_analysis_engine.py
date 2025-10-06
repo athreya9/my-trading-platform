@@ -7,6 +7,7 @@ import json
 import os
 from dotenv import load_dotenv
 from .accurate_telegram_alerts import AccurateTelegramAlerts
+from .news_sentiment import fetch_news_sentiment # Add this line
 
 load_dotenv()
 
@@ -23,55 +24,57 @@ class AIAnalysisEngine:
         # In a real scenario, this would load a trained model from a file
         return DummyModel()
 
-    def analyze_trading_opportunity(self, kite_data, market_context, news_sentiment):
+    def analyze_trading_opportunity(self, kite_data, market_context, stock_name): # Changed news_sentiment to stock_name
         """
         Comprehensive AI analysis that provides INTELLIGENT suggestions
         """
-        
+
         # 1. TECHNICAL ANALYSIS
         technical_analysis = self._technical_analysis(kite_data)
-        
-        # 2. FUNDAMENTAL/MARKET ANALYSIS  
+
+        # 2. FUNDAMENTAL/MARKET ANALYSIS
         market_score = self._market_analysis(market_context)
-        
+
         # 3. NEWS SENTIMENT ANALYSIS
-        sentiment_score = self._sentiment_analysis(news_sentiment)
-        
+        # Fetch sentiment using the updated news_sentiment.py
+        raw_sentiment = fetch_news_sentiment(stock_name) # Call the function
+        sentiment_analysis_result = self._sentiment_analysis(raw_sentiment) # Pass the string result
+
         # 4. RISK ANALYSIS (Kelly Criterion, Position Sizing)
         risk_analysis = self._risk_analysis(kite_data)
-        
+
         # 5. AI MODEL PREDICTION
         ai_prediction = self._ai_prediction(kite_data, technical_analysis['score'])
-        
+
         # 6. COMBINE ALL FACTORS
         final_recommendation = self._combine_analysis(
-            technical_analysis, market_score, sentiment_score, risk_analysis, ai_prediction
+            technical_analysis, market_score, sentiment_analysis_result, risk_analysis, ai_prediction
         )
-        
+
         return final_recommendation
 
     def _technical_analysis(self, data):
         """Real technical analysis using your existing indicators"""
         score = 0
         strengths = []
-        
+
         # Use your existing indicator calculations
-        if data.get('rsi', 50) < 30: 
+        if data.get('rsi', 50) < 30:
             score += 20  # Oversold bounce
             strengths.append("RSI indicating oversold conditions")
-        if data.get('sma_20', 0) > data.get('sma_50', 1): 
+        if data.get('sma_20', 0) > data.get('sma_50', 1):
             score += 25  # Trend alignment
             strengths.append("Positive trend alignment (SMA20 > SMA50)")
-        if data.get('volume', 0) > data.get('volume_avg', 1) * 1.5: 
+        if data.get('volume', 0) > data.get('volume_avg', 1) * 1.5:
             score += 15  # Volume confirmation
             strengths.append("Volume surge confirmation")
-        if data.get('macd', 0) > data.get('macd_signal', 1): 
+        if data.get('macd', 0) > data.get('macd_signal', 1):
             score += 20  # Momentum
             strengths.append("MACD indicating bullish momentum")
-        if data.get('atr', 100) < data.get('atr_avg', 200): 
+        if data.get('atr', 100) < data.get('atr_avg', 200):
             score += 10  # Low volatility
             strengths.append("Low volatility environment")
-        
+
         return {'score': min(score, 100), 'reason': 'Multi-factor technical analysis', 'strengths': strengths, 'pattern': 'Rule-based'}
 
     def _market_analysis(self, context):
@@ -84,22 +87,23 @@ class AIAnalysisEngine:
         }
         return analysis
 
-    def _sentiment_analysis(self, news_sentiment):
+    def _sentiment_analysis(self, sentiment_string): # Changed news_sentiment to sentiment_string
         """Processes the sentiment data from the news fetcher."""
-        score = news_sentiment.get('score', 0)
-        summary = news_sentiment.get('summary', 'No recent news found.')
-        
-        if score > 2:
-            overall = "Bullish"
-        elif score < -2:
-            overall = "Bearish"
-        else:
-            overall = "Neutral"
-            
+        # Convert sentiment string to a numerical score for internal use
+        sentiment_to_score = {
+            "positive": 1,
+            "neutral": 0,
+            "negative": -1
+        }
+        score = sentiment_to_score.get(sentiment_string, 0)
+
+        # The 'overall' and 'summary' fields are no longer directly available from news_sentiment.py
+        # We'll simplify this for now, or fetch summary separately if needed.
+        # For now, we'll just return the string and the score.
         return {
-            'overall': overall,
+            'overall': sentiment_string,
             'score': score,
-            'summary': summary
+            'summary': f"News sentiment is {sentiment_string}." # Simplified summary
         }
 
     def _risk_analysis(self, data):
@@ -107,14 +111,14 @@ class AIAnalysisEngine:
         # Calculate optimal position size
         win_rate = self._calculate_historical_win_rate(data.get('symbol'))
         avg_win, avg_loss = self._calculate_avg_win_loss(data.get('symbol'))
-        
+
         # Kelly Criterion formula
         if avg_loss != 0:
             kelly_fraction = (win_rate * avg_win - (1 - win_rate) * abs(avg_loss)) / abs(avg_loss)
             kelly_fraction = max(0, min(kelly_fraction, 0.2))  # Cap at 20%
         else:
             kelly_fraction = 0.1  # Conservative default
-            
+
         return {
             'kelly_fraction': kelly_fraction,
             'optimal_position_size': kelly_fraction * 100,  # % of capital
@@ -130,8 +134,19 @@ class AIAnalysisEngine:
 
     def _combine_analysis(self, technical_analysis, market_score, sentiment_analysis, risk_analysis, ai_prediction):
         """Combine all analysis into a single recommendation"""
-        composite_score = (technical_analysis['score'] * 0.4) + (ai_prediction[1] * 100 * 0.4) + (sentiment_analysis['score'] * 10) # Added sentiment to score
-        
+        sentiment_weight_map = {
+            "positive": 1.2,
+            "neutral": 1.0,
+            "negative": 0.8
+        }
+        # Get the sentiment string from sentiment_analysis
+        current_sentiment = sentiment_analysis.get('overall', 'neutral')
+        applied_sentiment_weight = sentiment_weight_map.get(current_sentiment, 1.0)
+
+        weighted_technical_score = technical_analysis['score'] * applied_sentiment_weight
+
+        composite_score = (weighted_technical_score * 0.4) + (ai_prediction[1] * 100 * 0.4) + (sentiment_analysis['score'] * 10) # sentiment_analysis['score'] is now -1, 0, or 1
+
         reasoning = f"""{technical_analysis['reason']}. News sentiment is {sentiment_analysis['overall'].lower()}.
 Recent headlines:
 {sentiment_analysis['summary']}"""

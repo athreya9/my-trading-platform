@@ -5,13 +5,15 @@ from fastapi.middleware.cors import CORSMiddleware
 import os
 import logging
 from .firestore_utils import (
-    init_json_storage as init_firestore_client, 
-    get_db, 
-    write_data_to_firestore, 
-    check_bot_status, 
-    read_manual_controls, 
+    init_json_storage as init_firestore_client,
+    get_db,
+    write_data_to_firestore,
+    check_bot_status,
+    read_manual_controls,
     read_trade_log,
-    get_dashboard_data
+    get_dashboard_data,
+    update_bot_status, # Added import
+    read_collection # Added import
 )
 
 # --- Setup ---
@@ -24,6 +26,7 @@ origins = [
     "http://localhost:3000",  # For local Next.js development
     "https://trading-dashboard-app.vercel.app/",
     "https://trading-platform-analysis-dashboard.vercel.app/",
+    "https://my-trading-platform-471103.web.app/", # Added the live frontend URL from memory
 ]
 
 app.add_middleware(
@@ -101,6 +104,7 @@ def get_signal_for_instrument(instrument_name, symbol):
         "atm": atm_strike,
         "otm": atm_strike + 100 if trend == "UP" else atm_strike - 100,
         "itm": atm_strike - 100 if trend == "UP" else atm_strike + 100,
+        "category": "Options" # Added category
     }
 
 # --- API Endpoints ---
@@ -125,11 +129,14 @@ def get_trading_data():
 @app.get("/api/status")
 def get_status():
     """Returns the connection status of various services."""
+    db = get_db()
+    bot_status = "connected" if check_bot_status(db) else "disconnected" # Get actual bot status
     return [
         {"name": "Frontend", "status": "connected"},
         {"name": "Backend", "status": "connected"},
         {"name": "KITE API", "status": "disconnected"},
         {"name": "JSON Storage", "status": "connected"},
+        {"name": "Trading Bot", "status": bot_status}, # Added Trading Bot status
     ]
 
 @app.get("/api/stats")
@@ -162,17 +169,35 @@ def get_performance_data():
 
 @app.get("/api/trading-signals")
 def get_trading_signals():
-    """Returns trading signals for NIFTY and Bank NIFTY."""
-    nifty_signal = get_signal_for_instrument("NIFTY", "^NSEI")
-    banknifty_signal = get_signal_for_instrument("Bank NIFTY", "^NSEBANK")
-
-    signals = []
-    if nifty_signal:
-        signals.append(nifty_signal)
-    if banknifty_signal:
-        signals.append(banknifty_signal)
-
+    """Returns trading signals by reading from data/signals.json."""
+    db = get_db()
+    signals = read_collection(db, 'signals') # Read from signals.json
+    
     if not signals:
-        raise HTTPException(status_code=404, detail="Could not fetch trading signals.")
+        logger.info("No signals found in data/signals.json. Returning empty list.")
+        return [] # Return empty list instead of 404
 
     return signals
+
+@app.get("/api/bot/status")
+def get_bot_status():
+    """Returns the current status of the trading bot."""
+    db = get_db()
+    status = "running" if check_bot_status(db) else "paused"
+    return {"status": status}
+
+@app.post("/api/bot/start")
+def start_bot():
+    """Starts the trading bot."""
+    logger.info("Received request to start bot.") # Added logging
+    db = get_db()
+    update_bot_status(db, "running", "Bot started via API")
+    return {"message": "Bot started successfully."}
+
+@app.post("/api/bot/stop")
+def stop_bot():
+    """Stops the trading bot."""
+    logger.info("Received request to stop bot.") # Added logging
+    db = get_db()
+    update_bot_status(db, "paused", "Bot stopped via API")
+    return {"message": "Bot stopped successfully."}

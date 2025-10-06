@@ -103,12 +103,18 @@ def run_live_bot():
  
         for instrument in instrument_list:
             logging.info(f"--- Processing {instrument['name']} ---")
-            # Temporarily disable news sentiment fetching to bypass rate limit issues
-            # sentiment = fetch_news_sentiment(instrument['name'])
-            sentiment = {"score": 0, "summary": "News sentiment temporarily disabled."} # Default neutral sentiment
+            # Re-enable news sentiment fetching
+            sentiment_string = fetch_news_sentiment(instrument['name'])
+
+            # Convert sentiment string to numerical score for options signal engine
+            sentiment_score_numerical = 0
+            if sentiment_string == "positive":
+                sentiment_score_numerical = 1
+            elif sentiment_string == "negative":
+                sentiment_score_numerical = -1
  
             if instrument['type'] == 'index':
-                option_signal = generate_option_signal(kite, instrument['kite_symbol'], sentiment['score'])
+                option_signal = generate_option_signal(kite, instrument['kite_symbol'], sentiment_score_numerical)
                 if option_signal:
                     option_signal = tag_signal(option_signal)
                     signals_to_save.append(option_signal)
@@ -138,7 +144,7 @@ def run_live_bot():
  
                 market_context = {}
  
-                analysis = ai_engine.analyze_trading_opportunity(kite_data, market_context, sentiment)
+                analysis = ai_engine.analyze_trading_opportunity(kite_data, market_context, instrument['name'])
                 signal = ai_engine.generate_intelligent_signal(analysis)
                 
                 signal = tag_signal(signal)

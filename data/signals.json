@@ -1,1 +1,23 @@
-[]
+[
+  {
+    "instrument": "BANKNIFTY",
+    "trend": "UP",
+    "signal": "BUY",
+    "confidence": 92.0,
+    "reasoning": "Strong bullish momentum + positive sentiment",
+    "technical_score": 85,
+    "specific_instructions": [
+      "Enter at ₹152",
+      "Target ₹165, ₹175",
+      "Stoploss ₹135"
+    ],
+    "profit_targets": {
+      "description": "Target 1: ₹165, Target 2: ₹175"
+    },
+    "time_horizon": "Intraday",
+    "exit_conditions": "Break below ₹135",
+    "trail_stop_level": "₹140",
+    "status": "live",
+    "generated_at": "2025-10-07T10:45:00+05:30"
+  }
+]

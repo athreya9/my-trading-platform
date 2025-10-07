@@ -202,6 +202,7 @@ class AccurateTelegramAlerts:
 
     def _send_telegram_message(self, message):
         """Send message to Telegram"""
+        print("Attempting to send alert for:", message) # Added print statement
         url = f"https://api.telegram.org/bot{self.bot_token}/sendMessage"
         payload = {
             'chat_id': self.chat_id,
@@ -212,11 +213,12 @@ class AccurateTelegramAlerts:
         
         try:
             response = requests.post(url, json=payload)
-            print("Telegram response:", response.text)
+            print("Telegram response:", response.text) # Added print statement
             response.raise_for_status()
             logger.info("✅ ACCURATE Telegram alert sent!")
             return True
         except Exception as e:
+            print("Telegram alert failed:", str(e)) # Added print statement
             logger.error(f"❌ Failed to send alert: {e}")
             return False
 

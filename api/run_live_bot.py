@@ -176,7 +176,9 @@ def run_live_bot():
         logging.info(f"\nSaving {len(signals_to_save)} generated signals to signals.json.")
 
         try:
-            logging.info("\nUpdating signals.json...")
+            logging.info("Saving generated signals to signals.json...")
+        try:
+            logging.info("Updating signals.json...")
             with open("data/signals.json", 'w') as f:
                 json.dump(signals_to_save, f, indent=2)
             logging.info("signals.json updated successfully.")

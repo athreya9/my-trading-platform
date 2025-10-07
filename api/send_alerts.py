@@ -26,6 +26,7 @@ def send_alerts():
     telegram_bot = AccurateTelegramAlerts()
 
     for signal in live_signals:
+        print("Attempting to send alert for:", signal["instrument"])
         # The send_ai_powered_alert function expects an 'analysis' object.
         # We will create a dummy analysis object for now.
         analysis = {
@@ -34,7 +35,11 @@ def send_alerts():
             'sentiment': {'overall': 'N/A', 'score': 0},
             'risk': {'kelly_fraction': 0, 'var_95': 0, 'win_probability': 0}
         }
-        send_ai_powered_alert(signal, analysis, telegram_bot)
+        try:
+            send_ai_powered_alert(signal, analysis, telegram_bot)
+            print("Telegram alert function executed successfully.")
+        except Exception as e:
+            print("Telegram alert failed:", str(e))
 
 if __name__ == "__main__":
     send_alerts()

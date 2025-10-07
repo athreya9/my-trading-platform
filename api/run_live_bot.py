@@ -5,13 +5,13 @@ from dotenv import load_dotenv
 import logging
 import pytz # Added import for pytz
 from api.kite_connect import get_kite_connect_client
-from api.ai_analysis_engine import AIAnalysisEngine, send_ai_powered_alert
+from api.ai_analysis_engine import AIAnalysisEngine
 from api.data_collector import DataCollector
 from api.technical_indicators import get_technical_indicators
-from api.accurate_telegram_alerts import AccurateTelegramAlerts
+
 from api.news_sentiment import fetch_news_sentiment
 from automate_token_generation import get_automated_access_token
-from api.options_signal_engine import generate_option_signal, send_option_alert
+from api.options_signal_engine import generate_option_signal
 
 load_dotenv()  # Load environment variables from .env file
 
@@ -83,7 +83,7 @@ def run_live_bot():
             logging.error(f"Authentication failed: {e}")
             return
 
-        telegram_bot = AccurateTelegramAlerts(kite=kite)
+        
         ai_engine = AIAnalysisEngine()
         collector = DataCollector()
         signals_to_save = []
@@ -129,8 +129,7 @@ def run_live_bot():
                 if option_signal:
                     option_signal = tag_signal(option_signal)
                     signals_to_save.append(option_signal)
-                    if option_signal["status"] == "live":
-                        send_option_alert(option_signal)
+                    
             else:
                 historical_data = collector.fetch_historical_data(instrument['yahoo_symbol'], period="1y", interval="1d")
                 if historical_data is None or historical_data.empty:
@@ -163,8 +162,7 @@ def run_live_bot():
                 signal["technical_score"] = analysis['technical']['score']
                 signal["trend"] = "UP" if signal.get('action') == 'BUY' else "DOWN" if signal.get('action') == 'AVOID' else "NEUTRAL"
  
-                if signal.get('action') != 'HOLD':
-                    send_ai_powered_alert(signal, analysis, telegram_bot)
+                
  
                 # Rename 'action' to 'signal' for consistency in the final JSON
                 if 'action' in signal:

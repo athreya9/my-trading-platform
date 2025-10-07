@@ -26,19 +26,6 @@ jobs:
           pip install -r api/requirements.txt
           pip install -r requirements-automation.txt
 
-      - name: Run live bot
-        env:
-          MODE: live
-          KITE_API_KEY: ${{ secrets.KITE_API_KEY }}
-          KITE_API_SECRET: ${{ secrets.KITE_API_SECRET }}
-          KITE_USER_ID: ${{ secrets.KITE_USER_ID }}
-          KITE_PASSWORD: ${{ secrets.KITE_PASSWORD }}
-          KITE_TOTP_SECRET: ${{ secrets.KITE_TOTP_SECRET }}
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          NEWS_API_KEY_1: ${{ secrets.NEWS_API_KEY_1 }}
-        run: python -m api.run_live_bot
-
       - name: Commit and push changes
         run: |
           git config --global user.name 'GitHub Actions Bot'

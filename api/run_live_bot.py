@@ -172,13 +172,13 @@ def run_live_bot():
         logging.info("\n--- Generated Signals ---")
         logging.info(json.dumps(signals_to_save, indent=2))
 
-        live_signals = [s for s in signals_to_save if s.get("status") == "live"]
-        logging.info(f"\nFound {len(live_signals)} live signals to save.")
+        # Save all generated signals, not just live ones
+        logging.info(f"\nSaving {len(signals_to_save)} generated signals to signals.json.")
 
         try:
             logging.info("\nUpdating signals.json...")
             with open("data/signals.json", 'w') as f:
-                json.dump(live_signals, f, indent=2)
+                json.dump(signals_to_save, f, indent=2)
             logging.info("signals.json updated successfully.")
         except Exception as e:
             logging.error(f"❌ Error writing to signals.json: {e}")

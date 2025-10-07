@@ -172,11 +172,6 @@ def run_live_bot():
         logging.info("\n--- Generated Signals ---")
         logging.info(json.dumps(signals_to_save, indent=2))
 
-        # Save all generated signals, not just live ones
-        logging.info(f"\nSaving {len(signals_to_save)} generated signals to signals.json.")
-
-        try:
-            logging.info("Saving generated signals to signals.json...")
         try:
             logging.info("Updating signals.json...")
             with open("data/signals.json", 'w') as f:

@@ -2,7 +2,7 @@ name: Send Telegram Alerts
 
 on:
   workflow_run:
-    workflows: ["Live data update"]
+    workflows: ["Live Data Update"]
     types:
       - completed
 

@@ -19,6 +19,8 @@ class AccurateTelegramAlerts:
         self.bot_token = os.getenv('TELEGRAM_BOT_TOKEN', '').strip()
         self.chat_id = os.getenv('TELEGRAM_CHAT_ID', '').strip()
         self.kite = kite
+        print("Telegram Bot Token:", self.bot_token)
+        print("Telegram Chat ID:", self.chat_id)
         
     
     
@@ -210,6 +212,7 @@ class AccurateTelegramAlerts:
         
         try:
             response = requests.post(url, json=payload)
+            print("Telegram response:", response.text)
             response.raise_for_status()
             logger.info("✅ ACCURATE Telegram alert sent!")
             return True

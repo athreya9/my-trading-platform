@@ -5,6 +5,7 @@ import logging
 from datetime import datetime
 from dotenv import load_dotenv
 from .telegram_alerts import send_quick_alert
+from .telegram_subscription_bot import get_active_subscribers
 
 load_dotenv()
 logger = logging.getLogger(__name__)

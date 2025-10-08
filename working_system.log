@@ -1,0 +1,19 @@
+INFO:__main__:🚀 AUTOMATED AI TRADING SYSTEM STARTED
+INFO:__main__:==================================================
+INFO:__main__:📊 Real Kite live data & accurate premiums
+INFO:__main__:🎯 TOTP auto-login + high-confidence signals
+INFO:__main__:📱 Automatic Telegram alerts
+INFO:__main__:⏰ Every 10 minutes during market hours
+INFO:__main__:🔄 Fully automated - no manual intervention
+INFO:__main__:🔥 Market is open - running initial check
+INFO:__main__:🔴 AUTOMATED CYCLE - Checking for tradeable signals...
+INFO:api.aggressive_live_engine:✅ AGGRESSIVE Signal: NIFTY 25050 PE @ ₹164.28
+INFO:api.aggressive_live_engine:✅ AGGRESSIVE Signal: BANKNIFTY 55800 PE @ ₹185.15
+INFO:api.aggressive_live_engine:✅ AGGRESSIVE Signal: SENSEX 81800 PE @ ₹236.35
+INFO:api.aggressive_live_engine:✅ AGGRESSIVE Signal: FINNIFTY 28700 PE @ ₹128.19
+INFO:api.telegram_alerts:✅ Telegram alert sent successfully!
+INFO:api.telegram_alerts:✅ Telegram alert sent successfully!
+INFO:api.telegram_alerts:✅ Telegram alert sent successfully!
+INFO:api.telegram_alerts:✅ Telegram alert sent successfully!
+INFO:api.aggressive_live_engine:Generated 4 signals, sent 4 alerts
+INFO:__main__:✅ High-confidence signal sent to Telegram

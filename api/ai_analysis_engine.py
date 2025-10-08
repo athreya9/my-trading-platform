@@ -253,23 +253,47 @@ Recent headlines:
     def get_simple_trend_signal(self, historical_data):
         """Generates a simple trend signal based on SMA crossover."""
         if historical_data is None or historical_data.empty:
-            return "NEUTRAL"
+            return "HOLD"
 
         # Ensure we have enough data for SMAs
         if len(historical_data) < 50:
-            return "NEUTRAL"
+            return "HOLD"
 
         # Calculate short and long term SMAs
         sma_20 = self._calculate_sma(historical_data['Close'], 20)
         sma_50 = self._calculate_sma(historical_data['Close'], 50)
 
         if sma_20 is None or sma_50 is None:
-            return "NEUTRAL"
+            return "HOLD"
 
         if sma_20 > sma_50:
-            return "UP"
+            return "BUY"
         else:
-            return "DOWN"
+            return "SELL"
+    
+    def calculate_confidence(self, historical_data):
+        """Calculate confidence score for the signal"""
+        if historical_data is None or historical_data.empty:
+            return 0.5
+        
+        try:
+            # Simple confidence based on trend strength
+            sma_20 = self._calculate_sma(historical_data['Close'], 20)
+            sma_50 = self._calculate_sma(historical_data['Close'], 50)
+            
+            if sma_20 is None or sma_50 is None:
+                return 0.5
+            
+            # Calculate trend strength
+            trend_strength = abs(sma_20 - sma_50) / sma_50
+            
+            # Convert to confidence (0.5 to 0.9)
+            confidence = 0.5 + min(trend_strength * 2, 0.4)
+            
+            return confidence
+            
+        except Exception:
+            return 0.5
 
 
 from .accurate_telegram_alerts import AccurateTelegramAlerts

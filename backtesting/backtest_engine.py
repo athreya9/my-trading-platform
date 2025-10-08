@@ -2,6 +2,7 @@ import pandas as pd
 import json
 import os
 import logging
+import pandas_ta as ta
 from datetime import datetime
 from api.ai_analysis_engine import AIAnalysisEngine # Assuming this contains generate_intelligent_signal
 from api.news_sentiment import fetch_news_sentiment # For sentiment scoring in backtest
@@ -27,10 +28,31 @@ def run_backtest(symbol, historical_data_path=None):
         logger.error(f"Historical data file not found for {symbol} at {historical_data_path}. Skipping backtest.")
         return []
 
-    df = pd.read_csv(historical_data_path, index_col=0, parse_dates=True)
+    column_names = ['Price', 'Close', 'High', 'Low', 'Open', 'Volume']
+    df = pd.read_csv(historical_data_path, skiprows=3, header=None, names=column_names, index_col='Price', parse_dates=['Price'])
+    # Ensure numerical columns are correctly typed
+    numerical_cols = ['Open', 'High', 'Low', 'Close', 'Volume']
+    for col in numerical_cols:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors='coerce')
+    df.dropna(subset=numerical_cols, inplace=True) # Drop rows where numerical conversion failed
+
     if df.empty:
-        logger.warning(f"Historical data for {symbol} is empty. Skipping backtest.")
+        logger.warning(f"Historical data for {symbol} is empty after cleaning. Skipping backtest.")
         return []
+
+    # --- Indicator Calculation ---
+    # Calculate all indicators on the dataframe at once for efficiency
+    df.ta.rsi(length=14, append=True)
+    df.ta.sma(length=20, append=True)
+    df.ta.sma(length=50, append=True)
+    df.ta.macd(fast=12, slow=26, signal=9, append=True)
+    df.ta.atr(length=14, append=True)
+    df['volume_avg_20'] = df['Volume'].rolling(window=20).mean()
+
+    # Drop rows with NaN values that were created by the indicator calculations
+    df.dropna(inplace=True)
+    df.reset_index(inplace=True)
 
     trades = []
     ai_engine = AIAnalysisEngine()
@@ -53,15 +75,15 @@ def run_backtest(symbol, historical_data_path=None):
         # The AIAnalysisEngine expects kite_data, market_context, stock_name
         # We need to adapt historical row data to fit kite_data structure
         kite_data_for_analysis = {
-            'rsi': 50, # Placeholder, ideally calculated from historical data
-            'sma_20': row['Close'], # Placeholder
-            'sma_50': row['Close'], # Placeholder
+            'rsi': row['RSI_14'],
+            'sma_20': row['SMA_20'],
+            'sma_50': row['SMA_50'],
             'volume': row['Volume'],
-            'volume_avg': row['Volume'], # Placeholder
-            'macd': 0, # Placeholder
-            'macd_signal': 0, # Placeholder
-            'atr': 0, # Placeholder
-            'atr_avg': 0, # Placeholder
+            'volume_avg': row['volume_avg_20'],
+            'macd': row['MACD_12_26_9'],
+            'macd_signal': row['MACDs_12_26_9'],
+            'atr': row['ATRr_14'],
+            'atr_avg': row['ATRr_14'], # Using ATR itself as average for this context
             'symbol': symbol,
             'Close': row['Close']
         }
@@ -82,7 +104,7 @@ def run_backtest(symbol, historical_data_path=None):
                 pnl = entry_price - exit_price
 
             trades.append({
-                "timestamp": row.name.isoformat(),
+                "timestamp": row['Price'].isoformat(),
                 "signal": signal['action'],
                 "confidence": signal['confidence'],
                 "entry_price": entry_price,

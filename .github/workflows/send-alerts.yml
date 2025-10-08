@@ -1,76 +1,58 @@
-name: Send Telegram Alerts
-
+name: Live AI Trading System
 on:
-  workflow_run:
-    workflows: ["Live Data Update"]
-    types:
-      - completed
+  schedule:
+    - cron: '*/10 3-10 * * 1-5'  # Every 10 minutes during market hours (IST)
+  workflow_dispatch:
 
 jobs:
-  generate-data:
+  ai-trading:
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
-
+    timeout-minutes: 15
+    
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Set up Python
+      
+      - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-
+          cache: 'pip'
+          
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r api/requirements.txt
-          pip install -r requirements-automation.txt
-
-      - name: Run live bot
+        
+      - name: Check Market Hours
+        id: market_check
+        run: |
+          python -c "
+          from datetime import datetime
+          import pytz
+          ist = pytz.timezone('Asia/Kolkata')
+          now = datetime.now(ist)
+          is_market_hours = 9 <= now.hour < 16 and now.weekday() < 5
+          print(f'market_open={is_market_hours}'.lower())
+          " >> $GITHUB_OUTPUT
+        
+      - name: Run Enhanced AI Trading System
+        if: steps.market_check.outputs.market_open == 'true'
+        run: python automated_accurate_system.py
         env:
-          MODE: live
           KITE_API_KEY: ${{ secrets.KITE_API_KEY }}
           KITE_API_SECRET: ${{ secrets.KITE_API_SECRET }}
           KITE_USER_ID: ${{ secrets.KITE_USER_ID }}
-          KITE_PASSWORD: ${{ secrets.KITE_PASSWORD }}
           KITE_TOTP_SECRET: ${{ secrets.KITE_TOTP_SECRET }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          NEWS_API_KEY_1: ${{ secrets.NEWS_API_KEY_1 }}
-        run: python -m api.run_live_bot
+          AI_MODEL_PATH: api/enhanced_trading_model.pkl
 
-      - name: Upload data artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: signals-data
-          path: data/
-
-  send-alerts:
-    runs-on: ubuntu-latest
-    needs: generate-data
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Download data artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: signals-data
-          path: data/
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      - name: Install dependencies
+      - name: Update Trading Data
+        if: steps.market_check.outputs.market_open == 'true'
         run: |
-          python -m pip install --upgrade pip
-          pip install -r api/requirements.txt
-
-      - name: Send Alerts
-        env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: python -m api.send_alerts
+          git config --global user.name 'AI Trading Bot'
+          git config --global user.email 'ai-bot@trading-platform.com'
+          git add data/ || true
+          git commit -m "📊 Update live trading data - $(date)" || true
+          git push || true

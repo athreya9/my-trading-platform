@@ -24,8 +24,9 @@ app = FastAPI()
 # This is crucial to allow your frontend Cloud Run service to access this API.
 origins = [
     "http://localhost:3000",  # For local Next.js development
-    "https://trading-dashboard-app.vercel.app/",
-    "https://trading-platform-analysis-dashboard.vercel.app/", # Corrected live frontend URL
+    "https://trading-dashboard-app.vercel.app",
+    "https://trading-platform-analysis-dashboard.vercel.app", # Your live frontend
+    "*"  # Allow all origins for now
 ]
 
 app.add_middleware(

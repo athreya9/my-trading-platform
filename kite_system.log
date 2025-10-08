@@ -1,0 +1,39 @@
+INFO:__main__:🚀 AUTOMATED AI TRADING SYSTEM STARTED
+INFO:__main__:==================================================
+INFO:__main__:📊 Real Kite live data & accurate premiums
+INFO:__main__:🎯 TOTP auto-login + high-confidence signals
+INFO:__main__:📱 Automatic Telegram alerts
+INFO:__main__:⏰ Every 10 minutes during market hours
+INFO:__main__:🔄 Fully automated - no manual intervention
+INFO:__main__:🔥 Market is open - running initial check
+INFO:__main__:🔴 AUTOMATED CYCLE - Checking for tradeable signals...
+ERROR:api.kite_auto_login:Auto-login failed: Message: 
+Stacktrace:
+0   chromedriver                        0x0000000102a4b598 cxxbridge1$str$ptr + 2894960
+1   chromedriver                        0x0000000102a434d4 cxxbridge1$str$ptr + 2861996
+2   chromedriver                        0x00000001025695ec _RNvCs47EqcsrPRmA_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 74324
+3   chromedriver                        0x00000001025b0fb4 _RNvCs47EqcsrPRmA_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 367644
+4   chromedriver                        0x00000001025f2458 _RNvCs47EqcsrPRmA_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 635072
+5   chromedriver                        0x00000001025a5178 _RNvCs47EqcsrPRmA_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 318944
+6   chromedriver                        0x0000000102a0f2e4 cxxbridge1$str$ptr + 2648508
+7   chromedriver                        0x0000000102a128c0 cxxbridge1$str$ptr + 2662296
+8   chromedriver                        0x00000001029efd64 cxxbridge1$str$ptr + 2520124
+9   chromedriver                        0x0000000102a131a8 cxxbridge1$str$ptr + 2664576
+10  chromedriver                        0x00000001029e14d4 cxxbridge1$str$ptr + 2460588
+11  chromedriver                        0x0000000102a32b94 cxxbridge1$str$ptr + 2794092
+12  chromedriver                        0x0000000102a32d18 cxxbridge1$str$ptr + 2794480
+13  chromedriver                        0x0000000102a43120 cxxbridge1$str$ptr + 2861048
+14  libsystem_pthread.dylib             0x000000019da94c08 _pthread_start + 136
+15  libsystem_pthread.dylib             0x000000019da8fba8 thread_start + 8
+
+ERROR:api.kite_live_engine:Failed to generate fresh token
+ERROR:api.kite_live_engine:Error getting price for NSE:NIFTY 50: Invalid `api_key` or `access_token`.
+INFO:api.kite_live_engine:No price data for NIFTY
+ERROR:api.kite_live_engine:Error getting price for NSE:NIFTY BANK: Invalid `api_key` or `access_token`.
+INFO:api.kite_live_engine:No price data for BANKNIFTY
+ERROR:api.kite_live_engine:Error getting price for BSE:SENSEX: Invalid `api_key` or `access_token`.
+INFO:api.kite_live_engine:No price data for SENSEX
+ERROR:api.kite_live_engine:Error getting price for NSE:NIFTY FIN SERVICE: Invalid `api_key` or `access_token`.
+INFO:api.kite_live_engine:No price data for FINNIFTY
+INFO:api.kite_live_engine:No Kite signals generated
+INFO:__main__:⚪ No tradeable signal (waiting for momentum)

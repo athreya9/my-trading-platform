@@ -1,0 +1,301 @@
+[1757420494.149][INFO]: Starting ChromeDriver 140.0.7339.80 (670b6f192f4668d2ac2c06bd77ec3e4eeda7d648-refs/branch-heads/7339_41@{#3}) on port 54812
+[1757420494.149][INFO]: Please see https://chromedriver.chromium.org/security-considerations for suggestions on keeping ChromeDriver safe.
+[1757420494.153][INFO]: ChromeDriver was started successfully on port 54812
+[1757420494.181][INFO]: [3973815e5d192e79c083423bf91aada9] COMMAND InitSession {
+   "capabilities": {
+      "alwaysMatch": {
+         "browserName": "chrome",
+         "goog:chromeOptions": {
+            "args": [  ],
+            "extensions": [  ]
+         },
+         "pageLoadStrategy": "normal"
+      },
+      "firstMatch": [ {
+      } ]
+   }
+}
+[1757420494.181][INFO]: Browser search. Trying... /Users/datta/.wdm/drivers/chromedriver/mac64/140.0.7339.80/chromedriver-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing
+[1757420494.181][INFO]: Browser search. Trying... /Users/datta/.wdm/drivers/chromedriver/mac64/140.0.7339.80/chromedriver-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing
+[1757420494.181][INFO]: Browser search. Trying... /Users/datta/.wdm/drivers/chromedriver/mac64/140.0.7339.80/chromedriver-mac-arm64/Google Chrome.app/Contents/MacOS/Google Chrome
+[1757420494.181][INFO]: Browser search. Trying... /Users/datta/.wdm/drivers/chromedriver/mac64/140.0.7339.80/chromedriver-mac-arm64/Chromium.app/Contents/MacOS/Chromium
+[1757420494.183][INFO]: Browser search. Trying... /Users/datta/Applications/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing
+[1757420494.183][INFO]: Browser search. Trying... /Applications/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing
+[1757420494.183][INFO]: Browser search. Trying... /opt/homebrew/opt/openjdk/bin/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing
+[1757420494.183][INFO]: Browser search. Trying... /Library/Frameworks/Python.framework/Versions/3.13/bin/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing
+[1757420494.183][INFO]: Browser search. Trying... /Library/Frameworks/Python.framework/Versions/3.13/bin/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing
+[1757420494.183][INFO]: Browser search. Trying... /Users/datta/.nvm/versions/node/v22.17.0/bin/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing
+[1757420494.183][INFO]: Browser search. Trying... /opt/homebrew/bin/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing
+[1757420494.183][INFO]: Browser search. Trying... /opt/homebrew/sbin/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing
+[1757420494.183][INFO]: Browser search. Trying... /usr/local/bin/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing
+[1757420494.183][INFO]: Browser search. Trying... /System/Cryptexes/App/usr/bin/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing
+[1757420494.183][INFO]: Browser search. Trying... /usr/bin/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing
+[1757420494.183][INFO]: Browser search. Trying... /bin/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing
+[1757420494.183][INFO]: Browser search. Trying... /usr/sbin/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing
+[1757420494.183][INFO]: Browser search. Trying... /sbin/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing
+[1757420494.183][INFO]: Browser search. Trying... /var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing
+[1757420494.183][INFO]: Browser search. Trying... /var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing
+[1757420494.183][INFO]: Browser search. Trying... /var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing
+[1757420494.183][INFO]: Browser search. Trying... /Users/datta/Applications/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing
+[1757420494.183][INFO]: Browser search. Trying... /Applications/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing
+[1757420494.183][INFO]: Browser search. Trying... /opt/homebrew/opt/openjdk/bin/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing
+[1757420494.183][INFO]: Browser search. Trying... /Library/Frameworks/Python.framework/Versions/3.13/bin/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing
+[1757420494.183][INFO]: Browser search. Trying... /Library/Frameworks/Python.framework/Versions/3.13/bin/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing
+[1757420494.183][INFO]: Browser search. Trying... /Users/datta/.nvm/versions/node/v22.17.0/bin/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing
+[1757420494.183][INFO]: Browser search. Trying... /opt/homebrew/bin/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing
+[1757420494.183][INFO]: Browser search. Trying... /opt/homebrew/sbin/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing
+[1757420494.183][INFO]: Browser search. Trying... /usr/local/bin/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing
+[1757420494.183][INFO]: Browser search. Trying... /System/Cryptexes/App/usr/bin/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing
+[1757420494.183][INFO]: Browser search. Trying... /usr/bin/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing
+[1757420494.183][INFO]: Browser search. Trying... /bin/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing
+[1757420494.183][INFO]: Browser search. Trying... /usr/sbin/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing
+[1757420494.183][INFO]: Browser search. Trying... /sbin/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing
+[1757420494.183][INFO]: Browser search. Trying... /var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing
+[1757420494.183][INFO]: Browser search. Trying... /var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing
+[1757420494.183][INFO]: Browser search. Trying... /var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing
+[1757420494.183][INFO]: Browser search. Trying... /Users/datta/Applications/Google Chrome.app/Contents/MacOS/Google Chrome
+[1757420494.183][INFO]: Browser search. Trying... /Applications/Google Chrome.app/Contents/MacOS/Google Chrome
+[1757420494.183][INFO]: Browser search. Found at  /Applications/Google Chrome.app/Contents/MacOS/Google Chrome
+[1757420494.184][INFO]: Populating Preferences file: {
+   "alternate_error_pages": {
+      "enabled": false
+   },
+   "autofill": {
+      "enabled": false
+   },
+   "browser": {
+      "check_default_browser": false
+   },
+   "distribution": {
+      "import_bookmarks": false,
+      "import_history": false,
+      "import_search_engine": false,
+      "make_chrome_default_for_user": false,
+      "skip_first_run_ui": true
+   },
+   "dns_prefetching": {
+      "enabled": false
+   },
+   "profile": {
+      "content_settings": {
+         "pattern_pairs": {
+            "https://*,*": {
+               "media-stream": {
+                  "audio": "Default",
+                  "video": "Default"
+               }
+            }
+         }
+      },
+      "default_content_setting_values": {
+         "geolocation": 1
+      },
+      "default_content_settings": {
+         "geolocation": 1,
+         "mouselock": 1,
+         "notifications": 1,
+         "popups": 1,
+         "ppapi-broker": 1
+      },
+      "password_manager_enabled": false
+   },
+   "safebrowsing": {
+      "enabled": false
+   },
+   "search": {
+      "suggest_enabled": false
+   },
+   "translate": {
+      "enabled": false
+   }
+}
+[1757420494.184][INFO]: Populating Local State file: {
+   "background_mode": {
+      "enabled": false
+   },
+   "ssl": {
+      "rev_checking": {
+         "enabled": false
+      }
+   }
+}
+[1757420494.185][INFO]: ChromeDriver supports communication with Chrome via pipes. This is more reliable and more secure.
+[1757420494.185][INFO]: Use the --remote-debugging-pipe Chrome switch instead of the default --remote-debugging-port to enable this communication mode.
+[1757420494.185][INFO]: Launching chrome: /Applications/Google Chrome.app/Contents/MacOS/Google Chrome --allow-pre-commit-input --disable-background-networking --disable-client-side-phishing-detection --disable-default-apps --disable-hang-monitor --disable-popup-blocking --disable-prompt-on-repost --disable-sync --enable-automation --enable-logging --log-level=0 --no-first-run --no-service-autorun --password-store=basic --remote-debugging-port=0 --test-type=webdriver --use-mock-keychain --user-data-dir=/var/folders/nb/8558sq8x2dj0ql6hqvz3yhtw0000gn/T/.org.chromium.Chromium.p9jvXe data:,
+
+DevTools listening on ws://127.0.0.1:54821/devtools/browser/dbcca114-c23d-454a-b1c4-5b680f4b9543
+[1757420494.461][DEBUG]: DevTools HTTP Request: http://localhost:54821/json/version
+[1757420494.806][DEBUG]: DevTools HTTP Response: {
+   "Browser": "Chrome/140.0.7339.81",
+   "Protocol-Version": "1.3",
+   "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36",
+   "V8-Version": "14.0.365.4",
+   "WebKit-Version": "537.36 (@5d06bd44ba3e161396991fdc71da46f046172c17)",
+   "webSocketDebuggerUrl": "ws://localhost:54821/devtools/browser/dbcca114-c23d-454a-b1c4-5b680f4b9543"
+}
+
+[1757420494.806][DEBUG]: DevTools HTTP Request: http://localhost:54821/json/list
+[1757420494.816][DEBUG]: DevTools HTTP Response: [ {
+   "description": "",
+   "devtoolsFrontendUrl": "https://chrome-devtools-frontend.appspot.com/serve_rev/@5d06bd44ba3e161396991fdc71da46f046172c17/inspector.html?ws=localhost:54821/devtools/page/08CBE2F5823B183068F3AB88B69CB139",
+   "id": "08CBE2F5823B183068F3AB88B69CB139",
+   "title": "data:,",
+   "type": "page",
+   "url": "data:,",
+   "webSocketDebuggerUrl": "ws://localhost:54821/devtools/page/08CBE2F5823B183068F3AB88B69CB139"
+} ]
+
+[1757420494.817][INFO]: resolved localhost to ["::1","127.0.0.1"]
+[1757420494.818][DEBUG]: DevTools WebSocket Command: Target.getTargets (id=1) (session_id=) browser {
+   "filter": [ {
+      "exclude": true,
+      "type": "browser"
+   }, {
+      "exclude": true,
+      "type": "page"
+   }, {
+      "exclude": false
+   } ]
+}
+[1757420494.826][DEBUG]: DevTools WebSocket Response: Target.getTargets (id=1) (session_id=) browser {
+   "targetInfos": [ {
+      "attached": false,
+      "browserContextId": "903C9B9927896A471443268719028B5E",
+      "canAccessOpener": false,
+      "targetId": "818228CFB014505E3E1DB082D946D364",
+      "title": "data:,",
+      "type": "tab",
+      "url": "data:,"
+   } ]
+}
+[1757420494.826][DEBUG]: DevTools WebSocket Command: Target.attachToTarget (id=2) (session_id=) browser {
+   "flatten": true,
+   "targetId": "818228CFB014505E3E1DB082D946D364"
+}
+[1757420494.826][DEBUG]: DevTools WebSocket Event: Target.attachedToTarget (session_id=) browser {
+   "sessionId": "61A1BE65F6092C8406E704D916CA40D3",
+   "targetInfo": {
+      "attached": true,
+      "browserContextId": "903C9B9927896A471443268719028B5E",
+      "canAccessOpener": false,
+      "targetId": "818228CFB014505E3E1DB082D946D364",
+      "title": "data:,",
+      "type": "tab",
+      "url": "data:,"
+   },
+   "waitingForDebugger": false
+}
+[1757420494.826][DEBUG]: DevTools WebSocket Response: Target.attachToTarget (id=2) (session_id=) browser {
+   "sessionId": "61A1BE65F6092C8406E704D916CA40D3"
+}
+[1757420494.826][DEBUG]: DevTools WebSocket Command: Target.setAutoAttach (id=3) (session_id=61A1BE65F6092C8406E704D916CA40D3) 818228CFB014505E3E1DB082D946D364 {
+   "autoAttach": true,
+   "flatten": true,
+   "waitForDebuggerOnStart": false
+}
+[1757420494.826][DEBUG]: DevTools WebSocket Event: Target.attachedToTarget (session_id=61A1BE65F6092C8406E704D916CA40D3) 818228CFB014505E3E1DB082D946D364 {
+   "sessionId": "1B6F8ECA94317C63024A3A0FA83836A5",
+   "targetInfo": {
+      "attached": true,
+      "browserContextId": "903C9B9927896A471443268719028B5E",
+      "canAccessOpener": false,
+      "targetId": "08CBE2F5823B183068F3AB88B69CB139",
+      "title": "data:,",
+      "type": "page",
+      "url": "data:,"
+   },
+   "waitingForDebugger": false
+}
+[1757420494.826][DEBUG]: DevTools WebSocket Command: Page.enable (id=4) (session_id=1B6F8ECA94317C63024A3A0FA83836A5) 08CBE2F5823B183068F3AB88B69CB139 {
+}
+[1757420494.826][DEBUG]: DevTools WebSocket Command: Page.addScriptToEvaluateOnNewDocument (id=5) (session_id=1B6F8ECA94317C63024A3A0FA83836A5) 08CBE2F5823B183068F3AB88B69CB139 {
+   "source": "(function () {window.cdc_adoQpoasnfa76pfcZLmcfl_Array = window.Array;window.cdc_adoQpoasnfa76pfcZLmcfl_Object = window.Object;window.cdc_adoQpoasnfa76pfcZLmcfl_Promise = window.Promise;window.cdc_a..."
+}
+[1757420494.826][DEBUG]: DevTools WebSocket Command: Runtime.evaluate (id=6) (session_id=1B6F8ECA94317C63024A3A0FA83836A5) 08CBE2F5823B183068F3AB88B69CB139 {
+   "expression": "(function () {window.cdc_adoQpoasnfa76pfcZLmcfl_Array = window.Array;window.cdc_adoQpoasnfa76pfcZLmcfl_Object = window.Object;window.cdc_adoQpoasnfa76pfcZLmcfl_Promise = window.Promise;window.cdc_a..."
+}
+[1757420494.826][DEBUG]: DevTools WebSocket Command: Log.enable (id=7) (session_id=1B6F8ECA94317C63024A3A0FA83836A5) 08CBE2F5823B183068F3AB88B69CB139 {
+}
+[1757420494.826][DEBUG]: DevTools WebSocket Command: Target.setAutoAttach (id=8) (session_id=1B6F8ECA94317C63024A3A0FA83836A5) 08CBE2F5823B183068F3AB88B69CB139 {
+   "autoAttach": true,
+   "flatten": true,
+   "waitForDebuggerOnStart": false
+}
+[1757420494.826][DEBUG]: DevTools WebSocket Response: Target.setAutoAttach (id=3) (session_id=61A1BE65F6092C8406E704D916CA40D3) 818228CFB014505E3E1DB082D946D364 {
+}
+[1757420494.826][DEBUG]: DevTools WebSocket Response: Page.enable (id=4) (session_id=1B6F8ECA94317C63024A3A0FA83836A5) 08CBE2F5823B183068F3AB88B69CB139 {
+}
+[1757420494.826][DEBUG]: DevTools WebSocket Response: Page.addScriptToEvaluateOnNewDocument (id=5) (session_id=1B6F8ECA94317C63024A3A0FA83836A5) 08CBE2F5823B183068F3AB88B69CB139 {
+   "identifier": "1"
+}
+[1757420494.827][DEBUG]: DevTools WebSocket Response: Runtime.evaluate (id=6) (session_id=1B6F8ECA94317C63024A3A0FA83836A5) 08CBE2F5823B183068F3AB88B69CB139 {
+   "result": {
+      "type": "undefined"
+   }
+}
+[1757420494.827][DEBUG]: DevTools WebSocket Response: Log.enable (id=7) (session_id=1B6F8ECA94317C63024A3A0FA83836A5) 08CBE2F5823B183068F3AB88B69CB139 {
+}
+[1757420494.827][DEBUG]: DevTools WebSocket Response: Target.setAutoAttach (id=8) (session_id=1B6F8ECA94317C63024A3A0FA83836A5) 08CBE2F5823B183068F3AB88B69CB139 {
+}
+[1757420494.827][DEBUG]: DevTools WebSocket Command: Runtime.enable (id=9) (session_id=1B6F8ECA94317C63024A3A0FA83836A5) 08CBE2F5823B183068F3AB88B69CB139 {
+}
+[1757420494.827][DEBUG]: DevTools WebSocket Event: Runtime.executionContextCreated (session_id=1B6F8ECA94317C63024A3A0FA83836A5) 08CBE2F5823B183068F3AB88B69CB139 {
+   "context": {
+      "auxData": {
+         "frameId": "08CBE2F5823B183068F3AB88B69CB139",
+         "isDefault": true,
+         "type": "default"
+      },
+      "id": 1,
+      "name": "",
+      "origin": "://",
+      "uniqueId": "6691309125897071204.-5959723773875246150"
+   }
+}
+[1757420494.827][DEBUG]: DevTools WebSocket Response: Runtime.enable (id=9) (session_id=1B6F8ECA94317C63024A3A0FA83836A5) 08CBE2F5823B183068F3AB88B69CB139 {
+}
+[1757420494.827][DEBUG]: DevTools WebSocket Command: Runtime.enable (id=10) (session_id=1B6F8ECA94317C63024A3A0FA83836A5) 08CBE2F5823B183068F3AB88B69CB139 {
+}
+[1757420494.827][DEBUG]: DevTools WebSocket Response: Runtime.enable (id=10) (session_id=1B6F8ECA94317C63024A3A0FA83836A5) 08CBE2F5823B183068F3AB88B69CB139 {
+}
+[1757420494.827][INFO]: [3973815e5d192e79c083423bf91aada9] RESPONSE InitSession {
+   "capabilities": {
+      "acceptInsecureCerts": false,
+      "browserName": "chrome",
+      "browserVersion": "140.0.7339.81",
+      "chrome": {
+         "chromedriverVersion": "140.0.7339.80 (670b6f192f4668d2ac2c06bd77ec3e4eeda7d648-refs/branch-heads/7339_41@{#3})",
+         "userDataDir": "/var/folders/nb/8558sq8x2dj0ql6hqvz3yhtw0000gn/T/.org.chromium.Chromium.p9jvXe"
+      },
+      "fedcm:accounts": true,
+      "goog:chromeOptions": {
+         "debuggerAddress": "localhost:54821"
+      },
+      "networkConnectionEnabled": false,
+      "pageLoadStrategy": "normal",
+      "platformName": "mac",
+      "proxy": {
+      },
+      "setWindowRect": true,
+      "strictFileInteractability": false,
+      "timeouts": {
+         "implicit": 0,
+         "pageLoad": 300000,
+         "script": 30000
+      },
+      "unhandledPromptBehavior": "dismiss and notify",
+      "webauthn:extension:credBlob": true,
+      "webauthn:extension:largeBlob": true,
+      "webauthn:extension:minPinLength": true,
+      "webauthn:extension:prf": true,
+      "webauthn:virtualAuthenticators": true
+   },
+   "sessionId": "3973815e5d192e79c083423bf91aada9"
+}
+[1757420494.828][INFO]: [3973815e5d192e79c083423bf91aada9] COMMAND Quit {
+}
+[72968:6754554:0909/175134.847413:ERROR:base/apple/mach_port_rendezvous_mac.cc:255] bootstrap_look_up com.google.Chrome.MachPortRendezvousServer.1: Permission denied (1100)
+[72968:6754554:0909/175134.847723:ERROR:base/memory/shared_memory_switch.cc:266] No rendezvous client, terminating process (parent died?)
+[1757420494.883][INFO]: [3973815e5d192e79c083423bf91aada9] RESPONSE Quit
+[1757420494.883][DEBUG]: Log type 'driver' lost 0 entries on destruction
+[1757420494.883][DEBUG]: Log type 'browser' lost 0 entries on destruction

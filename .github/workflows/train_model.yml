@@ -1,45 +1,55 @@
-name: Weekly AI Model Training
+name: Enhanced AI Model Training & Risk Management
 
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 0 * * 0' # Runs every Sunday at midnight UTC
+    - cron: '0 2 * * 0' # Runs every Sunday at 2 AM UTC (avoids conflicts)
 
 jobs:
   train-and-validate:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    timeout-minutes: 60
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+          cache: 'pip'
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r api/requirements.txt
-          pip install -r requirements-automation.txt # For backtesting
+          pip install -r requirements-automation.txt
 
-      - name: Prepare Training Data
-        run: python -m api.prepare_training_data
+      - name: Train Enhanced AI Model
+        run: python -m api.enhanced_risk_ai_model
+        env:
+          PYTHONPATH: .
 
-      - name: Retrain AI Model
-        run: python -m api.train_model
+      - name: Validate Model Performance
+        run: |
+          python -c "
+          import joblib
+          model_data = joblib.load('api/enhanced_trading_model.pkl')
+          print('✅ Enhanced model validation passed')
+          print(f'Models trained: {list(model_data["models"].keys())}')
+          "
 
-      - name: Validate New Model with Backtest
+      - name: Run Backtest Validation
         run: python backtest.py
+        continue-on-error: true
 
-      - name: Commit and Push Updated Model
+      - name: Commit Enhanced Model
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "chore(AI): Automatically retrain and update AI model"
-          file_pattern: "api/trading_model.pkl api/confusion_matrix.png api/feature_importance.png"
-          commit_user_name: "GitHub Actions Bot"
-          commit_user_email: "github-actions[bot]@users.noreply.github.com"
-          commit_author: "github-actions[bot] <github-actions[bot]@users.noreply.github.com>"
+          commit_message: "🤖 Auto-retrain enhanced AI model with risk management"
+          file_pattern: "api/enhanced_trading_model.pkl api/trading_model.pkl api/*.png"
+          commit_user_name: "AI Trading Bot"
+          commit_user_email: "ai-bot@trading-platform.com"

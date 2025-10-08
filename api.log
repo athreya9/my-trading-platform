@@ -1,0 +1,8 @@
+INFO:     Started server process [71218]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+ERROR:    [Errno 48] error while attempting to bind on address ('0.0.0.0', 8000): address already in use
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+Telegram Bot Token: 8250334547:AAHFIXLgvwlJlUUasiXY-5wHJ85E2AeC39k
+Telegram Chat ID: 1375236879

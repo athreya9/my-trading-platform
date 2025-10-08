@@ -1,0 +1,49 @@
+{
+  "timestamp": "2025-10-08T13:01:35.835050",
+  "results": [
+    {
+      "instrument": "FINNIFTY",
+      "strike": 26700,
+      "option_type": "PE",
+      "spot_price": 26697.95,
+      "change_pct": -0.29633308810074205,
+      "real_premium": 222.8,
+      "calibrated_premium": 90.05,
+      "system_premium": 222.8,
+      "accuracy": "100.0%",
+      "status": "\u2705 Excellent",
+      "error": "0.0%"
+    },
+    {
+      "instrument": "NIFTY",
+      "strike": 25000,
+      "option_type": "PE",
+      "spot_price": 25081.9,
+      "change_pct": -0.10514451396550144,
+      "real_premium": 62.45,
+      "calibrated_premium": 130,
+      "system_premium": 62.45,
+      "accuracy": "100.0%",
+      "status": "\u2705 Excellent",
+      "error": "0.0%"
+    },
+    {
+      "instrument": "BANKNIFTY",
+      "strike": 56000,
+      "option_type": "CE",
+      "spot_price": 56074.25,
+      "change_pct": -0.293566693071666,
+      "real_premium": 727.8,
+      "calibrated_premium": 179.25,
+      "system_premium": 727.8,
+      "accuracy": "100.0%",
+      "status": "\u2705 Excellent",
+      "error": "0.0%"
+    }
+  ],
+  "summary": {
+    "total_tests": 3,
+    "accurate_count": 3,
+    "accuracy_rate": 100.0
+  }
+}

@@ -1,0 +1,21 @@
+INFO:__main__:🚀 AUTOMATED AI TRADING SYSTEM STARTED
+INFO:__main__:==================================================
+INFO:__main__:📊 Real Kite live data & accurate premiums
+INFO:__main__:🎯 TOTP auto-login + high-confidence signals
+INFO:__main__:📱 Automatic Telegram alerts
+INFO:__main__:⏰ Every 10 minutes during market hours
+INFO:__main__:🔄 Fully automated - no manual intervention
+INFO:__main__:🔥 Market is open - running initial check
+INFO:__main__:🔴 AUTOMATED CYCLE - Checking for tradeable signals...
+ERROR:api.kite_totp_login:❌ TOTP login failed
+ERROR:api.kite_live_engine:Failed to generate fresh token
+ERROR:api.kite_live_engine:Error getting price for NSE:NIFTY 50: Invalid `api_key` or `access_token`.
+INFO:api.kite_live_engine:No price data for NIFTY
+ERROR:api.kite_live_engine:Error getting price for NSE:NIFTY BANK: Invalid `api_key` or `access_token`.
+INFO:api.kite_live_engine:No price data for BANKNIFTY
+ERROR:api.kite_live_engine:Error getting price for BSE:SENSEX: Invalid `api_key` or `access_token`.
+INFO:api.kite_live_engine:No price data for SENSEX
+ERROR:api.kite_live_engine:Error getting price for NSE:NIFTY FIN SERVICE: Invalid `api_key` or `access_token`.
+INFO:api.kite_live_engine:No price data for FINNIFTY
+INFO:api.kite_live_engine:No Kite signals generated
+INFO:__main__:⚪ No tradeable signal (waiting for momentum)

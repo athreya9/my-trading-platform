@@ -1,39 +1,28 @@
-# Dependencies
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
 /node_modules
-/.pnp
-.pnp.js
 
-# Build outputs
+# next.js
+/.next/
+/out/
+
+# production
 /build
-/dist
-/.next
-/__pycache__
-*.pyc
 
-# Logs
-*.log
+# debug
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+.pnpm-debug.log*
 
-# Env files
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+# env files
+.env*
 
-# Key files
-*.json
-!package.json
-!package-lock.json
-!tsconfig.json
-!components.json
-!data/*.json
-data/bot_status.json
-*.pem
+# vercel
+.vercel
 
-# Other
-.DS_Store
-*.html
-*.png
+# typescript
+*.tsbuildinfo
+next-env.d.ts*.json
+my-trading-platform-*.json

@@ -1,0 +1,104 @@
+INFO:__main__:🚀 AUTOMATED AI TRADING SYSTEM STARTED
+INFO:__main__:==================================================
+INFO:__main__:📊 Real Kite live data & accurate premiums
+INFO:__main__:🎯 TOTP auto-login + high-confidence signals
+INFO:__main__:📱 Automatic Telegram alerts
+INFO:__main__:⏰ Every 10 minutes during market hours
+INFO:__main__:🔄 Fully automated - no manual intervention
+INFO:__main__:🔥 Market is open - running initial check
+INFO:__main__:🔴 AUTOMATED CYCLE - Checking for tradeable signals...
+INFO:api.kite_live_engine:✅ Connected to Kite API with existing token
+INFO:api.kite_live_engine:NIFTY: Low momentum: -0.26%
+INFO:api.kite_live_engine:✅ KITE Signal: BANKNIFTY 55900 PE @ ₹197.87
+INFO:api.kite_live_engine:SENSEX: Low momentum: -0.22%
+INFO:api.kite_live_engine:✅ KITE Signal: FINNIFTY 26650 PE @ ₹111.8
+INFO:api.kite_live_engine:Generated 2 Kite signals, sent 0 alerts
+INFO:__main__:✅ High-confidence signal sent to Telegram
+INFO:__main__:🔴 AUTOMATED CYCLE - Checking for tradeable signals...
+INFO:api.kite_live_engine:✅ Connected to Kite API with existing token
+INFO:api.kite_live_engine:NIFTY: Low momentum: -0.23%
+INFO:api.kite_live_engine:✅ KITE Signal: BANKNIFTY 55900 PE @ ₹189.1
+INFO:api.kite_live_engine:SENSEX: Low momentum: -0.19%
+INFO:api.kite_live_engine:✅ KITE Signal: FINNIFTY 26650 PE @ ₹102.76
+INFO:api.kite_live_engine:Generated 2 Kite signals, sent 0 alerts
+INFO:__main__:✅ High-confidence signal sent to Telegram
+INFO:__main__:🔴 AUTOMATED CYCLE - Checking for tradeable signals...
+INFO:api.kite_live_engine:✅ Connected to Kite API with existing token
+INFO:api.kite_live_engine:NIFTY: Low momentum: -0.28%
+INFO:api.kite_live_engine:✅ KITE Signal: BANKNIFTY 55900 PE @ ₹196.94
+INFO:api.kite_live_engine:SENSEX: Low momentum: -0.23%
+INFO:api.kite_live_engine:✅ KITE Signal: FINNIFTY 26650 PE @ ₹112.64
+INFO:api.kite_live_engine:Generated 2 Kite signals, sent 0 alerts
+INFO:__main__:✅ High-confidence signal sent to Telegram
+INFO:__main__:🔴 AUTOMATED CYCLE - Checking for tradeable signals...
+INFO:api.kite_live_engine:✅ Connected to Kite API with existing token
+INFO:api.kite_live_engine:NIFTY: Low momentum: -0.27%
+INFO:api.kite_live_engine:✅ KITE Signal: BANKNIFTY 55900 PE @ ₹191.13
+INFO:api.kite_live_engine:SENSEX: Low momentum: -0.22%
+INFO:api.kite_live_engine:✅ KITE Signal: FINNIFTY 26650 PE @ ₹110.76
+INFO:api.kite_live_engine:Generated 2 Kite signals, sent 0 alerts
+INFO:__main__:✅ High-confidence signal sent to Telegram
+INFO:__main__:🔴 AUTOMATED CYCLE - Checking for tradeable signals...
+INFO:api.kite_live_engine:✅ Connected to Kite API with existing token
+INFO:api.kite_live_engine:✅ KITE Signal: NIFTY 25000 PE @ ₹114.96
+INFO:api.kite_live_engine:✅ KITE Signal: BANKNIFTY 55900 PE @ ₹212.92
+INFO:api.kite_live_engine:SENSEX: KITE LIVE: BEARISH momentum -0.31%
+INFO:api.kite_live_engine:✅ KITE Signal: FINNIFTY 26600 PE @ ₹96.84
+INFO:api.kite_live_engine:Generated 3 Kite signals, sent 0 alerts
+INFO:__main__:✅ High-confidence signal sent to Telegram
+INFO:__main__:🔴 AUTOMATED CYCLE - Checking for tradeable signals...
+INFO:api.kite_live_engine:✅ Connected to Kite API with existing token
+INFO:api.kite_live_engine:NIFTY: KITE LIVE: BEARISH momentum -0.30%
+INFO:api.kite_live_engine:✅ KITE Signal: BANKNIFTY 55900 PE @ ₹186.86
+INFO:api.kite_live_engine:SENSEX: Low momentum: -0.26%
+INFO:api.kite_live_engine:✅ KITE Signal: FINNIFTY 26650 PE @ ₹113.8
+INFO:api.kite_live_engine:Generated 2 Kite signals, sent 0 alerts
+INFO:__main__:✅ High-confidence signal sent to Telegram
+INFO:__main__:🔴 AUTOMATED CYCLE - Checking for tradeable signals...
+INFO:api.kite_live_engine:✅ Connected to Kite API with existing token
+INFO:api.kite_live_engine:NIFTY: Low momentum: -0.16%
+INFO:api.kite_live_engine:✅ KITE Signal: BANKNIFTY 56000 PE @ ₹189.14
+INFO:api.kite_live_engine:SENSEX: Low momentum: -0.11%
+INFO:api.kite_live_engine:✅ KITE Signal: FINNIFTY 26650 PE @ ₹93.26
+INFO:api.kite_live_engine:Generated 2 Kite signals, sent 0 alerts
+INFO:__main__:✅ High-confidence signal sent to Telegram
+INFO:__main__:🔴 AUTOMATED CYCLE - Checking for tradeable signals...
+INFO:api.kite_live_engine:✅ Connected to Kite API with existing token
+INFO:api.kite_live_engine:NIFTY: Low momentum: -0.10%
+INFO:api.kite_live_engine:BANKNIFTY: Low momentum: -0.30%
+INFO:api.kite_live_engine:SENSEX: Low momentum: -0.05%
+INFO:api.kite_live_engine:FINNIFTY: Low momentum: -0.30%
+INFO:api.kite_live_engine:No Kite signals generated
+INFO:__main__:⚪ No tradeable signal (waiting for momentum)
+INFO:__main__:🔴 AUTOMATED CYCLE - Checking for tradeable signals...
+INFO:api.kite_live_engine:✅ Connected to Kite API with existing token
+INFO:api.kite_live_engine:NIFTY: Low momentum: -0.04%
+INFO:api.kite_live_engine:BANKNIFTY: Low momentum: -0.20%
+INFO:api.kite_live_engine:SENSEX: Low momentum: +0.03%
+INFO:api.kite_live_engine:FINNIFTY: Low momentum: -0.23%
+INFO:api.kite_live_engine:No Kite signals generated
+INFO:__main__:⚪ No tradeable signal (waiting for momentum)
+INFO:__main__:🔴 AUTOMATED CYCLE - Checking for tradeable signals...
+INFO:api.kite_live_engine:✅ Connected to Kite API with existing token
+INFO:api.kite_live_engine:NIFTY: Low momentum: -0.01%
+INFO:api.kite_live_engine:BANKNIFTY: Low momentum: -0.19%
+INFO:api.kite_live_engine:SENSEX: Low momentum: +0.04%
+INFO:api.kite_live_engine:FINNIFTY: Low momentum: -0.22%
+INFO:api.kite_live_engine:No Kite signals generated
+INFO:__main__:⚪ No tradeable signal (waiting for momentum)
+INFO:__main__:🔴 AUTOMATED CYCLE - Checking for tradeable signals...
+INFO:api.kite_live_engine:✅ Connected to Kite API with existing token
+INFO:api.kite_live_engine:NIFTY: Low momentum: -0.03%
+INFO:api.kite_live_engine:BANKNIFTY: Low momentum: -0.22%
+INFO:api.kite_live_engine:SENSEX: Low momentum: +0.02%
+INFO:api.kite_live_engine:FINNIFTY: Low momentum: -0.23%
+INFO:api.kite_live_engine:No Kite signals generated
+INFO:__main__:⚪ No tradeable signal (waiting for momentum)
+INFO:__main__:🔴 AUTOMATED CYCLE - Checking for tradeable signals...
+INFO:api.kite_live_engine:✅ Connected to Kite API with existing token
+INFO:api.kite_live_engine:NIFTY: Low momentum: +0.02%
+INFO:api.kite_live_engine:BANKNIFTY: Low momentum: -0.12%
+INFO:api.kite_live_engine:SENSEX: Low momentum: +0.11%
+INFO:api.kite_live_engine:FINNIFTY: Low momentum: -0.20%
+INFO:api.kite_live_engine:No Kite signals generated
+INFO:__main__:⚪ No tradeable signal (waiting for momentum)

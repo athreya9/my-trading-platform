@@ -1,0 +1,16 @@
+INFO:__main__:🚀 AUTOMATED AI TRADING SYSTEM STARTED
+INFO:__main__:==================================================
+INFO:__main__:📊 Real Kite live data & accurate premiums
+INFO:__main__:🎯 TOTP auto-login + high-confidence signals
+INFO:__main__:📱 Automatic Telegram alerts
+INFO:__main__:⏰ Every 10 minutes during market hours
+INFO:__main__:🔄 Fully automated - no manual intervention
+INFO:__main__:🔥 Market is open - running initial check
+INFO:__main__:🔴 AUTOMATED CYCLE - Checking for tradeable signals...
+INFO:api.kite_live_engine:✅ Connected to Kite API with existing token
+INFO:api.kite_live_engine:NIFTY: Low momentum: -0.27%
+INFO:api.kite_live_engine:✅ KITE Signal: BANKNIFTY 55900 PE @ ₹212.12
+INFO:api.kite_live_engine:SENSEX: Low momentum: -0.23%
+INFO:api.kite_live_engine:✅ KITE Signal: FINNIFTY 26650 PE @ ₹118.44
+INFO:api.kite_live_engine:Generated 2 Kite signals, sent 0 alerts
+INFO:__main__:✅ High-confidence signal sent to Telegram

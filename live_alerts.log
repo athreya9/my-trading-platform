@@ -1,0 +1,31 @@
+INFO:__main__:🚀 AUTOMATED AI TRADING SYSTEM STARTED
+INFO:__main__:==================================================
+INFO:__main__:📊 Real Kite live data & accurate premiums
+INFO:__main__:🎯 TOTP auto-login + high-confidence signals
+INFO:__main__:📱 Automatic Telegram alerts
+INFO:__main__:⏰ Every 10 minutes during market hours
+INFO:__main__:🔄 Fully automated - no manual intervention
+INFO:__main__:🔥 Market is open - running initial check
+INFO:__main__:🔴 AUTOMATED CYCLE - Checking for tradeable signals...
+INFO:api.aggressive_live_engine:✅ AGGRESSIVE Signal: NIFTY 25050 PE @ ₹161.44
+INFO:api.aggressive_live_engine:✅ AGGRESSIVE Signal: BANKNIFTY 55900 PE @ ₹230.84
+INFO:api.aggressive_live_engine:✅ AGGRESSIVE Signal: SENSEX 81800 PE @ ₹265.77
+INFO:api.aggressive_live_engine:✅ AGGRESSIVE Signal: FINNIFTY 28700 PE @ ₹122.73
+INFO:api.telegram_alerts:✅ Telegram alert sent successfully!
+INFO:api.telegram_alerts:✅ Telegram alert sent successfully!
+INFO:api.telegram_alerts:✅ Telegram alert sent successfully!
+INFO:api.telegram_alerts:✅ Telegram alert sent successfully!
+INFO:api.aggressive_live_engine:Generated 4 signals, sent 4 alerts
+INFO:__main__:✅ High-confidence signal sent to Telegram
+INFO:__main__:🔴 AUTOMATED CYCLE - Checking for tradeable signals...
+INFO:api.aggressive_live_engine:✅ AGGRESSIVE Signal: SENSEX 81700 PE @ ₹237.23
+INFO:api.telegram_alerts:✅ Telegram alert sent successfully!
+INFO:api.aggressive_live_engine:Generated 1 signals, sent 1 alerts
+INFO:__main__:✅ High-confidence signal sent to Telegram
+INFO:__main__:🔴 AUTOMATED CYCLE - Checking for tradeable signals...
+INFO:api.aggressive_live_engine:✅ AGGRESSIVE Signal: BANKNIFTY 55900 CE @ ₹221.84
+INFO:api.aggressive_live_engine:✅ AGGRESSIVE Signal: FINNIFTY 28750 CE @ ₹113.46
+INFO:api.telegram_alerts:✅ Telegram alert sent successfully!
+INFO:api.telegram_alerts:✅ Telegram alert sent successfully!
+INFO:api.aggressive_live_engine:Generated 2 signals, sent 2 alerts
+INFO:__main__:✅ High-confidence signal sent to Telegram

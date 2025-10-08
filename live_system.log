@@ -1,0 +1,23 @@
+INFO:__main__:🚀 AUTOMATED AI TRADING SYSTEM STARTED
+INFO:__main__:==================================================
+INFO:__main__:📊 Real market data & accurate premiums
+INFO:__main__:🎯 Only high-confidence signals (>75%)
+INFO:__main__:📱 Automatic Telegram alerts
+INFO:__main__:⏰ Every 10 minutes during market hours
+INFO:__main__:🔄 Fully automated - no manual intervention
+INFO:__main__:🔥 Market is open - running initial check
+INFO:__main__:🔴 AUTOMATED CYCLE - Checking for tradeable signals...
+INFO:api.accurate_live_engine:No tradeable signal: Low momentum: -0.15%
+INFO:__main__:⚪ No tradeable signal (waiting for momentum)
+INFO:__main__:🔴 AUTOMATED CYCLE - Checking for tradeable signals...
+INFO:api.accurate_live_engine:No tradeable signal: Low momentum: -0.06%
+INFO:__main__:⚪ No tradeable signal (waiting for momentum)
+INFO:__main__:🔴 AUTOMATED CYCLE - Checking for tradeable signals...
+INFO:api.accurate_live_engine:No tradeable signal: Low momentum: -0.09%
+INFO:__main__:⚪ No tradeable signal (waiting for momentum)
+INFO:__main__:🔴 AUTOMATED CYCLE - Checking for tradeable signals...
+INFO:api.accurate_live_engine:No tradeable signal: Low momentum: -0.09%
+INFO:__main__:⚪ No tradeable signal (waiting for momentum)
+INFO:__main__:🔴 AUTOMATED CYCLE - Checking for tradeable signals...
+INFO:api.accurate_live_engine:No tradeable signal: Low momentum: -0.17%
+INFO:__main__:⚪ No tradeable signal (waiting for momentum)

@@ -223,10 +223,50 @@ class KiteLiveEngine:
                 if success:
                     alerts_sent += 1
         
-        # Save all signals for frontend
+        # Save all signals for frontend (accumulate throughout the day)
         os.makedirs('data', exist_ok=True)
+        
+        # Load existing signals from today
+        existing_signals = []
+        try:
+            with open('data/signals.json', 'r') as f:
+                existing_signals = json.load(f)
+                
+            # Filter to keep only today's signals
+            today = datetime.now().date()
+            existing_signals = [s for s in existing_signals 
+                             if datetime.fromisoformat(s['timestamp']).date() == today]
+        except (FileNotFoundError, json.JSONDecodeError):
+            existing_signals = []
+        
+        # Add new signals to existing ones (avoid duplicates)
+        for signal in signals:
+            # Check if similar signal already exists (same symbol, strike, type within 1 hour)
+            is_duplicate = False
+            for existing in existing_signals:
+                if (existing['symbol'] == signal['symbol'] and 
+                    existing['strike'] == signal['strike'] and
+                    existing['option_type'] == signal['option_type']):
+                    # Check if within 1 hour
+                    existing_time = datetime.fromisoformat(existing['timestamp'])
+                    signal_time = datetime.fromisoformat(signal['timestamp'])
+                    if abs((signal_time - existing_time).total_seconds()) < 3600:
+                        is_duplicate = True
+                        break
+            
+            if not is_duplicate:
+                existing_signals.append(signal)
+        
+        # Sort by timestamp (newest first)
+        existing_signals.sort(key=lambda x: x['timestamp'], reverse=True)
+        
+        # Save accumulated signals
         with open('data/signals.json', 'w') as f:
-            json.dump(signals, f, indent=2)
+            json.dump(existing_signals, f, indent=2)
+        
+        # Also update api-data for backend
+        with open('api-data/trading-signals.json', 'w') as f:
+            json.dump(existing_signals, f, indent=2)
         
         logger.info(f"Generated {len(signals)} Kite signals, sent {alerts_sent} alerts")
         return len(signals) > 0

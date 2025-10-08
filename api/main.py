@@ -179,6 +179,28 @@ def get_trading_signals():
 
     return signals
 
+@app.get("/api/chart-data/{symbol}")
+def get_chart_data(symbol: str):
+    """Returns real-time chart data for a symbol"""
+    from .live_chart_data import get_live_chart_data
+    
+    chart_data = get_live_chart_data(symbol)
+    if not chart_data:
+        raise HTTPException(status_code=404, detail=f"No chart data found for {symbol}")
+    
+    return chart_data
+
+@app.get("/api/option-data/{symbol}/{strike}/{option_type}")
+def get_option_data(symbol: str, strike: int, option_type: str):
+    """Returns real option chain data"""
+    from .live_chart_data import get_option_chain_data
+    
+    option_data = get_option_chain_data(symbol, strike, option_type)
+    if not option_data:
+        raise HTTPException(status_code=404, detail=f"No option data found")
+    
+    return option_data
+
 @app.get("/api/bot/status")
 def get_bot_status():
     """Returns the current status of the trading bot."""

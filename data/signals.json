@@ -1,41 +1,28 @@
 [
   {
-    "symbol": "NIFTY",
-    "strike": 25050,
-    "option_type": "PE",
-    "entry_price": 76.15,
-    "stoploss": 57.11,
-    "confidence": 0.85,
-    "current_price": 25099.2,
-    "change_pct": -0.03624299534416906,
-    "reason": "AI ENHANCED: Real premium \u20b976.15",
-    "timestamp": "2025-10-08T13:10:16.228810",
-    "source": "LIVE_DEMO"
-  },
-  {
     "symbol": "BANKNIFTY",
     "strike": 56000,
     "option_type": "PE",
-    "entry_price": 411,
-    "stoploss": 308.25,
-    "confidence": 0.85,
-    "current_price": 56127.55,
-    "change_pct": -0.1987931937335691,
-    "reason": "AI ENHANCED: Real premium \u20b9411",
-    "timestamp": "2025-10-08T13:10:16.545466",
-    "source": "LIVE_DEMO"
+    "entry_price": 413.65,
+    "stoploss": 310.24,
+    "confidence": 0.7023032360793644,
+    "current_price": 56043.25,
+    "change_pct": -0.34868824052909575,
+    "reason": "KITE LIVE: BEARISH momentum -0.35%",
+    "timestamp": "2025-10-08T14:28:42.994285",
+    "source": "KITE_LIVE"
   },
   {
     "symbol": "FINNIFTY",
     "strike": 26650,
-    "option_type": "CE",
-    "entry_price": 369.2,
-    "stoploss": 276.9,
-    "confidence": 0.85,
-    "current_price": 26714.25,
-    "change_pct": -0.23546063270008552,
-    "reason": "AI ENHANCED: Real premium \u20b9369.2",
-    "timestamp": "2025-10-08T13:10:16.789096",
-    "source": "LIVE_DEMO"
+    "option_type": "PE",
+    "entry_price": 214.5,
+    "stoploss": 160.88,
+    "confidence": 0.7132158582082585,
+    "current_price": 26664.45,
+    "change_pct": -0.42143905472172327,
+    "reason": "KITE LIVE: BEARISH momentum -0.42%",
+    "timestamp": "2025-10-08T14:21:21.221551",
+    "source": "KITE_LIVE"
   }
 ]

@@ -1,28 +1,15 @@
 [
   {
-    "symbol": "BANKNIFTY",
-    "strike": 56000,
-    "option_type": "PE",
-    "entry_price": 413.65,
-    "stoploss": 310.24,
-    "confidence": 0.7023032360793644,
-    "current_price": 56043.25,
-    "change_pct": -0.34868824052909575,
-    "reason": "KITE LIVE: BEARISH momentum -0.35%",
-    "timestamp": "2025-10-08T14:28:42.994285",
-    "source": "KITE_LIVE"
-  },
-  {
     "symbol": "FINNIFTY",
-    "strike": 26650,
+    "strike": 26700,
     "option_type": "PE",
-    "entry_price": 214.5,
-    "stoploss": 160.88,
-    "confidence": 0.7132158582082585,
-    "current_price": 26664.45,
-    "change_pct": -0.42143905472172327,
-    "reason": "KITE LIVE: BEARISH momentum -0.42%",
-    "timestamp": "2025-10-08T14:21:21.221551",
+    "entry_price": 241.05,
+    "stoploss": 180.79,
+    "confidence": 0.7067178169569001,
+    "current_price": 26676.05,
+    "change_pct": -0.37811877971266705,
+    "reason": "KITE LIVE: BEARISH momentum -0.38%",
+    "timestamp": "2025-10-08T14:31:23.350892",
     "source": "KITE_LIVE"
   }
 ]

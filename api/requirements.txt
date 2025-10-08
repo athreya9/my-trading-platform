@@ -8,3 +8,8 @@ yfinance
 scikit-learn
 kiteconnect
 pandas-ta
+Pillow
+pytesseract
+schedule
+python-dotenv
+pyotp

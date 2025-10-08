@@ -1,0 +1,32 @@
+name: Subscription Bot
+
+on:
+  schedule:
+    - cron: '0 3 * * *'  # Daily at 9 AM IST (3:30 AM UTC)
+  workflow_dispatch:
+
+jobs:
+  subscription-bot:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+    
+    - name: Install dependencies
+      run: |
+        pip install -r requirements-bot.txt
+    
+    - name: Run subscription checks
+      env:
+        TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      run: |
+        python3 -c "
+        from api.telegram_subscription_bot import check_expiring_subscriptions
+        check_expiring_subscriptions()
+        "

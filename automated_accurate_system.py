@@ -5,6 +5,9 @@ Fully automated accurate trading system
 import schedule
 import time
 import logging
+import subprocess
+import sys
+import os
 from datetime import datetime
 from api.kite_live_engine import run_kite_live_system
 
@@ -38,6 +41,15 @@ def automated_trading_cycle():
     except Exception as e:
         logger.error(f"❌ Cycle failed: {e}")
 
+def start_subscription_bot():
+    """Start subscription bot in background"""
+    try:
+        subprocess.Popen([sys.executable, "-m", "api.telegram_subscription_bot"], 
+                        cwd=os.getcwd())
+        logger.info("✅ Subscription bot started")
+    except Exception as e:
+        logger.error(f"❌ Failed to start subscription bot: {e}")
+
 def start_automated_system():
     """Start the fully automated system"""
     logger.info("🚀 AUTOMATED AI TRADING SYSTEM STARTED")
@@ -45,8 +57,12 @@ def start_automated_system():
     logger.info("📊 Real Kite live data & accurate premiums")
     logger.info("🎯 TOTP auto-login + high-confidence signals")
     logger.info("📱 Automatic Telegram alerts")
+    logger.info("💳 Subscription bot active")
     logger.info("⏰ Every 10 minutes during market hours")
     logger.info("🔄 Fully automated - no manual intervention")
+    
+    # Start subscription bot
+    start_subscription_bot()
     
     # Schedule every 10 minutes for more responsive trading
     schedule.every(10).minutes.do(automated_trading_cycle)

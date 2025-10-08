@@ -150,3 +150,42 @@ INFO:api.kite_live_engine:SENSEX: Low momentum: -0.18%
 INFO:api.kite_live_engine:✅ KITE Signal: FINNIFTY 26650 PE @ ₹104.72
 INFO:api.kite_live_engine:Generated 2 Kite signals, sent 0 alerts
 INFO:__main__:✅ High-confidence signal sent to Telegram
+INFO:__main__:🔴 AUTOMATED CYCLE - Checking for tradeable signals...
+INFO:api.kite_live_engine:✅ Connected to Kite API with existing token
+INFO:api.kite_live_engine:NIFTY: Low momentum: -0.23%
+INFO:api.kite_live_engine:✅ KITE Signal: BANKNIFTY 56000 PE @ ₹188.18
+INFO:api.kite_live_engine:SENSEX: Low momentum: -0.12%
+INFO:api.kite_live_engine:✅ KITE Signal: FINNIFTY 26650 PE @ ₹96.86
+INFO:api.kite_live_engine:Generated 2 Kite signals, sent 0 alerts
+INFO:__main__:✅ High-confidence signal sent to Telegram
+INFO:__main__:🔴 AUTOMATED CYCLE - Checking for tradeable signals...
+INFO:api.kite_live_engine:✅ Connected to Kite API with existing token
+INFO:api.kite_live_engine:NIFTY: Low momentum: -0.25%
+INFO:api.kite_live_engine:✅ KITE Signal: BANKNIFTY 56000 PE @ ₹192.75
+INFO:api.kite_live_engine:SENSEX: Low momentum: -0.17%
+INFO:api.kite_live_engine:✅ KITE Signal: FINNIFTY 26650 PE @ ₹97.39
+INFO:api.kite_live_engine:Generated 2 Kite signals, sent 0 alerts
+INFO:__main__:✅ High-confidence signal sent to Telegram
+INFO:__main__:🔴 AUTOMATED CYCLE - Checking for tradeable signals...
+INFO:api.kite_live_engine:✅ Connected to Kite API with existing token
+INFO:api.kite_live_engine:NIFTY: Low momentum: -0.27%
+INFO:api.kite_live_engine:✅ KITE Signal: BANKNIFTY 56000 PE @ ₹198.22
+INFO:api.kite_live_engine:SENSEX: Low momentum: -0.20%
+INFO:api.kite_live_engine:✅ KITE Signal: FINNIFTY 26650 PE @ ₹99.16
+INFO:api.kite_live_engine:Generated 2 Kite signals, sent 0 alerts
+INFO:__main__:✅ High-confidence signal sent to Telegram
+INFO:__main__:Market closed - waiting
+INFO:__main__:Market closed - waiting
+INFO:__main__:Market closed - waiting
+INFO:__main__:Market closed - waiting
+INFO:__main__:Market closed - waiting
+INFO:__main__:Market closed - waiting
+INFO:__main__:Market closed - waiting
+INFO:__main__:Market closed - waiting
+INFO:__main__:Market closed - waiting
+INFO:__main__:Market closed - waiting
+INFO:__main__:Market closed - waiting
+INFO:__main__:Market closed - waiting
+INFO:__main__:Market closed - waiting
+INFO:__main__:Market closed - waiting
+INFO:__main__:Market closed - waiting

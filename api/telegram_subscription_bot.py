@@ -10,7 +10,7 @@ import schedule
 from PIL import Image
 import pytesseract
 from telegram import Update, Bot
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
+from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, filters
 import os
 from dotenv import load_dotenv
 
@@ -178,7 +178,7 @@ def run_subscription_bot():
     """Run the subscription bot"""
     print("🤖 Starting DA Trading Signals Subscription Bot...")
     
-    app = ApplicationBuilder().token(BOT_TOKEN).build()
+    app = Application.builder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("subscribe", subscribe))
     app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
@@ -186,22 +186,9 @@ def run_subscription_bot():
     print("✅ Bot handlers registered")
     print(f"💳 UPI ID: {UPI_ID}")
     print(f"💰 Subscription: {SUBSCRIPTION_AMOUNT}/month")
-    
-    # Run bot in background
-    import threading
-    
-    def bot_thread():
-        app.run_polling()
-    
-    bot_thread = threading.Thread(target=bot_thread, daemon=True)
-    bot_thread.start()
-    
     print("🚀 Bot is running...")
     
-    # Run scheduler
-    while True:
-        schedule.run_pending()
-        time.sleep(60)
+    app.run_polling()
 
 if __name__ == "__main__":
     run_subscription_bot()

@@ -118,21 +118,48 @@ class TelegramAlerts:
     
     def _send_telegram_message(self, message):
         """
-        Send message to Telegram
+        Send message to verified subscribers only
         """
         url = f"https://api.telegram.org/bot{self.bot_token}/sendMessage"
-        payload = {
-            'chat_id': self.chat_id,
-            'text': message,
-            'parse_mode': 'HTML',
-            'disable_web_page_preview': True
-        }
         
         try:
-            response = requests.post(url, json=payload)
-            response.raise_for_status()
-            logger.info("✅ Telegram alert sent successfully!")
-            return True
+            # Get active subscribers
+            try:
+                with open('data/subscribers.json') as f:
+                    users = json.load(f)
+                
+                active_count = 0
+                for chat_id, info in users.items():
+                    if info['status'] == 'active':
+                        payload = {
+                            'chat_id': chat_id,
+                            'text': message,
+                            'parse_mode': 'HTML',
+                            'disable_web_page_preview': True
+                        }
+                        try:
+                            response = requests.post(url, json=payload)
+                            response.raise_for_status()
+                            active_count += 1
+                        except Exception as e:
+                            logger.error(f"Failed to send to {chat_id}: {e}")
+                
+                logger.info(f"✅ Alert sent to {active_count} verified subscribers!")
+                return True
+                
+            except FileNotFoundError:
+                # Fallback to main chat if no subscribers
+                payload = {
+                    'chat_id': self.chat_id,
+                    'text': message,
+                    'parse_mode': 'HTML',
+                    'disable_web_page_preview': True
+                }
+                response = requests.post(url, json=payload)
+                response.raise_for_status()
+                logger.info("✅ Alert sent to main chat (no subscribers file)!")
+                return True
+                
         except Exception as e:
             logger.error(f"❌ Failed to send Telegram alert: {e}")
             return False

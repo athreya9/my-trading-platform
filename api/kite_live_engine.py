@@ -176,7 +176,7 @@ class KiteLiveEngine:
                 
                 # Calculate realistic premium
                 premium = self.calculate_realistic_premium(spot, atm_strike, option_type, instrument_name)
-                stoploss = round(premium * 0.75, 2)
+                stoploss = round(premium * 0.85, 2)  # 15% stop loss instead of 25%
                 
                 signal = {
                     'symbol': instrument_name,

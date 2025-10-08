@@ -134,3 +134,19 @@ INFO:api.kite_live_engine:SENSEX: Low momentum: -0.08%
 INFO:api.kite_live_engine:✅ KITE Signal: FINNIFTY 26650 PE @ ₹93.84
 INFO:api.kite_live_engine:Generated 1 Kite signals, sent 0 alerts
 INFO:__main__:✅ High-confidence signal sent to Telegram
+INFO:__main__:🔴 AUTOMATED CYCLE - Checking for tradeable signals...
+INFO:api.kite_live_engine:✅ Connected to Kite API with existing token
+INFO:api.kite_live_engine:NIFTY: Low momentum: -0.13%
+INFO:api.kite_live_engine:BANKNIFTY: KITE LIVE: BEARISH momentum -0.30%
+INFO:api.kite_live_engine:SENSEX: Low momentum: -0.07%
+INFO:api.kite_live_engine:✅ KITE Signal: FINNIFTY 26650 PE @ ₹93.15
+INFO:api.kite_live_engine:Generated 1 Kite signals, sent 0 alerts
+INFO:__main__:✅ High-confidence signal sent to Telegram
+INFO:__main__:🔴 AUTOMATED CYCLE - Checking for tradeable signals...
+INFO:api.kite_live_engine:✅ Connected to Kite API with existing token
+INFO:api.kite_live_engine:NIFTY: Low momentum: -0.25%
+INFO:api.kite_live_engine:✅ KITE Signal: BANKNIFTY 56000 PE @ ₹196.57
+INFO:api.kite_live_engine:SENSEX: Low momentum: -0.18%
+INFO:api.kite_live_engine:✅ KITE Signal: FINNIFTY 26650 PE @ ₹104.72
+INFO:api.kite_live_engine:Generated 2 Kite signals, sent 0 alerts
+INFO:__main__:✅ High-confidence signal sent to Telegram

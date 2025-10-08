@@ -1,15 +1,41 @@
 [
   {
     "symbol": "FINNIFTY",
-    "strike": 26700,
+    "strike": 26650,
     "option_type": "PE",
-    "entry_price": 241.05,
-    "stoploss": 180.79,
-    "confidence": 0.7067178169569001,
-    "current_price": 26676.05,
-    "change_pct": -0.37811877971266705,
-    "reason": "KITE LIVE: BEARISH momentum -0.38%",
-    "timestamp": "2025-10-08T14:31:23.350892",
+    "entry_price": 217.9,
+    "stoploss": 163.43,
+    "confidence": 0.71,
+    "current_price": 26668.7,
+    "change_pct": -0.41,
+    "reason": "KITE LIVE: BEARISH momentum -0.41%",
+    "timestamp": "2025-10-08T14:41:26.267712",
     "source": "KITE_LIVE"
+  },
+  {
+    "symbol": "BANKNIFTY",
+    "strike": 56000,
+    "option_type": "PE",
+    "entry_price": 413.65,
+    "stoploss": 310.24,
+    "confidence": 0.72,
+    "current_price": 56127.55,
+    "change_pct": -0.28,
+    "reason": "KITE LIVE: BEARISH momentum -0.28%",
+    "timestamp": "2025-10-08T14:28:42.000000",
+    "source": "KITE_LIVE"
+  },
+  {
+    "symbol": "NIFTY",
+    "strike": 25050,
+    "option_type": "PE",
+    "entry_price": 76.15,
+    "stoploss": 57.11,
+    "confidence": 0.85,
+    "current_price": 25099.2,
+    "change_pct": -0.04,
+    "reason": "AI ENHANCED: Real premium \u20b976.15",
+    "timestamp": "2025-10-08T13:10:16.228810",
+    "source": "LIVE_DEMO"
   }
 ]

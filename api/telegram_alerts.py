@@ -38,7 +38,7 @@ class TelegramAlerts:
     
     def _format_alert_message(self, symbol, strike, option_type, entry_price, stoploss, reason=""):
         """
-        Format exactly like your example: NIFTY 25250 PE Buy with targets
+        Format for channel broadcasting with enhanced visuals
         """
         # Calculate targets (5% to 25% profit)
         targets = [
@@ -49,26 +49,28 @@ class TelegramAlerts:
             round(entry_price * 1.25, 1)   # 25%
         ]
         
-        message = f"""
- <b>TRADING ALERT</b> 
+        # Enhanced message for channel
+        message = f"""🚀 <b>TRADE ALERT</b>
 
-<b>{symbol} {strike} {option_type}</b>
+📊 <b>{symbol} {strike} {option_type}</b>
 
- <b>Buy it</b>
- <b>Entry:</b> {entry_price}
+💰 <b>BUY NOW</b>
+🎯 <b>Entry:</b> ₹{entry_price}
 
- <b>Target</b> 
-{targets[0]}
-{targets[1]} 
-{targets[2]}
-{targets[3]}
-{targets[4]}
+🎆 <b>TARGETS:</b>
+T1: ₹{targets[0]} (5%)
+T2: ₹{targets[1]} (10%)
+T3: ₹{targets[2]} (15%)
+T4: ₹{targets[3]} (20%)
+T5: ₹{targets[4]} (25%)
 
- <b>Stoploss:</b> {stoploss}
+🛑 <b>Stoploss:</b> ₹{stoploss}
 
-{' <b>Reason:</b> ' + reason if reason else ''}
+{'🤖 <b>AI Analysis:</b> ' + reason if reason else ''}
 ⏰ <b>Time:</b> {datetime.now().strftime('%H:%M:%S')}
-"""
+
+📲 <b>Join:</b> @DATradingSignals
+⚠️ <i>For educational purposes only</i>"""
         return message
     
     def _format_detailed_alert(self, signal):
@@ -118,17 +120,35 @@ class TelegramAlerts:
     
     def _send_telegram_message(self, message):
         """
-        Send message to verified subscribers only
+        Send message to channel and verified subscribers
         """
         url = f"https://api.telegram.org/bot{self.bot_token}/sendMessage"
+        success_count = 0
         
         try:
-            # Get active subscribers
+            # 1. Send to public channel first
+            channel_payload = {
+                'chat_id': '@DATradingSignals',
+                'text': message,
+                'parse_mode': 'HTML',
+                'disable_web_page_preview': True
+            }
+            
+            try:
+                response = requests.post(url, json=channel_payload)
+                if response.status_code == 200:
+                    success_count += 1
+                    logger.info("✅ Alert sent to public channel!")
+                else:
+                    logger.warning(f"Channel send failed: {response.status_code}")
+            except Exception as e:
+                logger.error(f"Channel send error: {e}")
+            
+            # 2. Send to verified subscribers
             try:
                 with open('data/subscribers.json') as f:
                     users = json.load(f)
                 
-                active_count = 0
                 for chat_id, info in users.items():
                     if info['status'] == 'active':
                         payload = {
@@ -139,16 +159,16 @@ class TelegramAlerts:
                         }
                         try:
                             response = requests.post(url, json=payload)
-                            response.raise_for_status()
-                            active_count += 1
+                            if response.status_code == 200:
+                                success_count += 1
                         except Exception as e:
                             logger.error(f"Failed to send to {chat_id}: {e}")
-                
-                logger.info(f"✅ Alert sent to {active_count} verified subscribers!")
-                return True
-                
+                            
             except FileNotFoundError:
-                # Fallback to main chat if no subscribers
+                logger.info("No subscribers file found")
+            
+            # 3. Fallback to admin chat
+            if success_count == 0:
                 payload = {
                     'chat_id': self.chat_id,
                     'text': message,
@@ -156,9 +176,12 @@ class TelegramAlerts:
                     'disable_web_page_preview': True
                 }
                 response = requests.post(url, json=payload)
-                response.raise_for_status()
-                logger.info("✅ Alert sent to main chat (no subscribers file)!")
-                return True
+                if response.status_code == 200:
+                    success_count += 1
+                    logger.info("✅ Alert sent to admin chat (fallback)")
+            
+            logger.info(f"✅ Alert sent to {success_count} destinations!")
+            return success_count > 0
                 
         except Exception as e:
             logger.error(f"❌ Failed to send Telegram alert: {e}")

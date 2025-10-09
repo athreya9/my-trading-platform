@@ -1,0 +1,22 @@
+INFO:__main__:🤖 AUTO MARKET SYSTEM STARTED
+INFO:__main__:Admin notified: 🤖 <b>AUTO SYSTEM STARTED</b>
+
+⏰ <b>Current Time:</b> 10:23:08 IST
+📊 <b>Market Status:</b> OPEN
+🔄 <b>Next Market Open:</b> 10 Oct 2025, 09:15
+
+✅ System will auto-start/stop with market hours
+🚀 No manual intervention needed
+INFO:__main__:📈 Market opened - starting trading system
+2025-10-09 10:23:11,211 - INFO - 🚀 STABLE TRADING SYSTEM STARTED
+INFO:__main__:Admin notified: 🚀 <b>MARKET OPENED</b>
+
+⏰ <b>Time:</b> 10:23:11 IST
+📊 <b>Status:</b> Trading system started
+🤖 <b>Signals:</b> Every 10 minutes
+📱 <b>Channel:</b> @DATradingSignals
+
+✅ System will auto-stop at 3:30 PM
+INFO:__main__:✅ Trading system started for market hours
+2025-10-09 10:23:12,052 - INFO - ✅ Notification sent to admin
+2025-10-09 10:23:12,053 - INFO - Market closed - waiting

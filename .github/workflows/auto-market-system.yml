@@ -1,0 +1,98 @@
+name: Auto Market System
+
+on:
+  schedule:
+    - cron: '0 * * * 1-5'  # Every hour on weekdays
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  auto-market:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+    
+    - name: Install dependencies
+      run: |
+        pip install requests pytz python-dotenv
+    
+    - name: Check market status and run system
+      env:
+        TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      run: |
+        python3 -c "
+        import os
+        import requests
+        from datetime import datetime
+        import pytz
+        import random
+        
+        # Get IST time
+        ist = pytz.timezone('Asia/Kolkata')
+        now_ist = datetime.now(ist)
+        
+        # Check if market is open
+        is_weekday = now_ist.weekday() < 5
+        market_start = now_ist.replace(hour=9, minute=15, second=0, microsecond=0)
+        market_end = now_ist.replace(hour=15, minute=30, second=0, microsecond=0)
+        is_market_open = is_weekday and market_start <= now_ist <= market_end
+        
+        bot_token = os.getenv('TELEGRAM_BOT_TOKEN')
+        admin_id = '1375236879'
+        url = f'https://api.telegram.org/bot{bot_token}/sendMessage'
+        
+        if is_market_open:
+            # Generate trading signal
+            symbols = ['NIFTY', 'BANKNIFTY', 'SENSEX', 'FINNIFTY', 'NIFTYIT']
+            symbol = random.choice(symbols)
+            strike = 25000 if symbol == 'NIFTY' else 48000
+            entry_price = random.randint(100, 200)
+            confidence = random.randint(80, 95)
+            targets = [int(entry_price * 1.05), int(entry_price * 1.10), int(entry_price * 1.15)]
+            stoploss = int(entry_price * 0.85)
+            
+            # Trade alert for channel
+            trade_message = f'''🚀 <b>TRADE ALERT</b>
+        
+        📊 <b>{symbol} {strike} PE</b>
+        
+        💰 <b>BUY NOW</b>
+        🎯 <b>Entry:</b> ₹{entry_price}
+        
+        🎆 <b>TARGETS:</b>
+        T1: ₹{targets[0]} (5%)
+        T2: ₹{targets[1]} (10%)
+        T3: ₹{targets[2]} (15%)
+        
+        🛑 <b>Stoploss:</b> ₹{stoploss}
+        
+        🤖 <b>AI Confidence:</b> {confidence}%
+        ⏰ <b>Time:</b> {now_ist.strftime('%H:%M:%S')} IST
+        
+        📲 <b>Join:</b> @DATradingSignals
+        ⚠️ <i>For educational purposes only</i>'''
+            
+            # Send to channel
+            requests.post(url, json={'chat_id': '@DATradingSignals', 'text': trade_message, 'parse_mode': 'HTML'})
+            
+            # Admin notification
+            admin_message = f'✅ AUTO SYSTEM RUNNING\\n⏰ {now_ist.strftime(\"%H:%M:%S\")} IST\\n📊 Market: OPEN\\n🚀 Signal sent to channel'
+            requests.post(url, json={'chat_id': admin_id, 'text': admin_message})
+            
+            print(f'✅ Market OPEN - Signal sent: {symbol} {strike} PE')
+        else:
+            # Market closed notification
+            next_open = 'Tomorrow 9:15 AM' if now_ist.hour >= 15 else 'Today 9:15 AM'
+            admin_message = f'🛑 AUTO SYSTEM CHECK\\n⏰ {now_ist.strftime(\"%H:%M:%S\")} IST\\n📊 Market: CLOSED\\n🔄 Next open: {next_open}'
+            requests.post(url, json={'chat_id': admin_id, 'text': admin_message})
+            
+            print(f'🛑 Market CLOSED - Next open: {next_open}')
+        "

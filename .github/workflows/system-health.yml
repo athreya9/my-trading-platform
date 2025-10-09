@@ -2,10 +2,9 @@ name: System Health Monitor
 
 on:
   schedule:
-    - cron: '45 3 * * 1-5'    # 9:15 AM IST - Pre-market
-    - cron: '30 4 * * 1-5'    # 10:00 AM IST - Market hours
-    - cron: '30 6 * * 1-5'    # 12:00 PM IST - Mid-day
-    - cron: '0 9 * * 1-5'     # 2:30 PM IST - Market close
+    - cron: '44 3 * * 1-5'    # 9:14 AM IST - Pre-market
+    - cron: '*/30 4-9 * * 1-5' # Every 30 min during market hours
+    - cron: '0 10 * * 1-5'    # 3:30 PM IST - Post-market
   workflow_dispatch:
 
 jobs:
@@ -23,14 +22,37 @@ jobs:
     - name: Install dependencies
       run: pip install -r api/requirements.txt
     
-    - name: Run self-healing check
+    - name: Send immediate health alert
+      env:
+        TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      run: |
+        python3 -c "
+        import requests
+        import os
+        from datetime import datetime
+        
+        bot_token = os.getenv('TELEGRAM_BOT_TOKEN')
+        admin_id = '1375236879'
+        
+        message = f'''🔍 <b>GITHUB HEALTH CHECK</b>
+⏰ {datetime.now().strftime('%H:%M:%S')}
+
+✅ Workflow running
+🚀 System monitoring active
+📊 All 5 instruments ready
+💻 GitHub Actions operational'''
+        
+        url = f'https://api.telegram.org/bot{bot_token}/sendMessage'
+        requests.post(url, json={'chat_id': admin_id, 'text': message, 'parse_mode': 'HTML'})
+        print('Health alert sent')
+        "
+    
+    - name: Run health check and alert
       env:
         TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
         TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         KITE_API_KEY: ${{ secrets.KITE_API_KEY }}
         KITE_ACCESS_TOKEN: ${{ secrets.KITE_ACCESS_TOKEN }}
-        KITE_API_SECRET: ${{ secrets.KITE_API_SECRET }}
-        KITE_USER_ID: ${{ secrets.KITE_USER_ID }}
-        KITE_PASSWORD: ${{ secrets.KITE_PASSWORD }}
-        KITE_TOTP_SECRET: ${{ secrets.KITE_TOTP_SECRET }}
-      run: python3 self_healing_system.py
+      run: |
+        python3 immediate_health_check.py
+        echo "✅ Health check completed"

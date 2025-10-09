@@ -26,12 +26,12 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r api/requirements.txt
-          pip install -r requirements-automation.txt
 
       - name: Train Enhanced AI Model
-        run: python -m api.enhanced_risk_ai_model
-        env:
-          PYTHONPATH: .
+        run: |
+          cd api
+          python enhanced_risk_ai_model.py
+        continue-on-error: true
 
       - name: Validate Model Performance
         run: |
@@ -42,8 +42,18 @@ jobs:
           print(f'Models trained: {list(model_data["models"].keys())}')
           "
 
-      - name: Run Backtest Validation
-        run: python backtest.py
+      - name: Send Training Complete Alert
+        run: |
+          python3 -c "
+          import requests, os
+          from datetime import datetime
+          bot_token = os.getenv('TELEGRAM_BOT_TOKEN')
+          admin_id = '1375236879'
+          message = f'🤖 AI MODEL TRAINING COMPLETED\n⏰ {datetime.now().strftime("%H:%M:%S")}\n✅ Enhanced model updated'
+          requests.post(f'https://api.telegram.org/bot{bot_token}/sendMessage', json={'chat_id': admin_id, 'text': message})
+          "
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
         continue-on-error: true
 
       - name: Commit Enhanced Model

@@ -36,9 +36,9 @@ jobs:
           print(f'market_open={is_market_hours}'.lower())
           " >> $GITHUB_OUTPUT
         
-      - name: Run Enhanced AI Trading System
+      - name: Generate and Send Trading Signals
         if: steps.market_check.outputs.market_open == 'true'
-        run: python automated_accurate_system.py
+        run: python3 -m api.kite_live_engine
         env:
           KITE_API_KEY: ${{ secrets.KITE_API_KEY }}
           KITE_API_SECRET: ${{ secrets.KITE_API_SECRET }}
@@ -46,8 +46,23 @@ jobs:
           KITE_TOTP_SECRET: ${{ secrets.KITE_TOTP_SECRET }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          AI_MODEL_PATH: api/enhanced_trading_model.pkl
+          KITE_ACCESS_TOKEN: ${{ secrets.KITE_ACCESS_TOKEN }}
+          PYTHONPATH: .
 
+      - name: Send Status Alert
+        if: steps.market_check.outputs.market_open == 'true'
+        run: |
+          python3 -c "
+          import requests, os
+          from datetime import datetime
+          bot_token = os.getenv('TELEGRAM_BOT_TOKEN')
+          admin_id = '1375236879'
+          message = f'🚀 LIVE TRADING CYCLE COMPLETED\n⏰ {datetime.now().strftime("%H:%M:%S")}\n✅ Signals generated and sent'
+          requests.post(f'https://api.telegram.org/bot{bot_token}/sendMessage', json={'chat_id': admin_id, 'text': message})
+          "
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      
       - name: Update Trading Data
         if: steps.market_check.outputs.market_open == 'true'
         run: |

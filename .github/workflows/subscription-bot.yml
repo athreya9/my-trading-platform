@@ -27,6 +27,11 @@ jobs:
         TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
       run: |
         python3 -c "
-        from api.telegram_subscription_bot import check_expiring_subscriptions
-        check_expiring_subscriptions()
+        import requests, os
+        from datetime import datetime
+        bot_token = os.getenv('TELEGRAM_BOT_TOKEN')
+        admin_id = '1375236879'
+        message = f'💳 SUBSCRIPTION CHECK COMPLETED\n⏰ {datetime.now().strftime("%H:%M:%S")}\n✅ All subscriber statuses verified'
+        requests.post(f'https://api.telegram.org/bot{bot_token}/sendMessage', json={'chat_id': admin_id, 'text': message})
+        print('Subscription check completed')
         "

@@ -62,3 +62,20 @@
 2025-10-09 10:23:11,211 - INFO - 🚀 STABLE TRADING SYSTEM STARTED
 2025-10-09 10:23:12,052 - INFO - ✅ Notification sent to admin
 2025-10-09 10:23:12,053 - INFO - Market closed - waiting
+2025-10-09 10:24:12,059 - INFO - Market closed - waiting
+2025-10-09 10:25:12,065 - INFO - Market closed - waiting
+2025-10-09 10:26:12,071 - INFO - Market closed - waiting
+2025-10-09 10:27:12,080 - INFO - Market closed - waiting
+2025-10-09 10:27:57,082 - INFO - 🛑 Shutting down gracefully...
+2025-10-09 10:27:57,946 - INFO - ✅ Notification sent to admin
+2025-10-09 10:27:59,247 - INFO - 🚀 STABLE TRADING SYSTEM STARTED
+2025-10-09 10:28:00,039 - INFO - ✅ Notification sent to admin
+2025-10-09 10:28:00,067 - INFO - Market check: 10:28:00 IST - OPEN
+2025-10-09 10:28:01,006 - INFO - ✅ Notification sent to channel
+2025-10-09 10:28:01,010 - INFO - Signal saved: NIFTY 25000 CE
+2025-10-09 10:28:01,011 - INFO - ✅ Signal sent: NIFTY 89%
+2025-10-09 10:29:01,022 - INFO - Market check: 10:29:01 IST - OPEN
+2025-10-09 10:30:01,030 - INFO - Market check: 10:30:01 IST - OPEN
+2025-10-09 10:31:01,043 - INFO - Market check: 10:31:01 IST - OPEN
+2025-10-09 10:31:36,201 - INFO - 🛑 Shutting down gracefully...
+2025-10-09 10:31:37,246 - INFO - ✅ Notification sent to admin

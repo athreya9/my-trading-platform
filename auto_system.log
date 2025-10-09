@@ -20,3 +20,9 @@ INFO:__main__:Admin notified: 🚀 <b>MARKET OPENED</b>
 INFO:__main__:✅ Trading system started for market hours
 2025-10-09 10:23:12,052 - INFO - ✅ Notification sent to admin
 2025-10-09 10:23:12,053 - INFO - Market closed - waiting
+2025-10-09 10:24:12,059 - INFO - Market closed - waiting
+2025-10-09 10:25:12,065 - INFO - Market closed - waiting
+2025-10-09 10:26:12,071 - INFO - Market closed - waiting
+2025-10-09 10:27:12,080 - INFO - Market closed - waiting
+2025-10-09 10:27:57,082 - INFO - 🛑 Shutting down gracefully...
+2025-10-09 10:27:57,946 - INFO - ✅ Notification sent to admin

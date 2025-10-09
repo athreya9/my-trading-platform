@@ -331,3 +331,31 @@ ERROR:api.kite_live_engine:Error getting price for NSE:NIFTY FIN SERVICE: Incorr
 INFO:api.kite_live_engine:No price data for FINNIFTY
 INFO:api.kite_live_engine:No Kite signals generated
 INFO:__main__:⚪ No tradeable signal (waiting for momentum)
+INFO:__main__:🔴 AUTOMATED CYCLE - Checking for tradeable signals...
+INFO:api.kite_live_engine:Existing token expired, generating new one...
+ERROR:api.kite_totp_login:❌ TOTP login failed
+ERROR:api.kite_live_engine:Failed to generate fresh token
+ERROR:api.kite_live_engine:Error getting price for NSE:NIFTY 50: Incorrect `api_key` or `access_token`.
+INFO:api.kite_live_engine:No price data for NIFTY
+ERROR:api.kite_live_engine:Error getting price for NSE:NIFTY BANK: Incorrect `api_key` or `access_token`.
+INFO:api.kite_live_engine:No price data for BANKNIFTY
+ERROR:api.kite_live_engine:Error getting price for BSE:SENSEX: Incorrect `api_key` or `access_token`.
+INFO:api.kite_live_engine:No price data for SENSEX
+ERROR:api.kite_live_engine:Error getting price for NSE:NIFTY FIN SERVICE: Incorrect `api_key` or `access_token`.
+INFO:api.kite_live_engine:No price data for FINNIFTY
+INFO:api.kite_live_engine:No Kite signals generated
+INFO:__main__:⚪ No tradeable signal (waiting for momentum)
+INFO:__main__:🔴 AUTOMATED CYCLE - Checking for tradeable signals...
+INFO:api.kite_live_engine:Existing token expired, generating new one...
+ERROR:api.kite_totp_login:❌ TOTP login failed
+ERROR:api.kite_live_engine:Failed to generate fresh token
+ERROR:api.kite_live_engine:Error getting price for NSE:NIFTY 50: Incorrect `api_key` or `access_token`.
+INFO:api.kite_live_engine:No price data for NIFTY
+ERROR:api.kite_live_engine:Error getting price for NSE:NIFTY BANK: Incorrect `api_key` or `access_token`.
+INFO:api.kite_live_engine:No price data for BANKNIFTY
+ERROR:api.kite_live_engine:Error getting price for BSE:SENSEX: Incorrect `api_key` or `access_token`.
+INFO:api.kite_live_engine:No price data for SENSEX
+ERROR:api.kite_live_engine:Error getting price for NSE:NIFTY FIN SERVICE: Incorrect `api_key` or `access_token`.
+INFO:api.kite_live_engine:No price data for FINNIFTY
+INFO:api.kite_live_engine:No Kite signals generated
+INFO:__main__:⚪ No tradeable signal (waiting for momentum)

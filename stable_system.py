@@ -55,9 +55,9 @@ class StableTradingSystem:
     def is_market_open(self):
         """Check if market is open (9:15 AM - 3:30 PM IST, Mon-Fri)"""
         try:
-            now = datetime.now()
-            # Convert to IST (UTC+5:30)
-            ist_time = now + timedelta(hours=5, minutes=30)
+            import pytz
+            ist = pytz.timezone('Asia/Kolkata')
+            ist_time = datetime.now(ist)
             
             # Check weekday (0=Monday, 6=Sunday)
             if ist_time.weekday() >= 5:
@@ -67,7 +67,9 @@ class StableTradingSystem:
             market_start = ist_time.replace(hour=9, minute=15, second=0, microsecond=0)
             market_end = ist_time.replace(hour=15, minute=30, second=0, microsecond=0)
             
-            return market_start <= ist_time <= market_end
+            is_open = market_start <= ist_time <= market_end
+            logger.info(f"Market check: {ist_time.strftime('%H:%M:%S')} IST - {'OPEN' if is_open else 'CLOSED'}")
+            return is_open
         except Exception as e:
             logger.error(f"Market check error: {e}")
             return False

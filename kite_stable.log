@@ -98,19 +98,53 @@ INFO:__main__:✅ LIVE Signal: SENSEX 78% - Spot: ₹82036.03 (+0.32%)
 INFO:__main__:✅ LIVE Signal: NIFTYIT 84% - Spot: ₹35532.85 (+0.85%)
 INFO:__main__:✅ LIVE Signal: MIDCPNIFTY 83% - Spot: ₹13016.45 (+0.82%)
 INFO:__main__:✅ LIVE Signal: BANKEX 78% - Spot: ₹63213.83 (+0.26%)
-main__:📊 BANKNIFTY: ₹56149.5 (+0.23%) - Momentum: 0.23%
-INFO:__main__:📊 SENSEX: ₹82036.45 (+0.32%) - Momentum: 0.32%
-INFO:__main__:📊 FINNIFTY: ₹26697.95 (+0.16%) - Momentum: 0.16%
-INFO:__main__:📊 NIFTYIT: ₹35532.85 (+0.85%) - Momentum: 0.85%
-INFO:__main__:📊 MIDCPNIFTY: ₹13016.45 (+0.82%) - Momentum: 0.82%
-INFO:__main__:📊 BANKEX: ₹63213.83 (+0.26%) - Momentum: 0.26%
-INFO:__main__:✅ LIVE Signal: NIFTY 79% - Spot: ₹25145.9 (+0.40%)
-INFO:__main__:✅ LIVE Signal: SENSEX 78% - Spot: ₹82036.45 (+0.32%)
-INFO:__main__:✅ LIVE Signal: NIFTYIT 84% - Spot: ₹35532.85 (+0.85%)
-INFO:__main__:✅ LIVE Signal: MIDCPNIFTY 83% - Spot: ₹13016.45 (+0.82%)
-INFO:__main__:✅ LIVE Signal: BANKEX 78% - Spot: ₹63213.83 (+0.26%)
-✅ LIVE Signal: NIFTY 79% - Spot: ₹25145.9 (+0.40%)
-INFO:__main__:✅ LIVE Signal: SENSEX 78% - Spot: ₹82036.45 (+0.32%)
-INFO:__main__:✅ LIVE Signal: NIFTYIT 84% - Spot: ₹35532.85 (+0.85%)
-INFO:__main__:✅ LIVE Signal: MIDCPNIFTY 83% - Spot: ₹13016.45 (+0.82%)
-INFO:__main__:✅ LIVE Signal: BANKEX 78% - Spot: ₹63213.83 (+0.26%)
+INFO:__main__:📊 NIFTY: ₹25152 (+0.42%) - Momentum: 0.42%
+INFO:__main__:📊 BANKNIFTY: ₹56180 (+0.29%) - Momentum: 0.29%
+INFO:__main__:📊 SENSEX: ₹82078.2 (+0.37%) - Momentum: 0.37%
+INFO:__main__:📊 FINNIFTY: ₹26714.65 (+0.22%) - Momentum: 0.22%
+INFO:__main__:📊 NIFTYIT: ₹35591.7 (+1.02%) - Momentum: 1.02%
+ERROR:__main__:Kite data error for NSE:NIFTY MID SELECT: Too many requests
+INFO:__main__:📊 BANKEX: ₹63260.46 (+0.33%) - Momentum: 0.33%
+INFO:__main__:✅ LIVE Signal: NIFTY 79% - Spot: ₹25152 (+0.42%)
+INFO:__main__:✅ LIVE Signal: BANKNIFTY 78% - Spot: ₹56180 (+0.29%)
+INFO:__main__:✅ LIVE Signal: SENSEX 79% - Spot: ₹82078.2 (+0.37%)
+INFO:__main__:✅ LIVE Signal: NIFTYIT 85% - Spot: ₹35591.7 (+1.02%)
+INFO:__main__:📊 NIFTY: ₹25162.15 (+0.46%) - Momentum: 0.46%
+INFO:__main__:📊 BANKNIFTY: ₹56175.5 (+0.28%) - Momentum: 0.28%
+INFO:__main__:📊 SENSEX: ₹82088.89 (+0.39%) - Momentum: 0.39%
+INFO:__main__:📊 FINNIFTY: ₹26713.6 (+0.21%) - Momentum: 0.21%
+INFO:__main__:📊 NIFTYIT: ₹35612.2 (+1.08%) - Momentum: 1.08%
+INFO:__main__:📊 MIDCPNIFTY: ₹13020.8 (+0.85%) - Momentum: 0.85%
+INFO:__main__:📊 BANKEX: ₹63240.42 (+0.30%) - Momentum: 0.30%
+INFO:__main__:✅ LIVE Signal: NIFTY 80% - Spot: ₹25162.15 (+0.46%)
+INFO:__main__:✅ LIVE Signal: BANKNIFTY 78% - Spot: ₹56175.5 (+0.28%)
+INFO:__main__:✅ LIVE Signal: SENSEX 79% - Spot: ₹82088.89 (+0.39%)
+INFO:__main__:✅ LIVE Signal: NIFTYIT 86% - Spot: ₹35612.2 (+1.08%)
+INFO:__main__:✅ LIVE Signal: MIDCPNIFTY 84% - Spot: ₹13020.8 (+0.85%)
+INFO:__main__:✅ LIVE Signal: BANKEX 78% - Spot: ₹63240.42 (+0.30%)
+INFO:__main__:📊 NIFTY: ₹25183.05 (+0.55%) - Momentum: 0.55%
+INFO:__main__:📊 BANKNIFTY: ₹56189.85 (+0.31%) - Momentum: 0.31%
+INFO:__main__:📊 SENSEX: ₹82166.05 (+0.48%) - Momentum: 0.48%
+INFO:__main__:📊 FINNIFTY: ₹26723.4 (+0.25%) - Momentum: 0.25%
+INFO:__main__:📊 NIFTYIT: ₹35627.95 (+1.12%) - Momentum: 1.12%
+INFO:__main__:📊 MIDCPNIFTY: ₹13033.6 (+0.95%) - Momentum: 0.95%
+INFO:__main__:📊 BANKEX: ₹63238.66 (+0.30%) - Momentum: 0.30%
+INFO:__main__:📊 Checked 6 instruments - No qualifying signals (need >70% confidence)
+INFO:__main__:🛑 Kite trading stopped
+��13020.6 (+0.85%)
+INFO:__main__:📊 NIFTY: ₹25184.05 (+0.55%) - Momentum: 0.55%
+INFO:__main__:📊 BANKNIFTY: ₹56193.9 (+0.31%) - Momentum: 0.31%
+INFO:__main__:📊 SENSEX: ₹82179.69 (+0.50%) - Momentum: 0.50%
+INFO:__main__:📊 FINNIFTY: ₹26725.1 (+0.26%) - Momentum: 0.26%
+INFO:__main__:📊 NIFTYIT: ₹35629.8 (+1.13%) - Momentum: 1.13%
+INFO:__main__:📊 MIDCPNIFTY: ₹13033.55 (+0.95%) - Momentum: 0.95%
+INFO:__main__:📊 BANKEX: ₹63260.36 (+0.33%) - Momentum: 0.33%
+INFO:__main__:✅ LIVEINFO:__main__:📊 NIFTY: ₹25183.05 (+0.55%) - Momentum: 0.55%
+INFO:__main__:📊 BANKNIFTY: ₹56189.85 (+0.31%) - MomINFO:__main__:✅ LIVE Signal: SENSEX 80% - Spot: ₹82179.69 (+0.50%)
+INFO:__main__:🛑 Kite trading stopped
+26722.7 (+0.25%) - Momentum: 0.25%
+INFO:__main__:📊 NIFTYIT: ₹35627.95 (+1.12%) - Momentum: 1.12%
+INFO:__main__:📊 MIDCPNIFTY: ₹13033.6 (+0.95%) - Momentum: 0.95%
+INFO:__main__:📊 BANKEX: ₹63238.66 (+0.30%) - Momentum: 0.30%
+INFO:__main__:📊 Checked 6 instruments - No qualifying signals (need >70% confidence)
+INFO:__main__:🛑 Kite trading stopped

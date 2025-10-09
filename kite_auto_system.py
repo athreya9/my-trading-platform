@@ -12,6 +12,7 @@ from datetime import datetime, timedelta
 import pytz
 from kiteconnect import KiteConnect
 import pyotp
+from guardrails import validate_before_dispatch
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -266,11 +267,14 @@ T3: ₹{targets[2]} (15%)
             signals = self.generate_signals()
             alerts_sent = 0
             
-            # GATING: Strict criteria for KITE-only signals
+            # FINAL GUARDRAILS: Automated validation
             for signal in signals:
-                if (signal['confidence'] >= 85 and 
-                    self.is_market_open()):
-                    
+                signal['source'] = 'KITE'  # Ensure KITE source
+                
+                # Apply final guardrails
+                is_valid, errors = validate_before_dispatch(signal)
+                
+                if is_valid:
                     # Log signal before sending
                     signal_id = self.log_signal(signal)
                     
@@ -285,15 +289,11 @@ T3: ₹{targets[2]} (15%)
                         
                         time.sleep(3)  # Delay between multiple alerts
                 else:
-                    # Log rejected signals for analysis
-                    reject_reason = []
-                    if signal['confidence'] < 85: reject_reason.append(f"Low confidence: {signal['confidence']:.0f}%")
-                    if not self.is_market_open(): reject_reason.append("Market closed")
-                    
-                    logger.info(f"❌ Signal rejected: {signal['symbol']} - {', '.join(reject_reason)}")
+                    # Log rejected signals with guardrail errors
+                    logger.info(f"❌ Signal rejected: {signal['symbol']} - {', '.join(errors)}")
                     
                     # Notify admin of rejected signals
-                    reject_msg = f"⚠️ Ignored Signal:\nSymbol: {signal['symbol']}\nConfidence: {signal['confidence']:.0f}%\nSource: KITE\nReason: {', '.join(reject_reason)}"
+                    reject_msg = f"⚠️ Guardrails Rejected:\nSymbol: {signal['symbol']}\nConfidence: {signal['confidence']:.0f}%\nSource: KITE\nErrors: {', '.join(errors)}"
                     self.send_alert(reject_msg, target="admin")
             
             # Always update last signal time if we checked

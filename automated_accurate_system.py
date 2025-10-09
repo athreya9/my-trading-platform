@@ -50,6 +50,15 @@ def start_subscription_bot():
     except Exception as e:
         logger.error(f"❌ Failed to start subscription bot: {e}")
 
+def start_auto_trader():
+    """Start auto-trading engine in background"""
+    try:
+        subprocess.Popen([sys.executable, "auto_trading_engine.py"], 
+                        cwd=os.getcwd())
+        logger.info("✅ Auto-trader started (PAPER MODE)")
+    except Exception as e:
+        logger.error(f"❌ Failed to start auto-trader: {e}")
+
 def run_self_healing_check():
     """Run self-healing system check with auto-fix"""
     try:
@@ -75,6 +84,7 @@ def start_automated_system():
     logger.info("🎯 TOTP auto-login + high-confidence signals")
     logger.info("📱 Automatic Telegram alerts")
     logger.info("💳 Subscription bot active")
+    logger.info("📝 Auto-trader active (PAPER MODE)")
     logger.info("⏰ Every 10 minutes during market hours")
     logger.info("🔄 Fully automated - no manual intervention")
     
@@ -83,6 +93,9 @@ def start_automated_system():
     
     # Start subscription bot
     start_subscription_bot()
+    
+    # Start auto-trader (PAPER MODE)
+    start_auto_trader()
     
     # Schedule trading every 10 minutes
     schedule.every(10).minutes.do(automated_trading_cycle)

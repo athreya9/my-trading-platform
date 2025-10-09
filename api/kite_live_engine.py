@@ -232,6 +232,29 @@ class KiteLiveEngine:
                 )
                 if success:
                     alerts_sent += 1
+                
+                # Auto-trading integration (PAPER MODE ONLY)
+                try:
+                    from auto_trading_engine import auto_trader
+                    
+                    # Prepare signal for auto-trader
+                    auto_signal = {
+                        'symbol': signal['symbol'],
+                        'strike': signal['strike'],
+                        'option_type': signal['option_type'],
+                        'entry_price': signal['entry_price'],
+                        'quantity': 1,  # Start with 1 lot
+                        'confidence': signal['confidence'],
+                        'reason': signal['reason']
+                    }
+                    
+                    # Process signal for auto-trading
+                    auto_trader.process_signal(auto_signal)
+                    
+                except ImportError:
+                    logger.info("Auto-trader not available")
+                except Exception as e:
+                    logger.error(f"Auto-trading error: {e}")
         
         # Save all signals for frontend (accumulate throughout the day)
         os.makedirs('data', exist_ok=True)
@@ -278,7 +301,7 @@ class KiteLiveEngine:
         with open('api-data/trading-signals.json', 'w') as f:
             json.dump(existing_signals, f, indent=2)
         
-        logger.info(f"Generated {len(signals)} Kite signals, sent {alerts_sent} alerts")
+        logger.info(f"Generated {len(signals)} Kite signals, sent {alerts_sent} alerts, processed for auto-trading")
         return len(signals) > 0
 
 def run_kite_live_system():

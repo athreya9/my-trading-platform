@@ -115,5 +115,81 @@ def start_automated_system():
         schedule.run_pending()
         time.sleep(60)
 
+def setup_auto_start():
+    """Setup system to start automatically"""
+    import platform
+    
+    if platform.system() == "Linux":
+        # Linux: Create systemd service
+        try:
+            service_content = f"""[Unit]
+Description=AI Trading Platform
+After=network.target
+
+[Service]
+Type=simple
+User={os.getenv('USER', 'ubuntu')}
+WorkingDirectory={os.getcwd()}
+ExecStart=/usr/bin/python3 {os.path.join(os.getcwd(), 'automated_accurate_system.py')}
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+"""
+            
+            with open('/tmp/ai-trading.service', 'w') as f:
+                f.write(service_content)
+            
+            os.system('sudo cp /tmp/ai-trading.service /etc/systemd/system/')
+            os.system('sudo systemctl daemon-reload')
+            os.system('sudo systemctl enable ai-trading.service')
+            logger.info("✅ Auto-start configured (systemd)")
+            
+        except Exception as e:
+            logger.warning(f"⚠️ Auto-start setup failed: {e}")
+    
+    elif platform.system() == "Darwin":  # macOS
+        # macOS: Create LaunchAgent
+        try:
+            plist_content = f"""<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.aitrading.platform</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/bin/python3</string>
+        <string>{os.path.join(os.getcwd(), 'automated_accurate_system.py')}</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>{os.getcwd()}</string>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+</dict>
+</plist>
+"""
+            
+            home_dir = os.path.expanduser('~')
+            launch_agents_dir = os.path.join(home_dir, 'Library', 'LaunchAgents')
+            os.makedirs(launch_agents_dir, exist_ok=True)
+            
+            plist_path = os.path.join(launch_agents_dir, 'com.aitrading.platform.plist')
+            with open(plist_path, 'w') as f:
+                f.write(plist_content)
+            
+            os.system(f'launchctl load {plist_path}')
+            logger.info("✅ Auto-start configured (LaunchAgent)")
+            
+        except Exception as e:
+            logger.warning(f"⚠️ Auto-start setup failed: {e}")
+
 if __name__ == "__main__":
+    # Setup auto-start on first run
+    setup_auto_start()
+    
+    # Start the system
     start_automated_system()

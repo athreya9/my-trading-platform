@@ -1,0 +1,41 @@
+name: Auto Deploy & Start System
+
+on:
+  push:
+    branches: [ main ]
+  schedule:
+    - cron: '30 3 * * 1-5'  # 9:00 AM IST daily restart
+  workflow_dispatch:
+
+jobs:
+  deploy-and-start:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+    
+    - name: Install dependencies
+      run: |
+        pip install -r api/requirements.txt
+    
+    - name: Start automated system
+      env:
+        TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        KITE_API_KEY: ${{ secrets.KITE_API_KEY }}
+        KITE_ACCESS_TOKEN: ${{ secrets.KITE_ACCESS_TOKEN }}
+        KITE_API_SECRET: ${{ secrets.KITE_API_SECRET }}
+        KITE_USER_ID: ${{ secrets.KITE_USER_ID }}
+        KITE_PASSWORD: ${{ secrets.KITE_PASSWORD }}
+        KITE_TOTP_SECRET: ${{ secrets.KITE_TOTP_SECRET }}
+      run: |
+        # Start system in background
+        nohup python3 automated_accurate_system.py > system.log 2>&1 &
+        
+        # Keep alive for 8 hours (market hours)
+        sleep 28800

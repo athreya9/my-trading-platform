@@ -1,0 +1,5 @@
+INFO:__main__:🚀 KITE LIVE SYSTEM STARTED
+INFO:__main__:🔄 Refreshing Kite access token...
+INFO:__main__:🔐 Generated TOTP: 169539
+WARNING:__main__:⚠️ Using demo mode - no real Kite connection
+ERROR:__main__:❌ Failed to initialize Kite connection

@@ -32,6 +32,7 @@ class KiteAutoSystem:
         self.token_expiry = None
         self.trading_active = False
         self.last_signal_time = None
+        self.signal_log = []
         
         # All Major Instruments
         self.instruments = {
@@ -265,20 +266,112 @@ T3: ₹{targets[2]} (15%)
             signals = self.generate_signals()
             alerts_sent = 0
             
-            # Send signals for ALL qualifying instruments
+            # GATING: Strict criteria for KITE-only signals
             for signal in signals:
-                if signal['confidence'] >= 70:  # Even lower threshold
+                if (signal['confidence'] >= 85 and 
+                    self.is_market_open()):
+                    
+                    # Log signal before sending
+                    signal_id = self.log_signal(signal)
+                    
                     message = self.format_signal(signal)
                     if self.send_alert(message, target="channel"):
                         alerts_sent += 1
                         logger.info(f"✅ LIVE Signal: {signal['symbol']} {signal['confidence']:.0f}% - Spot: ₹{signal['spot_price']} ({signal['change_pct']:+.2f}%)")
+                        
+                        # Send debug info to admin
+                        debug_msg = f"🔍 Signal Debug:\nID: {signal_id}\nConfidence: {signal['confidence']:.0f}%\nSource: KITE\nVolume: {signal['volume']:,}"
+                        self.send_alert(debug_msg, target="admin")
+                        
                         time.sleep(3)  # Delay between multiple alerts
+                else:
+                    # Log rejected signals for analysis
+                    reject_reason = []
+                    if signal['confidence'] < 85: reject_reason.append(f"Low confidence: {signal['confidence']:.0f}%")
+                    if not self.is_market_open(): reject_reason.append("Market closed")
+                    
+                    logger.info(f"❌ Signal rejected: {signal['symbol']} - {', '.join(reject_reason)}")
+                    
+                    # Notify admin of rejected signals
+                    reject_msg = f"⚠️ Ignored Signal:\nSymbol: {signal['symbol']}\nConfidence: {signal['confidence']:.0f}%\nSource: KITE\nReason: {', '.join(reject_reason)}"
+                    self.send_alert(reject_msg, target="admin")
             
             # Always update last signal time if we checked
             self.last_signal_time = now
             
             if alerts_sent == 0:
-                logger.info(f"📊 Checked {len(signals)} instruments - No qualifying signals (need >70% confidence)")
+                logger.info(f"📊 Checked {len(signals)} instruments - No qualifying signals (need >85% confidence)")
+    
+    def log_signal(self, signal):
+        """Log every signal for outcome tracking"""
+        try:
+            signal_id = f"{signal['symbol']}_{signal['strike']}_{signal['option_type']}_{int(datetime.now().timestamp())}"
+            
+            log_entry = {
+                'signal_id': signal_id,
+                'timestamp': datetime.now().isoformat(),
+                'symbol': signal['symbol'],
+                'strike': signal['strike'],
+                'option_type': signal['option_type'],
+                'entry_price': signal['entry_price'],
+                'spot_price': signal['spot_price'],
+                'confidence': signal['confidence'],
+                'source': 'KITE',
+                'market_open': True,
+                'volume': signal['volume'],
+                'outcome': None,  # To be updated post-trade
+                'outcome_updated_at': None
+            }
+            
+            # Save to file
+            os.makedirs('data', exist_ok=True)
+            log_file = 'data/signal_log.json'
+            
+            try:
+                with open(log_file, 'r') as f:
+                    logs = json.load(f)
+            except (FileNotFoundError, json.JSONDecodeError):
+                logs = []
+            
+            logs.append(log_entry)
+            
+            # Keep only last 1000 signals
+            logs = logs[-1000:]
+            
+            with open(log_file, 'w') as f:
+                json.dump(logs, f, indent=2)
+            
+            logger.info(f"📝 Signal logged: {signal_id}")
+            return signal_id
+            
+        except Exception as e:
+            logger.error(f"Signal logging error: {e}")
+            return None
+    
+    def update_signal_outcome(self, signal_id, outcome):
+        """Update signal outcome after trade closes"""
+        try:
+            log_file = 'data/signal_log.json'
+            
+            with open(log_file, 'r') as f:
+                logs = json.load(f)
+            
+            for log_entry in logs:
+                if log_entry['signal_id'] == signal_id:
+                    log_entry['outcome'] = outcome  # 'hit' or 'miss'
+                    log_entry['outcome_updated_at'] = datetime.now().isoformat()
+                    break
+            
+            with open(log_file, 'w') as f:
+                json.dump(logs, f, indent=2)
+            
+            logger.info(f"📊 Outcome updated: {signal_id} -> {outcome}")
+            
+            # Send outcome to admin
+            self.send_alert(f"📊 Trade Outcome:\nID: {signal_id}\nResult: {outcome.upper()}", target="admin")
+            
+        except Exception as e:
+            logger.error(f"Outcome update error: {e}")
     
     def run_forever(self):
         logger.info("🤖 KITE AUTO SYSTEM STARTED")

@@ -1,0 +1,43 @@
+name: Stable Trading System
+
+on:
+  schedule:
+    - cron: '45 3 * * 1-5'    # 9:15 AM IST - Market open
+    - cron: '0 10 * * 1-5'    # 3:30 PM IST - Market close
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  stable-trading:
+    runs-on: ubuntu-latest
+    timeout-minutes: 480  # 8 hours
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+    
+    - name: Install dependencies
+      run: |
+        pip install requests python-dotenv
+    
+    - name: Run stable system
+      env:
+        TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      run: |
+        python3 stable_system.py &
+        SYSTEM_PID=$!
+        
+        # Keep system running for 8 hours or until market close
+        for i in {1..480}; do
+          if ! kill -0 $SYSTEM_PID 2>/dev/null; then
+            echo "System crashed, restarting..."
+            python3 stable_system.py &
+            SYSTEM_PID=$!
+          fi
+          sleep 60  # Check every minute
+        done

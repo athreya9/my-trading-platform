@@ -118,74 +118,75 @@ T5: ₹{targets[4]} (25%)
 """
         return message
     
-    def _send_telegram_message(self, message):
-        """
-        Send message to channel and verified subscribers
-        """
+    def notify(self, message, target="channel", parse_mode='HTML'):
+        """Send notification with proper target routing"""
         url = f"https://api.telegram.org/bot{self.bot_token}/sendMessage"
-        success_count = 0
         
         try:
-            # 1. Send to public channel first
-            channel_payload = {
-                'chat_id': '@DATradingSignals',
-                'text': message,
-                'parse_mode': 'HTML',
-                'disable_web_page_preview': True
-            }
-            
-            try:
-                response = requests.post(url, json=channel_payload)
-                if response.status_code == 200:
-                    success_count += 1
-                    logger.info("✅ Alert sent to public channel!")
-                else:
-                    logger.warning(f"Channel send failed: {response.status_code}")
-            except Exception as e:
-                logger.error(f"Channel send error: {e}")
-            
-            # 2. Send to verified subscribers
-            try:
-                with open('data/subscribers.json') as f:
-                    users = json.load(f)
-                
-                for chat_id, info in users.items():
-                    if info['status'] == 'active':
-                        payload = {
-                            'chat_id': chat_id,
-                            'text': message,
-                            'parse_mode': 'HTML',
-                            'disable_web_page_preview': True
-                        }
-                        try:
-                            response = requests.post(url, json=payload)
-                            if response.status_code == 200:
-                                success_count += 1
-                        except Exception as e:
-                            logger.error(f"Failed to send to {chat_id}: {e}")
-                            
-            except FileNotFoundError:
-                logger.info("No subscribers file found")
-            
-            # 3. Fallback to admin chat
-            if success_count == 0:
+            if target == "channel":
+                # Send to public channel only (for trade alerts)
                 payload = {
-                    'chat_id': self.chat_id,
+                    'chat_id': '@DATradingSignals',
                     'text': message,
-                    'parse_mode': 'HTML',
+                    'parse_mode': parse_mode,
                     'disable_web_page_preview': True
                 }
                 response = requests.post(url, json=payload)
                 if response.status_code == 200:
-                    success_count += 1
-                    logger.info("✅ Alert sent to admin chat (fallback)")
+                    logger.info("✅ Trade alert sent to channel!")
+                    return True
+                    
+            elif target == "admin":
+                # Send to admin only (for system messages)
+                payload = {
+                    'chat_id': self.chat_id,
+                    'text': message,
+                    'parse_mode': parse_mode,
+                    'disable_web_page_preview': True
+                }
+                response = requests.post(url, json=payload)
+                if response.status_code == 200:
+                    logger.info("✅ Admin notification sent!")
+                    return True
+                    
+            elif target == "subscribers":
+                # Send to verified subscribers only
+                success_count = 0
+                try:
+                    with open('data/subscribers.json') as f:
+                        users = json.load(f)
+                    
+                    for chat_id, info in users.items():
+                        if info['status'] == 'active':
+                            payload = {
+                                'chat_id': chat_id,
+                                'text': message,
+                                'parse_mode': parse_mode,
+                                'disable_web_page_preview': True
+                            }
+                            try:
+                                response = requests.post(url, json=payload)
+                                if response.status_code == 200:
+                                    success_count += 1
+                            except Exception as e:
+                                logger.error(f"Failed to send to {chat_id}: {e}")
+                    
+                    logger.info(f"✅ Message sent to {success_count} subscribers!")
+                    return success_count > 0
+                    
+                except FileNotFoundError:
+                    logger.info("No subscribers file found")
+                    return False
             
-            logger.info(f"✅ Alert sent to {success_count} destinations!")
-            return success_count > 0
+            return False
                 
         except Exception as e:
-            logger.error(f"❌ Failed to send Telegram alert: {e}")
+            logger.error(f"❌ Failed to send notification: {e}")
             return False
+    
+    def _send_telegram_message(self, message):
+        """Legacy method - routes to channel for trade alerts"""
+        return self.notify(message, target="channel")
 
 # Create global instance
 telegram_bot = TelegramAlerts()
@@ -201,34 +202,24 @@ def send_detailed_signal(signal_data):
 
 # Test function
 def test_telegram_alerts():
-    """Test the Telegram alerts setup"""
+    """Test the Telegram alerts setup with proper routing"""
     print("Testing Telegram alerts...")
     
-    # Test 1: Quick alert (exactly like your example)
+    # Test 1: Trade alert to channel
     success1 = send_quick_alert(
         symbol="NIFTY",
         strike=25250, 
         option_type="PE",
         entry_price=190,
         stoploss=155,
-        reason="Breakout with volume surge"
+        reason="TEST: Breakout with volume surge"
     )
     
-    # Test 2: Detailed alert
-    detailed_signal = {
-        'symbol': 'BANKNIFTY',
-        'strike_price': 48000,
-        'option_type': 'CE', 
-        'entry_price': 85,
-        'stoploss': 65,
-        'confidence': 'High (85%)',
-        'timeframe': '15min',
-        'reason': 'Price action breakout with RSI confirmation'
-    }
-    success2 = send_detailed_signal(detailed_signal)
+    # Test 2: Admin notification
+    telegram_bot.notify("🔧 TEST: System health check completed", target="admin")
     
-    if success1 and success2:
-        print(" All Telegram tests passed! Alerts are working.")
+    if success1:
+        print("✅ All Telegram tests passed! Alerts are working.")
     else:
         print("❌ Some alerts failed. Check your credentials.")
 

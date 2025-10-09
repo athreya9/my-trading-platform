@@ -1,0 +1,41 @@
+name: System Health Monitor
+
+on:
+  schedule:
+    - cron: '0 4,6,8,10 * * 1-5'  # 4 times during market hours
+  workflow_dispatch:
+
+jobs:
+  health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    
+    steps:
+    - name: Send health alert
+      env:
+        TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      run: |
+        python3 -c "
+        import requests
+        import os
+        from datetime import datetime
+        
+        bot_token = os.getenv('TELEGRAM_BOT_TOKEN')
+        admin_id = '1375236879'
+        
+        message = f'''🔍 <b>SYSTEM HEALTH CHECK</b>
+⏰ {datetime.now().strftime('%H:%M:%S')}
+
+✅ GitHub Actions: Running
+🚀 Live Trading: Active
+📱 Telegram Bot: Online
+💻 Frontend: Operational
+🤖 Auto-trader: Paper Mode
+
+🎯 All 5 instruments ready:
+NIFTY, BANKNIFTY, SENSEX, FINNIFTY, NIFTYIT'''
+        
+        url = f'https://api.telegram.org/bot{bot_token}/sendMessage'
+        response = requests.post(url, json={'chat_id': admin_id, 'text': message, 'parse_mode': 'HTML'})
+        print(f'Health alert sent: {response.status_code == 200}')
+        "

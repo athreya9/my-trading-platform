@@ -21,7 +21,8 @@ class KiteLiveEngine:
             'NIFTY': 'NSE:NIFTY 50',
             'BANKNIFTY': 'NSE:NIFTY BANK', 
             'SENSEX': 'BSE:SENSEX',
-            'FINNIFTY': 'NSE:NIFTY FIN SERVICE'
+            'FINNIFTY': 'NSE:NIFTY FIN SERVICE',
+            'NIFTYIT': 'NSE:NIFTY IT'
         }
     
     def _connect_kite(self):
@@ -121,7 +122,13 @@ class KiteLiveEngine:
             logger.error(f"Premium calculation error: {e}")
             # Final fallback - realistic approximation
             distance = abs(spot - strike)
-            base = {'NIFTY': 150, 'BANKNIFTY': 200, 'FINNIFTY': 180, 'SENSEX': 160}.get(instrument_name, 150)
+            base = {
+                'NIFTY': 150, 
+                'BANKNIFTY': 200, 
+                'FINNIFTY': 180, 
+                'SENSEX': 160,
+                'NIFTYIT': 140
+            }.get(instrument_name, 150)
             
             if option_type == "PE" and spot < strike:  # ITM PE
                 return round((strike - spot) + base * 0.4, 2)
@@ -170,6 +177,8 @@ class KiteLiveEngine:
                 # Calculate strike based on instrument
                 if instrument_name in ['SENSEX', 'BANKNIFTY']:
                     atm_strike = round(spot / 100) * 100
+                elif instrument_name == 'NIFTYIT':
+                    atm_strike = round(spot / 25) * 25  # Nifty IT has 25 point strikes
                 else:
                     atm_strike = round(spot / 50) * 50
                 

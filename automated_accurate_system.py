@@ -44,7 +44,7 @@ def automated_trading_cycle():
 def start_subscription_bot():
     """Start subscription bot in background"""
     try:
-        subprocess.Popen([sys.executable, "-m", "api.telegram_subscription_bot"], 
+        subprocess.Popen([sys.executable, "api/simple_bot.py"], 
                         cwd=os.getcwd())
         logger.info("✅ Subscription bot started")
     except Exception as e:

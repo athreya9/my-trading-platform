@@ -1,0 +1,36 @@
+name: System Health Monitor
+
+on:
+  schedule:
+    - cron: '45 3 * * 1-5'    # 9:15 AM IST - Pre-market
+    - cron: '30 4 * * 1-5'    # 10:00 AM IST - Market hours
+    - cron: '30 6 * * 1-5'    # 12:00 PM IST - Mid-day
+    - cron: '0 9 * * 1-5'     # 2:30 PM IST - Market close
+  workflow_dispatch:
+
+jobs:
+  health-check:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+    
+    - name: Install dependencies
+      run: pip install -r api/requirements.txt
+    
+    - name: Run self-healing check
+      env:
+        TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        KITE_API_KEY: ${{ secrets.KITE_API_KEY }}
+        KITE_ACCESS_TOKEN: ${{ secrets.KITE_ACCESS_TOKEN }}
+        KITE_API_SECRET: ${{ secrets.KITE_API_SECRET }}
+        KITE_USER_ID: ${{ secrets.KITE_USER_ID }}
+        KITE_PASSWORD: ${{ secrets.KITE_PASSWORD }}
+        KITE_TOTP_SECRET: ${{ secrets.KITE_TOTP_SECRET }}
+      run: python3 self_healing_system.py

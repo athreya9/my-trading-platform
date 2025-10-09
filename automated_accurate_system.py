@@ -50,18 +50,22 @@ def start_subscription_bot():
     except Exception as e:
         logger.error(f"❌ Failed to start subscription bot: {e}")
 
-def run_pre_market_check():
-    """Run pre-market system check"""
+def run_self_healing_check():
+    """Run self-healing system check with auto-fix"""
     try:
-        import subprocess
-        result = subprocess.run([sys.executable, "pre_market_check.py"], 
-                              capture_output=True, text=True, cwd=os.getcwd())
-        if result.returncode == 0:
-            logger.info("✅ Pre-market check passed")
+        from self_healing_system import SelfHealingSystem
+        healer = SelfHealingSystem()
+        system_healthy = healer.run_comprehensive_health_check()
+        
+        if system_healthy:
+            logger.info("✅ System health check passed - all systems operational")
         else:
-            logger.warning(f"⚠️ Pre-market check issues: {result.stderr}")
+            logger.warning("⚠️ System issues detected - auto-fixes applied, admin notified")
+        
+        return system_healthy
     except Exception as e:
-        logger.error(f"❌ Pre-market check failed: {e}")
+        logger.error(f"❌ Self-healing check failed: {e}")
+        return False
 
 def start_automated_system():
     """Start the fully automated system"""
@@ -74,14 +78,17 @@ def start_automated_system():
     logger.info("⏰ Every 10 minutes during market hours")
     logger.info("🔄 Fully automated - no manual intervention")
     
-    # Run pre-market check
-    run_pre_market_check()
+    # Run self-healing check
+    run_self_healing_check()
     
     # Start subscription bot
     start_subscription_bot()
     
-    # Schedule every 10 minutes for more responsive trading
+    # Schedule trading every 10 minutes
     schedule.every(10).minutes.do(automated_trading_cycle)
+    
+    # Schedule health checks every 2 hours during market
+    schedule.every(2).hours.do(run_self_healing_check)
     
     # Run immediately if market is open
     if is_market_open():

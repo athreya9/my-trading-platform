@@ -50,6 +50,19 @@ def start_subscription_bot():
     except Exception as e:
         logger.error(f"❌ Failed to start subscription bot: {e}")
 
+def run_pre_market_check():
+    """Run pre-market system check"""
+    try:
+        import subprocess
+        result = subprocess.run([sys.executable, "pre_market_check.py"], 
+                              capture_output=True, text=True, cwd=os.getcwd())
+        if result.returncode == 0:
+            logger.info("✅ Pre-market check passed")
+        else:
+            logger.warning(f"⚠️ Pre-market check issues: {result.stderr}")
+    except Exception as e:
+        logger.error(f"❌ Pre-market check failed: {e}")
+
 def start_automated_system():
     """Start the fully automated system"""
     logger.info("🚀 AUTOMATED AI TRADING SYSTEM STARTED")
@@ -61,6 +74,9 @@ def start_automated_system():
     logger.info("⏰ Every 10 minutes during market hours")
     logger.info("🔄 Fully automated - no manual intervention")
     
+    # Run pre-market check
+    run_pre_market_check()
+    
     # Start subscription bot
     start_subscription_bot()
     
@@ -71,6 +87,8 @@ def start_automated_system():
     if is_market_open():
         logger.info("🔥 Market is open - running initial check")
         automated_trading_cycle()
+    else:
+        logger.info("🕰 Market closed - system ready for 9:15 AM start")
     
     # Keep running
     while True:

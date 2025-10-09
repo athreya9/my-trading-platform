@@ -12,6 +12,10 @@ import os
 import argparse
 from datetime import datetime
 import logging
+import sys
+sys.path.append('../data_enrichment')
+from nse_data import enrich_with_nse_data
+from sentiment_data import enrich_with_sentiment
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -59,19 +63,27 @@ class KiteAITrainer:
         return df
     
     def train_model(self, df):
-        """Train AI model on KITE data"""
+        """Train AI model on KITE data with enrichment"""
         if len(df) < 50:
             logger.error("❌ Insufficient data for training")
             return None
         
+        # Enrich with external data sources (NSE, sentiment)
+        logger.info("📊 Enriching KITE data with NSE and sentiment data...")
+        signals = df.to_dict('records')
+        signals = enrich_with_nse_data(signals)
+        signals = enrich_with_sentiment(signals)
+        df = pd.DataFrame(signals)
+        
         # Prepare features
         df = self.prepare_features(df)
         
-        # Feature columns
+        # Enhanced feature columns with enriched data
         feature_cols = [
             'open', 'high', 'low', 'close', 'volume',
             'momentum', 'volume_ratio', 'price_position',
-            'hour', 'is_opening', 'is_closing', 'instrument_code'
+            'hour', 'is_opening', 'is_closing', 'instrument_code',
+            'historical_volatility', 'sentiment_score', 'news_volume'
         ]
         
         X = df[feature_cols].fillna(0)

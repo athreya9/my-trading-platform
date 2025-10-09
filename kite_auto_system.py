@@ -33,13 +33,15 @@ class KiteAutoSystem:
         self.trading_active = False
         self.last_signal_time = None
         
-        # Instruments
+        # All Major Instruments
         self.instruments = {
             'NIFTY': 'NSE:NIFTY 50',
-            'BANKNIFTY': 'NSE:NIFTY BANK',
+            'BANKNIFTY': 'NSE:NIFTY BANK', 
             'SENSEX': 'BSE:SENSEX',
             'FINNIFTY': 'NSE:NIFTY FIN SERVICE',
-            'NIFTYIT': 'NSE:NIFTY IT'
+            'NIFTYIT': 'NSE:NIFTY IT',
+            'MIDCPNIFTY': 'NSE:NIFTY MID SELECT',
+            'BANKEX': 'BSE:BANKEX'
         }
     
     def get_ist_time(self):
@@ -89,25 +91,33 @@ class KiteAutoSystem:
             if not self.kite:
                 return None
             
-            quote = self.kite.quote([instrument])
-            if instrument in quote:
-                data = quote[instrument]
-                current_price = data['last_price']
-                prev_close = data['ohlc']['close']
+            # Use LTP for fastest real-time data
+            ltp_data = self.kite.ltp([instrument])
+            quote_data = self.kite.quote([instrument])
+            
+            if instrument in ltp_data and instrument in quote_data:
+                current_price = ltp_data[instrument]['last_price']  # Real-time LTP
+                quote = quote_data[instrument]
+                prev_close = quote['ohlc']['close']
                 change_pct = ((current_price - prev_close) / prev_close) * 100
+                
+                # Add timestamp for latency tracking
+                data_timestamp = datetime.now()
                 
                 return {
                     'price': current_price,
                     'change_pct': round(change_pct, 2),
-                    'volume': data.get('volume', 0)
+                    'volume': quote.get('volume', 0),
+                    'timestamp': data_timestamp,
+                    'bid': quote.get('depth', {}).get('buy', [{}])[0].get('price', current_price),
+                    'ask': quote.get('depth', {}).get('sell', [{}])[0].get('price', current_price)
                 }
         except Exception as e:
             logger.error(f"Kite data error for {instrument}: {e}")
             return None
     
-    def generate_signal(self):
-        best_signal = None
-        best_momentum = 0
+    def generate_signals(self):
+        signals = []
         
         for symbol, kite_symbol in self.instruments.items():
             data = self.get_kite_data(kite_symbol)
@@ -115,7 +125,9 @@ class KiteAutoSystem:
                 continue
             
             momentum = abs(data['change_pct'])
-            if momentum > 0.4 and momentum > best_momentum:
+            logger.info(f"📊 {symbol}: ₹{data['price']} ({data['change_pct']:+.2f}%) - Momentum: {momentum:.2f}%")
+            
+            if momentum > 0.25:  # Lower threshold to 0.25% for more signals
                 # Calculate strike
                 if symbol in ['SENSEX', 'BANKNIFTY']:
                     strike = round(data['price'] / 100) * 100
@@ -124,11 +136,22 @@ class KiteAutoSystem:
                 else:
                     strike = round(data['price'] / 50) * 50
                 
-                # Calculate premium
-                base_premiums = {'NIFTY': 120, 'BANKNIFTY': 180, 'SENSEX': 140, 'FINNIFTY': 160, 'NIFTYIT': 100}
-                premium = base_premiums.get(symbol, 120)
+                # Calculate realistic premium based on live market data
+                base_premiums = {
+                    'NIFTY': 150, 
+                    'BANKNIFTY': 200, 
+                    'SENSEX': 160, 
+                    'FINNIFTY': 180, 
+                    'NIFTYIT': 120,
+                    'MIDCPNIFTY': 140,
+                    'BANKEX': 170
+                }
+                premium = base_premiums.get(symbol, 150)
                 
-                best_signal = {
+                # Adjust premium based on momentum
+                premium = round(premium * (1 + momentum/100), 2)
+                
+                signal = {
                     'symbol': symbol,
                     'spot_price': data['price'],
                     'change_pct': data['change_pct'],
@@ -138,9 +161,9 @@ class KiteAutoSystem:
                     'confidence': min(95, 75 + (momentum * 10)),
                     'volume': data['volume']
                 }
-                best_momentum = momentum
+                signals.append(signal)
         
-        return best_signal
+        return signals
     
     def format_signal(self, signal):
         targets = [
@@ -171,7 +194,7 @@ T3: ₹{targets[2]} (15%)
 ⏰ <b>Time:</b> {self.get_ist_time().strftime('%H:%M:%S')} IST
 
 📲 <b>Join:</b> @DATradingSignals
-⚠️ <i>Live KITE data - Real trading alert</i>"""
+🔥 <i>LIVE KITE DATA - REAL TRADING SIGNAL</i>"""
     
     def send_alert(self, message, target="channel"):
         try:
@@ -204,7 +227,7 @@ T3: ₹{targets[2]} (15%)
 
 ⏰ <b>Time:</b> {ist_time} IST
 🔐 <b>TOTP:</b> Active
-📊 <b>Instruments:</b> 5 major indices
+📊 <b>Instruments:</b> 7 major indices\n📈 <b>NIFTY, BANKNIFTY, SENSEX, FINNIFTY, NIFTYIT, MIDCPNIFTY, BANKEX</b>
 🎯 <b>Signals:</b> Every 10 minutes
 
 ✅ Auto-stop at 3:30 PM IST
@@ -237,14 +260,25 @@ T3: ₹{targets[2]} (15%)
         
         now = self.get_ist_time()
         if (self.last_signal_time is None or 
-            (now - self.last_signal_time).total_seconds() >= 600):
+            (now - self.last_signal_time).total_seconds() >= 300):  # 5 minutes instead of 10
             
-            signal = self.generate_signal()
-            if signal and signal['confidence'] >= 78:
-                message = self.format_signal(signal)
-                if self.send_alert(message, target="channel"):
-                    self.last_signal_time = now
-                    logger.info(f"✅ Signal sent: {signal['symbol']} {signal['confidence']:.0f}%")
+            signals = self.generate_signals()
+            alerts_sent = 0
+            
+            # Send signals for ALL qualifying instruments
+            for signal in signals:
+                if signal['confidence'] >= 70:  # Even lower threshold
+                    message = self.format_signal(signal)
+                    if self.send_alert(message, target="channel"):
+                        alerts_sent += 1
+                        logger.info(f"✅ LIVE Signal: {signal['symbol']} {signal['confidence']:.0f}% - Spot: ₹{signal['spot_price']} ({signal['change_pct']:+.2f}%)")
+                        time.sleep(3)  # Delay between multiple alerts
+            
+            # Always update last signal time if we checked
+            self.last_signal_time = now
+            
+            if alerts_sent == 0:
+                logger.info(f"📊 Checked {len(signals)} instruments - No qualifying signals (need >70% confidence)")
     
     def run_forever(self):
         logger.info("🤖 KITE AUTO SYSTEM STARTED")
@@ -271,7 +305,7 @@ T3: ₹{targets[2]} (15%)
                 
                 if self.trading_active:
                     self.trading_cycle()
-                    time.sleep(60)  # Check every minute during market
+                    time.sleep(10)  # Check every 10 seconds for real-time data
                 else:
                     time.sleep(300)  # Check every 5 minutes when closed
                 

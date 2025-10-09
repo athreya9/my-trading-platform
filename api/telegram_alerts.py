@@ -70,7 +70,7 @@ T5: ₹{targets[4]} (25%)
 ⏰ <b>Time:</b> {datetime.now().strftime('%H:%M:%S')}
 
 📲 <b>Join:</b> @DATradingSignals
-⚠️ <i>For educational purposes only</i>"""
+🔥 <i>LIVE KITE DATA - REAL TRADING SIGNAL</i>"""
         return message
     
     def _format_detailed_alert(self, signal):

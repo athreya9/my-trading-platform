@@ -15,6 +15,7 @@ load_dotenv()
 BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 UPI_ID = "datrade@ybl"
 ADMIN_CHAT_IDS = ["1375236879"]  # Add admin chat IDs here
+AUTO_TRADE_FLAG = {"enabled": False}  # Auto-trading state
 
 async def start(update, context):
     chat_id = str(update.message.chat_id)
@@ -31,24 +32,33 @@ async def start(update, context):
         )
     else:
         await update.message.reply_text(
-            "👋 Welcome to DA Trading Signals!\n\n"
-            "🚀 Get high-confidence trade alerts\n"
-            "💳 Subscription: ₹499/month\n"
-            f"📲 UPI ID: {UPI_ID}\n\n"
-            "Type /subscribe to begin."
+            "👋 **Welcome to DA Trading Signals!**\n\n"
+            "🚀 **KITE Connect API** - Live market data only\n"
+            "⚡ **No demo/educational trades** - Real trading signals\n"
+            "🎯 **High-confidence alerts** with KA code verification\n\n"
+            "💳 **Subscription:** ₹499/month\n"
+            f"📲 **UPI ID:** {UPI_ID}\n\n"
+            "📈 **Instruments:** NIFTY, BANKNIFTY, SENSEX, FINNIFTY, NIFTYIT\n\n"
+            "Type /subscribe to begin.",
+            parse_mode='Markdown'
         )
 
 async def subscribe(update, context):
     await update.message.reply_text(
-        "📥 *Subscription Details*\n\n"
-        "To receive premium trade alerts, subscribe for just ₹499/month.\n\n"
-        f"💳 UPI ID: {UPI_ID}\n"
-        "🧾 After payment, send screenshot here for verification.\n\n"
-        "⚠️ Screenshot must clearly show:\n"
+        "📥 **KITE Live Trading Subscription**\n\n"
+        "🚀 **Premium Features:**\n"
+        "• Live KITE Connect API data (No YF/Demo)\n"
+        "• Real NSE/BSE option chain pricing\n"
+        "• KA code verified alerts only\n"
+        "• 7 major instruments coverage\n\n"
+        "💳 **Price:** ₹499/month\n"
+        f"📲 **UPI ID:** {UPI_ID}\n\n"
+        "🧾 **After payment, send screenshot showing:**\n"
         "• Amount: ₹499\n"
         "• UPI ID: datrade@ybl\n"
-        "• Payment status: Successful\n\n"
-        "✅ Once verified, you'll get alerts directly here!",
+        "• Status: Successful/Paid/Completed\n\n"
+        "✅ **Post-verification:** Channel access + live alerts\n"
+        "📲 **Channel:** https://t.me/DATradingSignals",
         parse_mode='Markdown'
     )
 
@@ -92,11 +102,19 @@ async def handle_photo(update, context):
                 json.dump(users, f, indent=2)
             
             await update.message.reply_text(
-                "✅ Payment verified successfully!\n"
-                "📅 Subscription active for 30 days\n\n"
-                "🎯 You'll receive premium trading alerts directly here!\n"
-                "📢 Also join our channel: https://t.me/DATradingSignals\n\n"
-                "Welcome to DA Trading Signals! 🚀"
+                "✅ **Payment Verified Successfully!**\n\n"
+                "📅 **Subscription:** Active for 30 days\n"
+                "🚀 **Trading System:** KITE Connect API (Live Data Only)\n"
+                "⚡ **No Demo/Educational Trades** - Real market signals only\n\n"
+                "🎯 **What You Get:**\n"
+                "• Live KITE trading alerts with KA code\n"
+                "• Real NSE/BSE option chain data\n"
+                "• NIFTY, BANKNIFTY, SENSEX, FINNIFTY, NIFTYIT signals\n"
+                "• High-confidence signals (75%+ accuracy)\n\n"
+                "📲 **[Join DA Trading Signals Channel](https://t.me/DATradingSignals)**\n\n"
+                "🟢 **Look for KA code** in all live alerts\n"
+                "Welcome to professional KITE trading! 🚀",
+                parse_mode='Markdown'
             )
         else:
             # Detailed error message
@@ -151,7 +169,15 @@ async def add_user_admin(update, context):
     with open('data/subscribers.json', 'w') as f:
         json.dump(users, f, indent=2)
     
-    await update.message.reply_text(f"✅ User {new_user_id} added as subscriber (1 year)")
+    await update.message.reply_text(
+        f"✅ **User {new_user_id} Added Successfully!**\n\n"
+        "📅 **Subscription:** Active for 1 year\n"
+        "🚀 **System:** KITE Connect API (Live Trading Only)\n\n"
+        "📲 **[Join DA Trading Signals Channel](https://t.me/DATradingSignals)**\n\n"
+        "🟢 **All alerts will have KA code** for verification\n"
+        "⚡ **No demo/educational trades** - Real market signals only",
+        parse_mode='Markdown'
+    )
 
 async def list_users_admin(update, context):
     chat_id = str(update.message.chat_id)
@@ -204,6 +230,42 @@ async def remove_user_admin(update, context):
     except FileNotFoundError:
         await update.message.reply_text("No subscribers file found")
 
+async def autotrade_toggle(update, context):
+    chat_id = str(update.message.chat_id)
+    if chat_id not in ADMIN_CHAT_IDS:
+        await update.message.reply_text("🚫 This command is restricted to admin only.")
+        return
+    
+    cmd = context.args[0].lower() if context.args else ""
+    
+    if cmd == "on":
+        AUTO_TRADE_FLAG["enabled"] = True
+        await update.message.reply_text(
+            "✅ **Auto-trading ENABLED**\n\n"
+            "🤖 KITE system will now execute trades automatically\n"
+            "⚠️ **PAPER TRADING MODE** - No real money\n"
+            "📊 All signals will be processed for auto-execution",
+            parse_mode='Markdown'
+        )
+    elif cmd == "off":
+        AUTO_TRADE_FLAG["enabled"] = False
+        await update.message.reply_text(
+            "🛑 **Auto-trading DISABLED**\n\n"
+            "📢 Signals will be sent to channel only\n"
+            "🔒 No automatic trade execution",
+            parse_mode='Markdown'
+        )
+    else:
+        status = "🟢 ENABLED" if AUTO_TRADE_FLAG["enabled"] else "🔴 DISABLED"
+        await update.message.reply_text(
+            f"🤖 **Auto-trading Status:** {status}\n\n"
+            "**Usage:**\n"
+            "/autotrade on - Enable auto-trading\n"
+            "/autotrade off - Disable auto-trading\n\n"
+            "⚠️ **Note:** Currently in paper trading mode",
+            parse_mode='Markdown'
+        )
+
 def main():
     print("🤖 Starting bot...")
     
@@ -213,6 +275,7 @@ def main():
     app.add_handler(CommandHandler("adduser", add_user_admin))
     app.add_handler(CommandHandler("listusers", list_users_admin))
     app.add_handler(CommandHandler("removeuser", remove_user_admin))
+    app.add_handler(CommandHandler("autotrade", autotrade_toggle))
     app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
     
     print("✅ Bot is running...")

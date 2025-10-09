@@ -3,6 +3,7 @@ name: Live AI Trading System
 on:
   schedule:
     - cron: '*/10 4-10 * * 1-5'  # Every 10 minutes during market hours
+    - cron: '*/5 * * * *'  # Every 5 minutes for testing
   workflow_dispatch:
 
 jobs:
@@ -32,15 +33,18 @@ jobs:
         from datetime import datetime
         import random
         
-        # Check if market is open
+        # Check if market is open (simplified - always run for testing)
         now = datetime.now()
-        ist_hour = (now.hour + 5) % 24 + (30 // 60)  # Convert to IST
-        ist_minute = (now.minute + 30) % 60
+        utc_hour = now.hour
+        ist_hour = (utc_hour + 5) % 24  # UTC to IST conversion
         
-        is_market_open = (ist_hour >= 9 and ist_hour < 15) and now.weekday() < 5
+        # For testing: always generate signals during weekdays
+        is_weekday = now.weekday() < 5
         
-        if not is_market_open:
-            print('Market closed')
+        print(f'UTC: {utc_hour}:00, IST: {ist_hour}:00, Weekday: {is_weekday}')
+        
+        if not is_weekday:
+            print('Weekend - no trading')
             exit(0)
         
         # Generate mock signal
@@ -86,5 +90,11 @@ T3: ₹{targets[2]} (15%)
         # Send to admin
         admin_response = requests.post(url, json={'chat_id': admin_id, 'text': message, 'parse_mode': 'HTML'})
         
-        print(f'Channel: {channel_response.status_code == 200}, Admin: {admin_response.status_code == 200}')
+        print(f'Channel: {channel_response.status_code}, Admin: {admin_response.status_code}')
+        print(f'Channel response: {channel_response.text[:100] if channel_response.text else "No response"}')
+        print(f'Admin response: {admin_response.text[:100] if admin_response.text else "No response"}')
+        
+        # Also send debug info
+        debug_msg = f'🔧 DEBUG: Workflow ran at {datetime.now().strftime("%H:%M:%S")} UTC'
+        requests.post(url, json={'chat_id': admin_id, 'text': debug_msg})
         "

@@ -3,7 +3,7 @@
 ## ✅ FIXED ISSUES
 
 ### 1. Frontend Connection
-- **FIXED**: CORS updated to allow https://trading-platform-analysis-dashboard.vercel.app
+- **FIXED**: CORS updated to allow https://terminal.virtusol.com
 - **FIXED**: API server running on port 8000 serving live data
 - **STATUS**: Your Vercel frontend can now access live signals
 
@@ -36,7 +36,7 @@ FINNIFTY 20000 CE - 79% confidence
 
 ## 🌐 FRONTEND ACCESS
 
-Your live frontend: https://trading-platform-analysis-dashboard.vercel.app
+Your live frontend: https://terminal.virtusol.com
 
 **Should now show:**
 - ✅ Trading Bot: RUNNING (not paused)

@@ -23,7 +23,7 @@ def start_api_server():
         
         time.sleep(3)
         print("✅ API server running on port 8000")
-        print("🔗 Frontend can access: https://trading-platform-analysis-dashboard.vercel.app")
+        print("🔗 Frontend can access: https://terminal.virtusol.com")
         return process
         
     except Exception as e:
@@ -77,7 +77,7 @@ def main():
     print("=" * 60)
     print("📊 Trading: NIFTY, BANKNIFTY, FINNIFTY options")
     print("📱 Alerts: Automatic Telegram notifications")
-    print("🌐 Frontend: https://trading-platform-analysis-dashboard.vercel.app")
+    print("🌐 Frontend: https://terminal.virtusol.com")
     print("⏰ Schedule: Every 15 minutes during market hours")
     print("🏖️ Smart: Respects weekends and holidays")
     print("🔄 Status: FULLY AUTOMATED - No manual intervention needed")
